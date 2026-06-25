@@ -2,7 +2,7 @@ export default function Memberships() {
   const plans = [
     {
       name: "Free",
-      price: "£0",
+      price: "GBP 0",
       tag: "Start tracking",
       description: "Basic tools to track your golf and gym progress.",
       features: [
@@ -15,7 +15,7 @@ export default function Memberships() {
     },
     {
       name: "Pro",
-      price: "£4.99",
+      price: "GBP 4.99",
       tag: "Most popular",
       description: "Unlock the full AthletiGolf performance experience.",
       features: [
@@ -127,7 +127,7 @@ export default function Memberships() {
                           : "bg-black/5 text-black/60"
                       }`}
                     >
-                      ✓
+                      Check
                     </span>
                     <p
                       className={

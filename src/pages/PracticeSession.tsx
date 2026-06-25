@@ -44,7 +44,7 @@ export default function PracticeSession() {
     return (
       <div className="min-h-screen bg-[#f7f3ea] text-[#101010] flex items-center justify-center p-6">
         <div className="bg-white rounded-[2rem] shadow-sm border border-black/5 p-10 max-w-xl w-full text-center">
-          <h1 className="text-4xl font-semibold mb-4">Practice Logged ✅</h1>
+          <h1 className="text-4xl font-semibold mb-4">Practice Logged</h1>
           <p className="text-black/60 mb-8">
             Nice work. Your practice session has been saved.
           </p>
@@ -84,7 +84,7 @@ export default function PracticeSession() {
         <div className="mb-8">
           <Link href="/dashboard">
             <button className="text-sm text-black/50 hover:text-black mb-4">
-              ← Back to Dashboard
+              Back to Dashboard
             </button>
           </Link>
 

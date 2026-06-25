@@ -39,7 +39,7 @@ export default function PracticeHistory() {
           <div>
             <Link href="/dashboard">
               <button className="text-sm text-black/50 hover:text-black mb-4">
-                ← Back to Dashboard
+                Back to Dashboard
               </button>
             </Link>
 

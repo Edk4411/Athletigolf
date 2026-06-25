@@ -228,7 +228,7 @@ export default function CreateSplit() {
                 onClick={closeEditor}
                 className="rounded-xl px-3 py-2 text-2xl text-black/50 transition hover:bg-black/5 hover:text-black"
               >
-                ×
+                X
               </button>
             </div>
 

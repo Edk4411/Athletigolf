@@ -159,7 +159,7 @@ export default function Profile() {
               </div>
               <div className="flex flex-wrap gap-4">
                 <div className="bg-white/10 px-5 py-3 rounded-2xl text-sm">
-                  Handicap {handicap ?? "—"}
+                  Handicap {handicap ?? "-"}
                 </div>
                 <div className="bg-white/10 px-5 py-3 rounded-2xl text-sm">
                   Member Since {memberSince}
@@ -209,10 +209,10 @@ export default function Profile() {
               <h2 className="text-3xl font-semibold mb-8">Personal Details</h2>
               <div className="space-y-6">
                 {[
-                  ["Age", profile?.age?.toString() || "—"],
-                  ["Height", profile?.height || "—"],
-                  ["Weight", profile?.weight || "—"],
-                  ["Golf Handicap", profile?.golf_handicap?.toString() || "—"],
+                  ["Age", profile?.age?.toString() || "-"],
+                  ["Height", profile?.height || "-"],
+                  ["Weight", profile?.weight || "-"],
+                  ["Golf Handicap", profile?.golf_handicap?.toString() || "-"],
                 ].map(([label, value], index) => (
                   <div key={index} className="bg-cream rounded-2xl px-6 py-5 flex items-center justify-between">
                     <p className="font-medium">{label}</p>
@@ -234,7 +234,7 @@ export default function Profile() {
                 </div>
                 <div className="bg-dark text-white px-6 py-4 rounded-2xl">
                   <p className="text-sm text-white/60 mb-1">Current Handicap</p>
-                  <h3 className="text-2xl font-semibold">{handicap ?? "—"}</h3>
+                  <h3 className="text-2xl font-semibold">{handicap ?? "-"}</h3>
                 </div>
               </div>
 
@@ -318,7 +318,7 @@ export default function Profile() {
                 onClick={() => setEditing(false)}
                 className="rounded-xl px-3 py-2 text-2xl text-black/50 transition hover:bg-black/5 hover:text-black"
               >
-                ×
+                X
               </button>
             </div>
 

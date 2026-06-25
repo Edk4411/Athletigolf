@@ -112,7 +112,7 @@ export default function PreviousWorkouts() {
                     <h2 className="text-2xl font-bold text-[#7A1F1F]">
                       {workout.workout_name || "Workout"}
                     </h2>
-                    <p className="text-black/50">{workout.date || "—"}</p>
+                    <p className="text-black/50">{workout.date || "-"}</p>
                   </div>
 
                   <div className="bg-[#7A1F1F]/10 text-[#7A1F1F] px-4 py-2 rounded-full text-sm font-semibold w-fit">
@@ -128,11 +128,11 @@ export default function PreviousWorkouts() {
                     >
                       <p className="font-semibold">{exercise.name}</p>
                       <p className="text-black/60">
-                        {exercise.sets ? `${exercise.sets} sets` : "—"} x{" "}
-                        {exercise.reps ? `${exercise.reps} reps` : "—"}
+                        {exercise.sets ? `${exercise.sets} sets` : "-"} x{" "}
+                        {exercise.reps ? `${exercise.reps} reps` : "-"}
                       </p>
                       <p className="font-semibold md:text-right text-[#7A1F1F]">
-                        {exercise.weight || "—"}
+                        {exercise.weight || "-"}
                       </p>
                     </div>
                   ))}

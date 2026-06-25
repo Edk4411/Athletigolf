@@ -14,7 +14,7 @@ export default function MobileSidebar() {
         onClick={() => setOpen(true)}
         className="fixed right-5 top-5 z-50 rounded-xl bg-slate-950 px-4 py-3 text-white shadow-lg"
       >
-        ☰
+        Menu
       </button>
 
       {open && (
@@ -28,7 +28,7 @@ export default function MobileSidebar() {
                 onClick={closeMenu}
                 className="rounded-lg px-3 py-2 text-2xl text-white/70 transition hover:text-white"
               >
-                ×
+                X
               </button>
             </div>
 
@@ -178,7 +178,7 @@ function Dropdown({
         className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-white/80 transition hover:bg-white/10 hover:text-white"
       >
         <span>{title}</span>
-        <span>{open ? "−" : "+"}</span>
+        <span>{open ? "-" : "+"}</span>
       </button>
 
       {open && (

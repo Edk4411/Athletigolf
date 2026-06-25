@@ -102,25 +102,25 @@ export default function Dashboard() {
   const overviewCards = [
     {
       title: "Workouts",
-      value: loading ? "…" : workoutsThisWeek.toString(),
+      value: loading ? "..." : workoutsThisWeek.toString(),
       sub: "This week",
       href: "/workouts/submit",
     },
     {
       title: "Rounds",
-      value: loading ? "…" : roundsThisMonth.toString(),
+      value: loading ? "..." : roundsThisMonth.toString(),
       sub: "Played this month",
       href: "/golf",
     },
     {
       title: "Total Rounds",
-      value: loading ? "…" : rounds.length.toString(),
+      value: loading ? "..." : rounds.length.toString(),
       sub: "Logged all-time",
       href: "/golf",
     },
     {
       title: "Total Workouts",
-      value: loading ? "…" : workouts.length.toString(),
+      value: loading ? "..." : workouts.length.toString(),
       sub: "Logged all-time",
       href: "/workouts",
     },
@@ -216,7 +216,7 @@ export default function Dashboard() {
                     <div className="flex justify-between mb-2">
                       <span className="font-medium">{exercise.name}</span>
                       <span className="text-black/60">
-                        {[exercise.weight, exercise.sets && exercise.reps ? `${exercise.sets}×${exercise.reps}` : null]
+                        {[exercise.weight, exercise.sets && exercise.reps ? `${exercise.sets}x${exercise.reps}` : null]
                           .filter(Boolean)
                           .join(" / ")}
                       </span>
@@ -279,14 +279,14 @@ export default function Dashboard() {
                   {loading
                     ? "Loading..."
                     : lastRound
-                    ? `${lastRound.score ?? "—"} at ${lastRound.course || "Unknown Course"}`
+                    ? `${lastRound.score ?? "-"} at ${lastRound.course || "Unknown Course"}`
                     : "No rounds yet"}
                 </h2>
               </div>
               {lastRound && (
                 <div className="bg-[#1F4D3A] text-white px-5 py-3 rounded-2xl">
                   <p className="text-sm text-white/60">Score</p>
-                  <h3 className="text-xl font-semibold">{lastRound.score ?? "—"}</h3>
+                  <h3 className="text-xl font-semibold">{lastRound.score ?? "-"}</h3>
                 </div>
               )}
             </div>
@@ -296,13 +296,13 @@ export default function Dashboard() {
             ) : rounds.length > 0 ? (
               <div className="space-y-6">
                 {[
-                  ["Fairways Hit (avg)", avgFirPct !== null ? `${avgFirPct}%` : "—"],
-                  ["Greens in Regulation (avg)", avgGirPct !== null ? `${avgGirPct}%` : "—"],
-                  ["Scramble Rate (avg)", avgScramble !== null ? `${avgScramble}%` : "—"],
-                  ["Putting Average", avgPutts !== null ? avgPutts : "—"],
-                  ["Penalty Shots (avg)", avgPenaltyShots !== null ? avgPenaltyShots : "—"],
-                  ["Chip Shots (avg)", avgChipShots !== null ? avgChipShots : "—"],
-                  ["Bunker Shots (avg)", avgGreensideBunkerShots !== null ? avgGreensideBunkerShots : "—"],
+                  ["Fairways Hit (avg)", avgFirPct !== null ? `${avgFirPct}%` : "-"],
+                  ["Greens in Regulation (avg)", avgGirPct !== null ? `${avgGirPct}%` : "-"],
+                  ["Scramble Rate (avg)", avgScramble !== null ? `${avgScramble}%` : "-"],
+                  ["Putting Average", avgPutts !== null ? avgPutts : "-"],
+                  ["Penalty Shots (avg)", avgPenaltyShots !== null ? avgPenaltyShots : "-"],
+                  ["Chip Shots (avg)", avgChipShots !== null ? avgChipShots : "-"],
+                  ["Bunker Shots (avg)", avgGreensideBunkerShots !== null ? avgGreensideBunkerShots : "-"],
                   ["Total Penalty Shots", totalPenaltyShots.toString()],
                 ].map(([label, value], index) => (
                   <div key={index}>

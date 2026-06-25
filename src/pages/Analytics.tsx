@@ -288,7 +288,7 @@ export default function Analytics() {
                 ["Total Workouts", `${workouts.length}`],
                 ["This Week", `${workoutsThisWeek}`],
                 ["Total Exercises", `${workouts.reduce((s, w) => s + (w.exercises?.length || 0), 0)}`],
-                ["Consistency", rounds.length > 0 && workouts.length > 0 ? "Active" : "—"],
+                ["Consistency", rounds.length > 0 && workouts.length > 0 ? "Active" : "-"],
               ].map(([label, value], index) => (
                 <div key={index}>
                   <div className="flex justify-between mb-3">

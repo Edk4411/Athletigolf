@@ -236,7 +236,7 @@ export default function SubmitSession() {
             {submitted && (
               <div className="mt-6 rounded-2xl border border-[#7A1F1F]/10 bg-[#7A1F1F]/5 p-5">
                 <p className="font-semibold text-[#7A1F1F]">
-                  Session submitted ✅
+                  Session submitted successfully
                 </p>
                 <p className="mt-1 text-black/60">
                   Your {selectedDay} workout has been logged.

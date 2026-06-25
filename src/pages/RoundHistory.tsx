@@ -57,7 +57,7 @@ export default function RoundHistory() {
               ["Rounds Logged", roundsLogged.toString()],
               ["Average Score", avgScore],
               ["Best Round", bestRound === 999 ? "-" : bestRound.toString()],
-              ["Handicap", "—"],
+              ["Handicap", "-"],
             ].map(([label, value], index) => (
               <div
                 key={index}
@@ -106,7 +106,7 @@ export default function RoundHistory() {
 
                   <div className="flex-1">
                     <p className="text-sm text-black/50 mb-2">
-                      {round.date || "—"}
+                      {round.date || "-"}
                     </p>
 
                     <h2 className="text-3xl font-semibold mb-3">
@@ -124,10 +124,10 @@ export default function RoundHistory() {
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                     {[
-                      ["Score", round.score?.toString() || "—"],
-                      ["GIR", round.greens_in_regulation?.toString() || "—"],
-                      ["FIR", round.fairways_hit?.toString() || "—"],
-                      ["Putts", round.putts?.toString() || "—"],
+                      ["Score", round.score?.toString() || "-"],
+                      ["GIR", round.greens_in_regulation?.toString() || "-"],
+                      ["FIR", round.fairways_hit?.toString() || "-"],
+                      ["Putts", round.putts?.toString() || "-"],
                       ["Penalties", (round.penalty_shots ?? 0).toString()],
                       ["Chip Shots", (round.chip_shots ?? 0).toString()],
                       ["Bunkers", (round.greenside_bunker_shots ?? 0).toString()],

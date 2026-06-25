@@ -182,8 +182,8 @@ export default function RoundTracker() {
               {competition ? "Competition Round" : "General Play"}
             </span>
 
-            {teeColour && <span>• {teeColour} tees</span>}
-            {date && <span>• {date}</span>}
+            {teeColour && <span>- {teeColour} tees</span>}
+            {date && <span>- {date}</span>}
           </div>
 
           <div className="grid gap-4 md:grid-cols-4">
