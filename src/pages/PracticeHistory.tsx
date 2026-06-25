@@ -1,35 +1,50 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
+import { supabase } from "@/lib/supabase";
 
 type PracticeSession = {
-  id: number;
-  type: string;
-  date: string;
-  duration: string;
-  focus: string;
-  rating: string;
-  notes: string;
+  id: string;
+  practice_type: string;
+  duration_minutes: number;
+  focus_area: string | null;
+  rating: number | null;
+  notes: string | null;
+  created_at: string;
 };
 
 export default function PracticeHistory() {
   const [sessions, setSessions] = useState<PracticeSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const savedSessions = JSON.parse(localStorage.getItem("practiceSessions") || "[]");
-    setSessions(savedSessions);
+    async function load() {
+      const { data, error } = await supabase
+        .from("practice_sessions")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) setError(error.message);
+      else setSessions(data ?? []);
+      setLoading(false);
+    }
+    load();
   }, []);
 
-  const deleteSession = (id: number) => {
-    const updated = sessions.filter((session) => session.id !== id);
-    setSessions(updated);
-    localStorage.setItem("practiceSessions", JSON.stringify(updated));
+  const deleteSession = async (id: string) => {
+    const { error } = await supabase
+      .from("practice_sessions")
+      .delete()
+      .eq("id", id);
+
+    if (!error) setSessions((prev) => prev.filter((s) => s.id !== id));
   };
 
   const totalSessions = sessions.length;
-  const puttingSessions = sessions.filter((s) => s.type === "Putting").length;
-  const rangeSessions = sessions.filter((s) => s.type === "Driving Range").length;
+  const puttingSessions = sessions.filter((s) => s.practice_type === "Putting").length;
+  const rangeSessions = sessions.filter((s) => s.practice_type === "Driving Range").length;
   const shortGameSessions = sessions.filter(
-    (s) => s.type === "Chipping" || s.type === "Short Game"
+    (s) => s.practice_type === "Chipping" || s.practice_type === "Short Game"
   ).length;
 
   return (
@@ -75,7 +90,15 @@ export default function PracticeHistory() {
           ))}
         </section>
 
-        {sessions.length === 0 ? (
+        {loading ? (
+          <div className="bg-white rounded-[2rem] p-10 text-center shadow-sm border border-black/5">
+            <p className="text-black/50">Loading sessions...</p>
+          </div>
+        ) : error ? (
+          <div className="bg-white rounded-[2rem] p-10 text-center shadow-sm border border-red-100">
+            <p className="text-red-600">{error}</p>
+          </div>
+        ) : sessions.length === 0 ? (
           <div className="bg-white rounded-[2rem] p-10 text-center shadow-sm border border-black/5">
             <h2 className="text-3xl font-semibold mb-3">
               No practice sessions yet
@@ -99,24 +122,34 @@ export default function PracticeHistory() {
               >
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                   <div>
-                    <p className="text-black/50 text-sm mb-2">{session.date}</p>
-                    <h2 className="text-3xl font-semibold mb-2">
-                      {session.type}
-                    </h2>
-                    <p className="text-black/60">
-                      Focus: {session.focus}
+                    <p className="text-black/50 text-sm mb-2">
+                      {new Date(session.created_at).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
                     </p>
+                    <h2 className="text-3xl font-semibold mb-2">
+                      {session.practice_type}
+                    </h2>
+                    {session.focus_area && (
+                      <p className="text-black/60">
+                        Focus: {session.focus_area}
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 min-w-[260px]">
                     <div className="bg-[#f7f3ea] rounded-2xl p-4">
                       <p className="text-black/50 text-sm">Duration</p>
-                      <p className="text-xl font-semibold">{session.duration}</p>
+                      <p className="text-xl font-semibold">{session.duration_minutes} min</p>
                     </div>
 
                     <div className="bg-[#f7f3ea] rounded-2xl p-4">
                       <p className="text-black/50 text-sm">Rating</p>
-                      <p className="text-xl font-semibold">{session.rating}</p>
+                      <p className="text-xl font-semibold">
+                        {session.rating ? `${session.rating}/10` : "—"}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -130,7 +163,7 @@ export default function PracticeHistory() {
 
                 <button
                   onClick={() => deleteSession(session.id)}
-                  className="mt-5 text-sm text-red-500 hover:text-red-700"
+                  className="mt-5 text-sm text-red-500 hover:text-red-700 transition"
                 >
                   Delete Session
                 </button>

@@ -1,42 +1,45 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import { supabase } from "@/lib/supabase";
 
 type PracticeType = "Driving Range" | "Putting" | "Chipping" | "Short Game" | "On Course";
 
-type PracticeSession = {
-  id: number;
-  type: PracticeType;
-  date: string;
-  duration: string;
-  focus: string;
-  rating: string;
-  notes: string;
+const focusOptionsMap: Record<PracticeType, string[]> = {
+  "Driving Range": ["Driver", "Woods", "Long Irons", "Mid Irons", "Wedges", "Shot Shape"],
+  "Putting": ["Short Putts", "Lag Putting", "Green Reading", "Start Line", "Speed Control"],
+  "Chipping": ["Bump and Run", "Standard Chip", "Flop Shot", "Contact", "Landing Spot"],
+  "Short Game": ["Pitching", "Bunker Play", "Wedge Distance", "Up and Downs"],
+  "On Course": ["Course Strategy", "Pre-shot Routine", "Scoring", "Shot Selection"],
 };
 
 export default function PracticeSession() {
-  const [type, setType] = useState<PracticeType>("Driving Range");
-  const [duration, setDuration] = useState("");
-  const [focus, setFocus] = useState("");
+  const [practiceType, setPracticeType] = useState<PracticeType>("Driving Range");
+  const [durationMinutes, setDurationMinutes] = useState("");
+  const [focusArea, setFocusArea] = useState("");
   const [rating, setRating] = useState("");
   const [notes, setNotes] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
+    setSaveError("");
 
-    const newSession: PracticeSession = {
-      id: Date.now(),
-      type,
-      date: new Date().toLocaleDateString("en-GB"),
-      duration,
-      focus,
-      rating,
-      notes,
-    };
+    const { error } = await supabase.from("practice_sessions").insert({
+      practice_type: practiceType,
+      duration_minutes: parseInt(durationMinutes) || 0,
+      focus_area: focusArea,
+      rating: parseInt(rating) || null,
+      notes: notes || null,
+    });
 
-    const oldSessions = JSON.parse(localStorage.getItem("practiceSessions") || "[]");
-    localStorage.setItem("practiceSessions", JSON.stringify([newSession, ...oldSessions]));
-
+    setSaving(false);
+    if (error) {
+      setSaveError(error.message);
+      return;
+    }
     setSubmitted(true);
   };
 
@@ -67,16 +70,7 @@ export default function PracticeSession() {
     );
   }
 
-  const focusOptions =
-    type === "Driving Range"
-      ? ["Driver", "Woods", "Long Irons", "Mid Irons", "Wedges", "Shot Shape"]
-      : type === "Putting"
-      ? ["Short Putts", "Lag Putting", "Green Reading", "Start Line", "Speed Control"]
-      : type === "Chipping"
-      ? ["Bump and Run", "Standard Chip", "Flop Shot", "Contact", "Landing Spot"]
-      : type === "Short Game"
-      ? ["Pitching", "Bunker Play", "Wedge Distance", "Up and Downs"]
-      : ["Course Strategy", "Pre-shot Routine", "Scoring", "Shot Selection"];
+  const focusOptions = focusOptionsMap[practiceType];
 
   return (
     <div className="min-h-screen bg-[#f7f3ea] text-[#101010] p-6">
@@ -106,8 +100,11 @@ export default function PracticeSession() {
                 Practice Type
               </label>
               <select
-                value={type}
-                onChange={(e) => setType(e.target.value as PracticeType)}
+                value={practiceType}
+                onChange={(e) => {
+                  setPracticeType(e.target.value as PracticeType);
+                  setFocusArea("");
+                }}
                 className="w-full rounded-2xl border border-black/10 p-4 outline-none focus:border-[#1f4d3a]"
               >
                 <option>Driving Range</option>
@@ -120,12 +117,14 @@ export default function PracticeSession() {
 
             <div>
               <label className="block text-sm text-black/50 mb-2">
-                Duration
+                Duration (minutes)
               </label>
               <input
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-                placeholder="e.g. 45 mins"
+                type="number"
+                min="1"
+                value={durationMinutes}
+                onChange={(e) => setDurationMinutes(e.target.value)}
+                placeholder="e.g. 45"
                 required
                 className="w-full rounded-2xl border border-black/10 p-4 outline-none focus:border-[#1f4d3a]"
               />
@@ -136,8 +135,8 @@ export default function PracticeSession() {
                 Focus Area
               </label>
               <select
-                value={focus}
-                onChange={(e) => setFocus(e.target.value)}
+                value={focusArea}
+                onChange={(e) => setFocusArea(e.target.value)}
                 required
                 className="w-full rounded-2xl border border-black/10 p-4 outline-none focus:border-[#1f4d3a]"
               >
@@ -160,7 +159,7 @@ export default function PracticeSession() {
               >
                 <option value="">Rate session</option>
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                  <option key={num}>{num}/10</option>
+                  <option key={num} value={num}>{num}/10</option>
                 ))}
               </select>
             </div>
@@ -179,11 +178,18 @@ export default function PracticeSession() {
             />
           </div>
 
+          {saveError && (
+            <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+              {saveError}
+            </div>
+          )}
+
           <button
             type="submit"
-            className="mt-8 w-full bg-[#1f4d3a] text-white py-4 rounded-full font-medium hover:bg-[#17392b] transition"
+            disabled={saving}
+            className="mt-8 w-full bg-[#1f4d3a] text-white py-4 rounded-full font-medium hover:bg-[#17392b] transition disabled:opacity-50"
           >
-            Save Practice Session
+            {saving ? "Saving..." : "Save Practice Session"}
           </button>
         </form>
       </div>
