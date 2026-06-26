@@ -15,14 +15,35 @@ export type Round = {
   date: string | null;
   score: number | null;
   fairways_hit: number | null;
+  fairways_possible?: number | null;
   greens_in_regulation: number | null;
   putts: number | null;
   penalty_shots?: number | null;
   chip_shots?: number | null;
   greenside_bunker_shots?: number | null;
+  holes_played?: number | null;
+  tee_colour?: string | null;
   scramble_percentage: number | null;
   is_competition: boolean;
   notes: string | null;
+  created_at: string;
+};
+
+export type FairwayResult = "hit" | "left" | "right" | "miss" | "na";
+
+export type RoundHole = {
+  id: string;
+  round_id: string;
+  user_id: string;
+  hole_number: number;
+  par: number;
+  score: number | null;
+  fairway_result: FairwayResult | null;
+  gir: boolean;
+  putts: number | null;
+  penalty_shots: number | null;
+  chip_shots: number | null;
+  greenside_bunker_shots: number | null;
   created_at: string;
 };
 

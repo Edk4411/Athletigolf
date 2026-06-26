@@ -3,10 +3,11 @@ import { Edit3, Eye, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { formatAverage, getGolfStats } from "@/lib/golfStats";
 import { Button, Card, PageHeader, StatCard } from "@/components/ui";
-import type { Round } from "@/lib/types";
+import type { Round, RoundHole } from "@/lib/types";
 
 export default function RoundHistory() {
   const [rounds, setRounds] = useState<Round[]>([]);
+  const [roundHoles, setRoundHoles] = useState<Record<string, RoundHole[]>>({});
   const [loading, setLoading] = useState(true);
   const [selectedRound, setSelectedRound] = useState<Round | null>(null);
   const [editingRound, setEditingRound] = useState<Round | null>(null);
@@ -19,6 +20,9 @@ export default function RoundHistory() {
     fairways_hit: "",
     greens_in_regulation: "",
     putts: "",
+    fairways_possible: "",
+    holes_played: "18",
+    tee_colour: "",
     penalty_shots: "",
     chip_shots: "",
     greenside_bunker_shots: "",
@@ -36,7 +40,30 @@ export default function RoundHistory() {
       .from("rounds")
       .select("*")
       .order("created_at", { ascending: false });
-    setRounds((data as Round[]) || []);
+    const loadedRounds = (data as Round[]) || [];
+    setRounds(loadedRounds);
+
+    if (loadedRounds.length > 0) {
+      const { data: holesData } = await supabase
+        .from("round_holes")
+        .select("*")
+        .in(
+          "round_id",
+          loadedRounds.map((round) => round.id)
+        )
+        .order("hole_number", { ascending: true });
+
+      const grouped = ((holesData as RoundHole[]) || []).reduce<Record<string, RoundHole[]>>(
+        (acc, hole) => {
+          acc[hole.round_id] = [...(acc[hole.round_id] || []), hole];
+          return acc;
+        },
+        {}
+      );
+      setRoundHoles(grouped);
+    } else {
+      setRoundHoles({});
+    }
     setLoading(false);
   };
 
@@ -51,6 +78,9 @@ export default function RoundHistory() {
       fairways_hit: round.fairways_hit?.toString() || "",
       greens_in_regulation: round.greens_in_regulation?.toString() || "",
       putts: round.putts?.toString() || "",
+      fairways_possible: round.fairways_possible?.toString() || "",
+      holes_played: round.holes_played?.toString() || "18",
+      tee_colour: round.tee_colour || "",
       penalty_shots: round.penalty_shots?.toString() || "",
       chip_shots: round.chip_shots?.toString() || "",
       greenside_bunker_shots: round.greenside_bunker_shots?.toString() || "",
@@ -74,8 +104,11 @@ export default function RoundHistory() {
         date: editForm.date || null,
         score: parseNumber(editForm.score),
         fairways_hit: parseNumber(editForm.fairways_hit),
+        fairways_possible: parseNumber(editForm.fairways_possible),
         greens_in_regulation: parseNumber(editForm.greens_in_regulation),
         putts: parseNumber(editForm.putts),
+        holes_played: parseNumber(editForm.holes_played),
+        tee_colour: editForm.tee_colour || null,
         penalty_shots: parseNumber(editForm.penalty_shots),
         chip_shots: parseNumber(editForm.chip_shots),
         greenside_bunker_shots: parseNumber(editForm.greenside_bunker_shots),
@@ -202,8 +235,11 @@ export default function RoundHistory() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
                       ["Score", round.score?.toString() || "-"],
-                      ["GIR", round.greens_in_regulation?.toString() || "-"],
-                      ["FIR", round.fairways_hit?.toString() || "-"],
+                      ["GIR", `${round.greens_in_regulation ?? "-"}/${round.holes_played ?? 18}`],
+                      [
+                        "FIR",
+                        `${round.fairways_hit ?? "-"}/${round.fairways_possible ?? "-"}`,
+                      ],
                       ["Putts", round.putts?.toString() || "-"],
                       ["Penalties", (round.penalty_shots ?? 0).toString()],
                       ["Chip Shots", (round.chip_shots ?? 0).toString()],
@@ -242,6 +278,7 @@ export default function RoundHistory() {
       {selectedRound && (
         <RoundDetailsModal
           round={selectedRound}
+          holes={roundHoles[selectedRound.id] || []}
           onClose={() => setSelectedRound(null)}
           onEdit={() => openEdit(selectedRound)}
           onDelete={() => deleteRound(selectedRound)}
@@ -305,12 +342,31 @@ export default function RoundHistory() {
                 onChange={(value) => setEditForm((prev) => ({ ...prev, fairways_hit: value }))}
               />
               <Field
+                label="Fairways Possible"
+                type="number"
+                value={editForm.fairways_possible}
+                onChange={(value) =>
+                  setEditForm((prev) => ({ ...prev, fairways_possible: value }))
+                }
+              />
+              <Field
                 label="Greens in Regulation"
                 type="number"
                 value={editForm.greens_in_regulation}
                 onChange={(value) =>
                   setEditForm((prev) => ({ ...prev, greens_in_regulation: value }))
                 }
+              />
+              <Field
+                label="Holes Played"
+                type="number"
+                value={editForm.holes_played}
+                onChange={(value) => setEditForm((prev) => ({ ...prev, holes_played: value }))}
+              />
+              <Field
+                label="Tees Played"
+                value={editForm.tee_colour}
+                onChange={(value) => setEditForm((prev) => ({ ...prev, tee_colour: value }))}
               />
               <Field
                 label="Penalty Shots"
@@ -385,11 +441,13 @@ export default function RoundHistory() {
 
 function RoundDetailsModal({
   round,
+  holes,
   onClose,
   onEdit,
   onDelete,
 }: {
   round: Round;
+  holes: RoundHole[];
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -424,8 +482,8 @@ function RoundDetailsModal({
         <div className="grid gap-4 md:grid-cols-4">
           {[
             ["Score", round.score?.toString() || "-"],
-            ["Fairways", round.fairways_hit?.toString() || "-"],
-            ["GIR", round.greens_in_regulation?.toString() || "-"],
+            ["Fairways", `${round.fairways_hit ?? "-"}/${round.fairways_possible ?? "-"}`],
+            ["GIR", `${round.greens_in_regulation ?? "-"}/${round.holes_played ?? 18}`],
             ["Putts", round.putts?.toString() || "-"],
             ["Penalties", (round.penalty_shots ?? 0).toString()],
             ["Chip Shots", (round.chip_shots ?? 0).toString()],
@@ -438,6 +496,41 @@ function RoundDetailsModal({
             </div>
           ))}
         </div>
+
+        {holes.length > 0 && (
+          <div className="mt-6 overflow-x-auto rounded-2xl border border-[#1F4D3A]/10">
+            <table className="w-full min-w-[860px] text-left text-sm">
+              <thead className="bg-[#1F4D3A]/5 text-[#1F4D3A]">
+                <tr>
+                  <th className="p-3">Hole</th>
+                  <th className="p-3">Par</th>
+                  <th className="p-3">Score</th>
+                  <th className="p-3">Fairway</th>
+                  <th className="p-3">GIR</th>
+                  <th className="p-3">Putts</th>
+                  <th className="p-3">Pen</th>
+                  <th className="p-3">Chips</th>
+                  <th className="p-3">Bunkers</th>
+                </tr>
+              </thead>
+              <tbody>
+                {holes.map((hole) => (
+                  <tr key={hole.id} className="border-t border-black/5">
+                    <td className="p-3 font-medium">{hole.hole_number}</td>
+                    <td className="p-3">{hole.par}</td>
+                    <td className="p-3">{hole.score ?? "-"}</td>
+                    <td className="p-3 capitalize">{hole.fairway_result || "na"}</td>
+                    <td className="p-3">{hole.gir ? "Yes" : "No"}</td>
+                    <td className="p-3">{hole.putts ?? 0}</td>
+                    <td className="p-3">{hole.penalty_shots ?? 0}</td>
+                    <td className="p-3">{hole.chip_shots ?? 0}</td>
+                    <td className="p-3">{hole.greenside_bunker_shots ?? 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {round.notes && (
           <div className="mt-6 rounded-2xl bg-cream p-5">

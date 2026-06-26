@@ -1,7 +1,12 @@
 import { useMemo, useState } from "react";
+import { Link } from "wouter";
+import { ArrowLeft, CheckCircle2, Flag, Save } from "lucide-react";
+import { Button, Card, PageHeader, StatCard } from "@/components/ui";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import type { FairwayResult } from "@/lib/types";
 
-type FairwayResult = "hit" | "left" | "right" | "miss" | "na";
+type Step = "setup" | "holes" | "review" | "saved";
 
 type Hole = {
   par: number;
@@ -9,113 +14,96 @@ type Hole = {
   fairway: FairwayResult;
   gir: boolean;
   putts: string;
+  penaltyShots: string;
+  chipShots: string;
+  greensideBunkerShots: string;
 };
 
-const GOLF_GREEN = "#1F4D3A";
-const COMP_ORANGE = "#D97706";
-const GENERAL_BLUE = "#2563EB";
+const createHoles = (count: number): Hole[] =>
+  Array.from({ length: count }, () => ({
+    par: 4,
+    score: "",
+    fairway: "na",
+    gir: false,
+    putts: "",
+    penaltyShots: "",
+    chipShots: "",
+    greensideBunkerShots: "",
+  }));
 
-const defaultHoles: Hole[] = Array.from({ length: 18 }, () => ({
-  par: 4,
-  score: "",
-  fairway: "na",
-  gir: false,
-  putts: "",
-}));
+const parseStat = (value: string) => Number(value || 0);
 
 export default function RoundTracker() {
+  const { user } = useAuth();
+  const [step, setStep] = useState<Step>("setup");
+  const [holesPlayed, setHolesPlayed] = useState<9 | 18>(18);
   const [course, setCourse] = useState("");
   const [competition, setCompetition] = useState(false);
   const [teeColour, setTeeColour] = useState("");
   const [date, setDate] = useState("");
-  const [penaltyShots, setPenaltyShots] = useState("");
-  const [chipShots, setChipShots] = useState("");
-  const [greensideBunkerShots, setGreensideBunkerShots] = useState("");
-  const [holes, setHoles] = useState<Hole[]>(defaultHoles);
-  const [submitted, setSubmitted] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [holes, setHoles] = useState<Hole[]>(createHoles(18));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
-  const updateHole = (
-    index: number,
-    field: keyof Hole,
-    value: Hole[keyof Hole]
-  ) => {
+  const updateHole = <K extends keyof Hole>(index: number, field: K, value: Hole[K]) => {
     setHoles((prev) =>
       prev.map((hole, i) => (i === index ? { ...hole, [field]: value } : hole))
     );
   };
 
+  const startRound = () => {
+    setHoles(createHoles(holesPlayed));
+    setSaveError("");
+    setStep("holes");
+  };
+
   const stats = useMemo(() => {
-    const completed = holes.filter((h) => h.score !== "");
-
-    const totalPar = completed.reduce((sum, h) => sum + h.par, 0);
-    const totalScore = completed.reduce(
-      (sum, h) => sum + Number(h.score),
+    const completed = holes.filter((hole) => hole.score !== "");
+    const totalPar = completed.reduce((sum, hole) => sum + hole.par, 0);
+    const totalScore = completed.reduce((sum, hole) => sum + Number(hole.score), 0);
+    const totalPutts = completed.reduce((sum, hole) => sum + parseStat(hole.putts), 0);
+    const fairwayHoles = completed.filter((hole) => hole.par !== 3);
+    const fairwaysHit = fairwayHoles.filter((hole) => hole.fairway === "hit").length;
+    const girs = completed.filter((hole) => hole.gir).length;
+    const penaltyShots = completed.reduce(
+      (sum, hole) => sum + parseStat(hole.penaltyShots),
       0
     );
-    const totalPutts = completed.reduce(
-      (sum, h) => sum + Number(h.putts || 0),
+    const chipShots = completed.reduce((sum, hole) => sum + parseStat(hole.chipShots), 0);
+    const greensideBunkerShots = completed.reduce(
+      (sum, hole) => sum + parseStat(hole.greensideBunkerShots),
       0
     );
-
     const frontNine = holes
       .slice(0, 9)
-      .filter((h) => h.score !== "")
-      .reduce((sum, h) => sum + Number(h.score), 0);
-
+      .filter((hole) => hole.score !== "")
+      .reduce((sum, hole) => sum + Number(hole.score), 0);
     const backNine = holes
       .slice(9, 18)
-      .filter((h) => h.score !== "")
-      .reduce((sum, h) => sum + Number(h.score), 0);
-
-    const fairwayHoles = completed.filter((h) => h.fairway !== "na");
-    const fairwaysHit = fairwayHoles.filter((h) => h.fairway === "hit").length;
-
-    const girs = completed.filter((h) => h.gir).length;
-
-    const par3Scores = completed.filter((h) => h.par === 3);
-    const par4Scores = completed.filter((h) => h.par === 4);
-    const par5Scores = completed.filter((h) => h.par === 5);
-    const totalPenaltyShots = Number(penaltyShots || 0);
-    const totalChipShots = Number(chipShots || 0);
-    const totalGreensideBunkerShots = Number(greensideBunkerShots || 0);
-
-    const average = (arr: Hole[]) =>
-      arr.length
-        ? (
-            arr.reduce((sum, h) => sum + Number(h.score), 0) / arr.length
-          ).toFixed(1)
-        : "-";
+      .filter((hole) => hole.score !== "")
+      .reduce((sum, hole) => sum + Number(hole.score), 0);
 
     return {
       holesCompleted: completed.length,
       totalPar,
       totalScore,
       scoreToPar: totalScore - totalPar,
-      frontNine,
-      backNine,
       totalPutts,
-      avgPutts: completed.length
-        ? (totalPutts / completed.length).toFixed(1)
-        : "-",
       fairwaysHit,
       fairwaysPossible: fairwayHoles.length,
+      girs,
+      penaltyShots,
+      chipShots,
+      greensideBunkerShots,
+      frontNine,
+      backNine,
       fairwayPercent: fairwayHoles.length
         ? Math.round((fairwaysHit / fairwayHoles.length) * 100)
         : 0,
-      girs,
-      girPercent: completed.length
-        ? Math.round((girs / completed.length) * 100)
-        : 0,
-      penaltyShots: totalPenaltyShots,
-      chipShots: totalChipShots,
-      greensideBunkerShots: totalGreensideBunkerShots,
-      par3Avg: average(par3Scores),
-      par4Avg: average(par4Scores),
-      par5Avg: average(par5Scores),
+      girPercent: completed.length ? Math.round((girs / completed.length) * 100) : 0,
     };
-  }, [holes, penaltyShots, chipShots, greensideBunkerShots]);
+  }, [holes]);
 
   const formatToPar = (score: number) => {
     if (!stats.holesCompleted) return "-";
@@ -123,330 +111,378 @@ export default function RoundTracker() {
     return score > 0 ? `+${score}` : `${score}`;
   };
 
+  const finishRound = async () => {
+    if (!user) return;
+    if (stats.holesCompleted !== holesPlayed) {
+      setSaveError(`Complete all ${holesPlayed} holes before saving.`);
+      return;
+    }
+
+    setSaving(true);
+    setSaveError("");
+
+    const { data: round, error: roundError } = await supabase
+      .from("rounds")
+      .insert({
+        user_id: user.id,
+        course: course || null,
+        date: date || null,
+        score: stats.totalScore || null,
+        fairways_hit: stats.fairwaysHit,
+        fairways_possible: stats.fairwaysPossible,
+        greens_in_regulation: stats.girs,
+        putts: stats.totalPutts,
+        penalty_shots: stats.penaltyShots,
+        chip_shots: stats.chipShots,
+        greenside_bunker_shots: stats.greensideBunkerShots,
+        holes_played: holesPlayed,
+        tee_colour: teeColour || null,
+        scramble_percentage: null,
+        is_competition: competition,
+        notes: notes || null,
+      })
+      .select("id")
+      .single();
+
+    if (roundError || !round) {
+      setSaving(false);
+      setSaveError(roundError?.message || "Could not save round.");
+      return;
+    }
+
+    const holeRows = holes.map((hole, index) => ({
+      round_id: round.id,
+      user_id: user.id,
+      hole_number: index + 1,
+      par: hole.par,
+      score: hole.score === "" ? null : Number(hole.score),
+      fairway_result: hole.par === 3 ? "na" : hole.fairway,
+      gir: hole.gir,
+      putts: parseStat(hole.putts),
+      penalty_shots: parseStat(hole.penaltyShots),
+      chip_shots: parseStat(hole.chipShots),
+      greenside_bunker_shots: parseStat(hole.greensideBunkerShots),
+    }));
+
+    const { error: holesError } = await supabase.from("round_holes").insert(holeRows);
+    setSaving(false);
+
+    if (holesError) {
+      setSaveError(holesError.message);
+      return;
+    }
+
+    setStep("saved");
+  };
+
   const resetRound = () => {
     setCourse("");
     setCompetition(false);
     setTeeColour("");
     setDate("");
-    setPenaltyShots("");
-    setChipShots("");
-    setGreensideBunkerShots("");
-    setHoles(defaultHoles);
-    setSubmitted(false);
+    setNotes("");
+    setHolesPlayed(18);
+    setHoles(createHoles(18));
     setSaveError("");
+    setStep("setup");
   };
 
-  const finishRound = async () => {
-    setSaving(true);
-    setSaveError("");
-    const { error } = await supabase.from("rounds").insert({
-      course: course || null,
-      date: date || null,
-      score: stats.totalScore || null,
-      fairways_hit: stats.fairwaysHit || null,
-      greens_in_regulation: stats.girs || null,
-      putts: stats.totalPutts || null,
-      penalty_shots: stats.penaltyShots,
-      chip_shots: stats.chipShots,
-      greenside_bunker_shots: stats.greensideBunkerShots,
-      scramble_percentage: null,
-      is_competition: competition,
-      notes: teeColour ? `Tee colour: ${teeColour}` : null,
-    });
-    setSaving(false);
-    if (error) {
-      setSaveError(error.message);
-      return;
-    }
-    setSubmitted(true);
-  };
-
-  if (submitted) {
+  if (step === "saved") {
     return (
       <div className="min-h-screen bg-cream p-6 text-dark">
-        <div className="mx-auto max-w-5xl rounded-3xl bg-white p-8 shadow-xl border border-[#1F4D3A]/10">
-          <p className="mb-2 text-sm uppercase tracking-[0.25em] text-[#1F4D3A]/70">
-            Round Summary
+        <Card className="mx-auto max-w-4xl p-8 text-center">
+          <CheckCircle2 className="mx-auto mb-5 h-12 w-12 text-[#1F4D3A]" />
+          <h1 className="mb-3 text-4xl font-semibold">Round Saved</h1>
+          <p className="mx-auto mb-8 max-w-xl text-black/60">
+            Your round and hole-by-hole stats have been logged.
           </p>
-
-          <h1 className="mb-2 text-4xl font-semibold">
-            {course || "Golf Round"}
-          </h1>
-
-          <div className="mb-8 flex flex-wrap items-center gap-2 text-black/60">
-            <span
-              className={`rounded-full px-4 py-2 text-sm text-white ${
-                competition ? "bg-[#D97706]" : "bg-[#2563EB]"
-              }`}
-            >
-              {competition ? "Competition Round" : "General Play"}
-            </span>
-
-            {teeColour && <span>- {teeColour} tees</span>}
-            {date && <span>- {date}</span>}
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-4">
-            <Stat label="Score" value={stats.totalScore || "-"} />
-            <Stat label="To Par" value={formatToPar(stats.scoreToPar)} />
-            <Stat label="Front 9" value={stats.frontNine || "-"} />
-            <Stat label="Back 9" value={stats.backNine || "-"} />
-            <Stat label="Putts" value={stats.totalPutts || "-"} />
-            <Stat label="Avg Putts" value={stats.avgPutts} />
-            <Stat
-              label="Fairways"
-              value={`${stats.fairwaysHit}/${stats.fairwaysPossible}`}
-            />
-            <Stat label="GIR" value={`${stats.girs}/${stats.holesCompleted}`} />
-            <Stat label="FIR %" value={`${stats.fairwayPercent}%`} />
-            <Stat label="GIR %" value={`${stats.girPercent}%`} />
-            <Stat label="Par 3 Avg" value={stats.par3Avg} />
-            <Stat label="Par 4 Avg" value={stats.par4Avg} />
-            <Stat label="Par 5 Avg" value={stats.par5Avg} />
-            <Stat label="Penalties" value={stats.penaltyShots} />
-            <Stat label="Chip Shots" value={stats.chipShots} />
-            <Stat label="Bunker Shots" value={stats.greensideBunkerShots} />
-          </div>
-
-          <div className="mt-8 flex flex-wrap gap-3">
-            <button
-              onClick={() => setSubmitted(false)}
-              className="rounded-xl bg-[#1F4D3A] px-6 py-3 text-white transition hover:scale-[1.02]"
-            >
-              Edit Round
-            </button>
-
-            <button
-              onClick={resetRound}
-              className="rounded-xl border border-[#1F4D3A]/20 px-6 py-3 transition hover:bg-[#1F4D3A]/5"
-            >
+          <div className="flex flex-col justify-center gap-3 sm:flex-row">
+            <Button onClick={resetRound} className="bg-[#1F4D3A] hover:bg-[#17392b]">
               Start New Round
-            </button>
-
-            <a
-              href="/golf"
-              className="rounded-xl border border-[#1F4D3A]/20 px-6 py-3 transition hover:bg-[#1F4D3A]/5"
-            >
-              View Round History
-            </a>
+            </Button>
+            <Link href="/golf">
+              <a className="inline-flex items-center justify-center rounded-2xl border border-black/10 bg-white px-5 py-3 font-semibold text-black transition hover:bg-black/5">
+                View Round History
+              </a>
+            </Link>
           </div>
-        </div>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-cream p-6 text-dark">
+    <div className="min-h-screen bg-cream p-6 text-dark md:p-10">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8">
-          <p className="mb-2 text-sm uppercase tracking-[0.25em] text-[#1F4D3A]/70">
-            Golf
-          </p>
+        <PageHeader
+          eyebrow="Golf"
+          title="Submit Round"
+          description="Start with the round setup, then log each hole with the details that actually drive performance."
+          tone="text-[#1F4D3A]"
+        />
 
-         <h1 className="text-4xl font-semibold text-[#1F4D3A]">
-  Submit Round
-</h1>
-        </div>
+        {step === "setup" ? (
+          <Card className="max-w-4xl p-8">
+            <div className="mb-8 grid gap-4 md:grid-cols-2">
+              <button
+                onClick={() => setHolesPlayed(9)}
+                className={`rounded-[2rem] border p-6 text-left transition ${
+                  holesPlayed === 9
+                    ? "border-[#1F4D3A] bg-[#1F4D3A] text-white"
+                    : "border-[#1F4D3A]/10 bg-cream text-black"
+                }`}
+              >
+                <p className="mb-2 text-sm opacity-70">Round Length</p>
+                <h2 className="text-3xl font-semibold">9 Holes</h2>
+              </button>
 
-        <div className="mb-6 grid gap-4 rounded-3xl bg-white p-6 shadow-xl border border-[#1F4D3A]/10 md:grid-cols-4">
-          <input
-            value={course}
-            onChange={(e) => setCourse(e.target.value)}
-            placeholder="Course name"
-            className="rounded-xl border border-black/10 p-3 outline-none focus:border-[#1F4D3A]"
-          />
+              <button
+                onClick={() => setHolesPlayed(18)}
+                className={`rounded-[2rem] border p-6 text-left transition ${
+                  holesPlayed === 18
+                    ? "border-[#1F4D3A] bg-[#1F4D3A] text-white"
+                    : "border-[#1F4D3A]/10 bg-cream text-black"
+                }`}
+              >
+                <p className="mb-2 text-sm opacity-70">Round Length</p>
+                <h2 className="text-3xl font-semibold">18 Holes</h2>
+              </button>
+            </div>
 
-          <input
-            value={teeColour}
-            onChange={(e) => setTeeColour(e.target.value)}
-            placeholder="Tee colour"
-            className="rounded-xl border border-black/10 p-3 outline-none focus:border-[#1F4D3A]"
-          />
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Course name" value={course} onChange={setCourse} />
+              <Field label="Tees played" value={teeColour} onChange={setTeeColour} />
+              <Field label="Date" value={date} onChange={setDate} type="date" />
+              <label className="flex items-center gap-3 rounded-2xl border border-black/10 px-5 py-4">
+                <input
+                  type="checkbox"
+                  checked={competition}
+                  onChange={(event) => setCompetition(event.target.checked)}
+                />
+                <span className="font-medium">Competition round</span>
+              </label>
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm text-black/50">Round notes</label>
+                <textarea
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  rows={4}
+                  className="w-full rounded-2xl border border-black/10 px-5 py-4 outline-none focus:border-[#1F4D3A]"
+                />
+              </div>
+            </div>
 
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="rounded-xl border border-black/10 p-3 outline-none focus:border-[#1F4D3A]"
-          />
+            <Button
+              onClick={startRound}
+              className="mt-8 bg-[#1F4D3A] hover:bg-[#17392b]"
+            >
+              <Flag className="h-4 w-4" />
+              Start Hole Entry
+            </Button>
+          </Card>
+        ) : (
+          <>
+            <section className="mb-8 grid gap-4 md:grid-cols-4 xl:grid-cols-8">
+              <StatCard label="Score" value={stats.totalScore || "-"} tone="bg-white" />
+              <StatCard label="To Par" value={formatToPar(stats.scoreToPar)} tone="bg-white" />
+              <StatCard label="Holes" value={`${stats.holesCompleted}/${holesPlayed}`} tone="bg-white" />
+              <StatCard label="Putts" value={stats.totalPutts || "-"} tone="bg-white" />
+              <StatCard label="FIR" value={`${stats.fairwayPercent}%`} tone="bg-white" />
+              <StatCard label="GIR" value={`${stats.girPercent}%`} tone="bg-white" />
+              <StatCard label="Penalties" value={stats.penaltyShots} tone="bg-white" />
+              <StatCard label="Bunkers" value={stats.greensideBunkerShots} tone="bg-white" />
+            </section>
 
-          <label className="flex items-center gap-3 rounded-xl border border-[#1F4D3A]/20 p-3">
-            <input
-              type="checkbox"
-              checked={competition}
-              onChange={(e) => setCompetition(e.target.checked)}
-            />
-            Competition round?
-          </label>
-        </div>
+            {step === "review" && (
+              <Card className="mb-6 border-[#1F4D3A]/20 bg-[#1F4D3A]/5">
+                <h2 className="mb-2 text-2xl font-semibold text-[#1F4D3A]">
+                  Review Before Saving
+                </h2>
+                <p className="text-black/60">
+                  Check the summary and hole details below. If everything looks right,
+                  save the round.
+                </p>
+              </Card>
+            )}
 
-        <div className="mb-6 grid gap-4 rounded-3xl bg-white p-6 shadow-xl border border-[#1F4D3A]/10 md:grid-cols-3">
-          <input
-            type="number"
-            min={0}
-            value={penaltyShots}
-            onChange={(e) => setPenaltyShots(e.target.value)}
-            placeholder="Penalty shots"
-            className="rounded-xl border border-black/10 p-3 outline-none focus:border-[#1F4D3A]"
-          />
-
-          <input
-            type="number"
-            min={0}
-            value={chipShots}
-            onChange={(e) => setChipShots(e.target.value)}
-            placeholder="Chip shots"
-            className="rounded-xl border border-black/10 p-3 outline-none focus:border-[#1F4D3A]"
-          />
-
-          <input
-            type="number"
-            min={0}
-            value={greensideBunkerShots}
-            onChange={(e) => setGreensideBunkerShots(e.target.value)}
-            placeholder="Greenside bunker shots"
-            className="rounded-xl border border-black/10 p-3 outline-none focus:border-[#1F4D3A]"
-          />
-        </div>
-
-        <div className="mb-6 grid gap-4 md:grid-cols-9">
-          <Stat label="Score" value={stats.totalScore || "-"} />
-          <Stat label="To Par" value={formatToPar(stats.scoreToPar)} />
-          <Stat label="Holes" value={`${stats.holesCompleted}/18`} />
-          <Stat label="Putts" value={stats.totalPutts || "-"} />
-          <Stat label="FIR" value={`${stats.fairwayPercent}%`} />
-          <Stat label="GIR" value={`${stats.girPercent}%`} />
-          <Stat label="Penalties" value={stats.penaltyShots} />
-          <Stat label="Chips" value={stats.chipShots} />
-          <Stat label="Bunkers" value={stats.greensideBunkerShots} />
-        </div>
-
-        <div className="overflow-x-auto rounded-3xl bg-white p-4 shadow-xl border border-[#1F4D3A]/10">
-          <table className="w-full min-w-[900px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-black/10 text-[#1F4D3A]/70">
-                <th className="p-3">Hole</th>
-                <th className="p-3">Par</th>
-                <th className="p-3">Score</th>
-                <th className="p-3">To Par</th>
-                <th className="p-3">Fairway</th>
-                <th className="p-3">GIR</th>
-                <th className="p-3">Putts</th>
-              </tr>
-            </thead>
-
-            <tbody>
+            <div className="grid gap-4">
               {holes.map((hole, index) => {
                 const holeScore =
                   hole.score === "" ? null : Number(hole.score) - hole.par;
 
                 return (
-                  <tr key={index} className="border-b border-black/5">
-                    <td className="p-3 font-medium">{index + 1}</td>
+                  <Card key={index} className="p-5">
+                    <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <p className="text-sm text-[#1F4D3A]/70">Hole {index + 1}</p>
+                        <h2 className="text-2xl font-semibold">
+                          {hole.score ? formatToPar(holeScore ?? 0) : "Not scored"}
+                        </h2>
+                      </div>
+                      {index === 8 && holesPlayed === 18 && (
+                        <span className="rounded-full bg-[#1F4D3A]/10 px-4 py-2 text-sm font-medium text-[#1F4D3A]">
+                          Turn after this hole
+                        </span>
+                      )}
+                    </div>
 
-                    <td className="p-3">
-                      <select
-                        value={hole.par}
-                        onChange={(e) =>
-                          updateHole(index, "par", Number(e.target.value))
-                        }
-                        className="rounded-xl border border-black/10 p-2 outline-none focus:border-[#1F4D3A]"
-                      >
-                        <option value={3}>3</option>
-                        <option value={4}>4</option>
-                        <option value={5}>5</option>
-                      </select>
-                    </td>
-
-                    <td className="p-3">
-                      <input
+                    <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
+                      <SelectField
+                        label="Par"
+                        value={hole.par.toString()}
+                        onChange={(value) => {
+                          const nextPar = Number(value);
+                          updateHole(index, "par", nextPar);
+                          if (nextPar === 3) updateHole(index, "fairway", "na");
+                        }}
+                        options={["3", "4", "5"]}
+                      />
+                      <Field
+                        label="Score"
                         type="number"
-                        min={1}
                         value={hole.score}
-                        onChange={(e) =>
-                          updateHole(index, "score", e.target.value)
-                        }
-                        className="w-20 rounded-xl border border-black/10 p-2 outline-none focus:border-[#1F4D3A]"
+                        onChange={(value) => updateHole(index, "score", value)}
                       />
-                    </td>
-
-                    <td className="p-3 font-medium">
-                      {holeScore === null ? "-" : formatToPar(holeScore)}
-                    </td>
-
-                    <td className="p-3">
-                      <select
+                      <SelectField
+                        label="Fairway"
                         value={hole.fairway}
-                        onChange={(e) =>
-                          updateHole(
-                            index,
-                            "fairway",
-                            e.target.value as FairwayResult
-                          )
+                        disabled={hole.par === 3}
+                        onChange={(value) =>
+                          updateHole(index, "fairway", value as FairwayResult)
                         }
-                        className="rounded-xl border border-black/10 p-2 outline-none focus:border-[#1F4D3A]"
-                      >
-                        <option value="na">N/A</option>
-                        <option value="hit">Hit</option>
-                        <option value="left">Left</option>
-                        <option value="right">Right</option>
-                        <option value="miss">Miss</option>
-                      </select>
-                    </td>
-
-                    <td className="p-3">
-                      <input
-                        type="checkbox"
-                        checked={hole.gir}
-                        onChange={(e) =>
-                          updateHole(index, "gir", e.target.checked)
-                        }
+                        options={["na", "hit", "left", "right", "miss"]}
                       />
-                    </td>
-
-                    <td className="p-3">
-                      <input
+                      <label className="flex items-center gap-3 rounded-2xl border border-black/10 px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={hole.gir}
+                          onChange={(event) => updateHole(index, "gir", event.target.checked)}
+                        />
+                        <span className="text-sm font-medium">GIR</span>
+                      </label>
+                      <Field
+                        label="Putts"
                         type="number"
-                        min={0}
                         value={hole.putts}
-                        onChange={(e) =>
-                          updateHole(index, "putts", e.target.value)
-                        }
-                        className="w-20 rounded-xl border border-black/10 p-2 outline-none focus:border-[#1F4D3A]"
+                        onChange={(value) => updateHole(index, "putts", value)}
                       />
-                    </td>
-                  </tr>
+                      <Field
+                        label="Penalties"
+                        type="number"
+                        value={hole.penaltyShots}
+                        onChange={(value) => updateHole(index, "penaltyShots", value)}
+                      />
+                      <Field
+                        label="Chips"
+                        type="number"
+                        value={hole.chipShots}
+                        onChange={(value) => updateHole(index, "chipShots", value)}
+                      />
+                      <Field
+                        label="Bunkers"
+                        type="number"
+                        value={hole.greensideBunkerShots}
+                        onChange={(value) =>
+                          updateHole(index, "greensideBunkerShots", value)
+                        }
+                      />
+                    </div>
+                  </Card>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+            </div>
 
-        {saveError && (
-          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-700">
-            {saveError}
-          </div>
+            {saveError && (
+              <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-700">
+                {saveError}
+              </div>
+            )}
+
+            <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+              <Button variant="secondary" onClick={() => setStep("setup")}>
+                <ArrowLeft className="h-4 w-4" />
+                Back To Setup
+              </Button>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                {step === "holes" ? (
+                  <Button
+                    onClick={() => setStep("review")}
+                    className="bg-[#1F4D3A] hover:bg-[#17392b]"
+                  >
+                    Review Round
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={finishRound}
+                    disabled={saving}
+                    className="bg-[#1F4D3A] hover:bg-[#17392b]"
+                  >
+                    <Save className="h-4 w-4" />
+                    {saving ? "Saving..." : "Save Round"}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </>
         )}
-
-        <button
-          onClick={finishRound}
-          disabled={saving}
-          className="mt-8 w-full rounded-xl bg-[#1F4D3A] py-4 text-white transition hover:scale-[1.01] disabled:opacity-50 md:w-auto md:px-10"
-        >
-          {saving ? "Saving..." : "Finish Round"}
-        </button>
       </div>
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string | number }) {
+function Field({
+  label,
+  value,
+  onChange,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+}) {
   return (
-    <div className="rounded-2xl bg-white p-4 shadow border border-[#1F4D3A]/10">
-      <p className="text-xs uppercase tracking-[0.2em] text-[#1F4D3A]/70">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-semibold">{value}</p>
+    <div>
+      <label className="mb-2 block text-sm text-black/50">{label}</label>
+      <input
+        type={type}
+        min={type === "number" ? 0 : undefined}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-2xl border border-black/10 px-4 py-3 outline-none focus:border-[#1F4D3A]"
+      />
+    </div>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+  disabled?: boolean;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm text-black/50">{label}</label>
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 capitalize outline-none focus:border-[#1F4D3A] disabled:bg-black/5 disabled:text-black/35"
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

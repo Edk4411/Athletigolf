@@ -13,6 +13,7 @@ import GymQuiz from "@/pages/GymQuiz";
 import GolfQuiz from "@/pages/GolfQuiz";
 import RoundTracker from "@/pages/RoundTracker";
 import ComingSoon from "@/pages/ComingSoon";
+import { applyTextAutoFormatToField } from "@/lib/textFormatting";
 import PracticeSession from "./pages/PracticeSession";
 import PracticeHistory from "./pages/PracticeHistory";
 import PreviousWorkouts from "./pages/PreviousWorkouts";
@@ -39,7 +40,10 @@ function AppShell() {
   const hideSidebar = location === "/" || location === "/auth";
 
  return (
-  <div className="min-h-screen bg-cream font-sans">
+  <div
+    className="min-h-screen bg-cream font-sans"
+    onBlurCapture={(event) => applyTextAutoFormatToField(event.target)}
+  >
     {!hideSidebar && <MobileSidebar />}
     <Switch>
       <Route path="/coming-soon">

@@ -1,6 +1,5 @@
 import type { Round } from "@/lib/types";
 
-const HOLES_PER_ROUND = 18;
 const FAIRWAY_HOLES_PER_ROUND = 14;
 
 const hasValue = (value: number | null | undefined): value is number =>
@@ -22,13 +21,22 @@ export function getGolfStats(rounds: Round[]) {
     (sum, round) => sum + (round.fairways_hit ?? 0),
     0
   );
-  const fairwaysPossible = fairwayRounds.length * FAIRWAY_HOLES_PER_ROUND;
+  const fairwaysPossible = fairwayRounds.reduce((sum, round) => {
+    if (hasValue(round.fairways_possible) && round.fairways_possible > 0) {
+      return sum + round.fairways_possible;
+    }
+    const holesPlayed = round.holes_played === 9 ? 9 : 18;
+    return sum + (holesPlayed === 9 ? 7 : FAIRWAY_HOLES_PER_ROUND);
+  }, 0);
 
   const greensHit = girRounds.reduce(
     (sum, round) => sum + (round.greens_in_regulation ?? 0),
     0
   );
-  const greensPossible = girRounds.length * HOLES_PER_ROUND;
+  const greensPossible = girRounds.reduce(
+    (sum, round) => sum + (round.holes_played === 9 ? 9 : 18),
+    0
+  );
 
   return {
     avgScore: average(scoredRounds.map((round) => round.score as number)),

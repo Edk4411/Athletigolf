@@ -76,7 +76,7 @@ export default function Landing() {
         {[
           { title: "Workout Tracking", text: "Log lifts and monitor progression over time." },
           { title: "Golf Insights", text: "Analyse fairways, GIR, scrambling and putting." },
-          { title: "Nutrition", text: "Track calories, hydration and daily habits." },
+          { title: "Practice Logs", text: "Record range, putting and short-game sessions." },
           { title: "Practice Feedback", text: "Build smarter warm-ups and training sessions." },
         ].map((item, index) => (
           <div
@@ -95,11 +95,11 @@ export default function Landing() {
           <p className="uppercase tracking-[0.25em] text-xs text-black/50 mb-5">Fitness First</p>
           <h2 className="text-4xl md:text-5xl font-medium leading-tight mb-6">Built for Performance</h2>
           <p className="text-black/70 leading-relaxed mb-8 text-lg">
-            AthletiGolf helps users track gym workouts, strength progression, calorie intake and hydration while building long-term athletic performance.
+            AthletiGolf helps users track gym workouts, training splits and strength progression while building long-term athletic performance.
           </p>
 
           <div className="grid grid-cols-2 gap-4">
-            {["Workout Logging", "Strength Progression", "Hydration Tracking", "Calorie Monitoring"].map((feature, index) => (
+            {["Workout Logging", "Strength Progression", "Custom Splits", "Session History"].map((feature, index) => (
               <div key={index} className="bg-white rounded-2xl px-5 py-4 border border-black/10">
                 {feature}
               </div>
@@ -192,9 +192,9 @@ export default function Landing() {
 
         <div className="grid md:grid-cols-3 gap-8">
           {[
-            { number: "01", title: "Track", text: "Log workouts, calories, hydration, rounds and practice sessions." },
+            { number: "01", title: "Track", text: "Log workouts, rounds and focused practice sessions." },
             { number: "02", title: "Analyse", text: "Identify patterns in performance, consistency and progression." },
-            { number: "03", title: "Improve", text: "Receive smarter training and practice recommendations." },
+            { number: "03", title: "Improve", text: "Use your trends to decide where to focus next." },
           ].map((step, index) => (
             <div key={index} className="bg-white rounded-[2rem] p-8 border border-black/5 shadow-sm">
               <p className="text-5xl font-medium text-black/10 mb-6">{step.number}</p>
@@ -214,9 +214,9 @@ export default function Landing() {
 
         <div className="grid lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
           {[
-            { name: "Strength", desc: "Fitness tracking and progression tools.", features: ["Workout logging", "Progress tracking", "Calories & hydration", "Performance analytics"] },
+            { name: "Strength", desc: "Fitness tracking and progression tools.", features: ["Workout logging", "Custom splits", "Progress tracking", "Session history"] },
             { name: "Performance", desc: "Golf-focused insights and practice tracking.", features: ["Round statistics", "Practice session logs", "Warm-up guidance", "Performance feedback"] },
-            { name: "Complete", desc: "Full access to fitness and golf features.", features: ["Everything included", "Personalised insights", "Advanced tracking", "Priority access"] },
+            { name: "Complete", desc: "The planned full AthletiGolf experience.", features: ["Golf and gym tracking", "Trend reports", "Premium analytics", "Priority access"] },
           ].map((plan, index) => (
             <div
               key={index}
