@@ -191,17 +191,17 @@ export default function RoundTracker() {
     return (
       <div className="min-h-screen bg-cream p-6 text-dark">
         <Card className="mx-auto max-w-4xl p-8 text-center">
-          <CheckCircle2 className="mx-auto mb-5 h-12 w-12 text-[#1F4D3A]" />
+          <CheckCircle2 className="mx-auto mb-5 h-12 w-12 text-golf" />
           <h1 className="mb-3 text-4xl font-semibold">Round Saved</h1>
           <p className="mx-auto mb-8 max-w-xl text-black/60">
             Your round and hole-by-hole stats have been logged.
           </p>
           <div className="flex flex-col justify-center gap-3 sm:flex-row">
-            <Button onClick={resetRound} className="bg-[#1F4D3A] hover:bg-[#17392b]">
+            <Button onClick={resetRound} variant="golf">
               Start New Round
             </Button>
             <Link href="/golf">
-              <a className="inline-flex items-center justify-center rounded-2xl border border-black/10 bg-white px-5 py-3 font-semibold text-black transition hover:bg-black/5">
+              <a className="inline-flex items-center justify-center rounded-lg border border-line bg-white px-5 py-3 font-semibold text-dark transition hover:bg-steel/5">
                 View Round History
               </a>
             </Link>
@@ -215,10 +215,10 @@ export default function RoundTracker() {
     <div className="min-h-screen bg-cream p-6 text-dark md:p-10">
       <div className="mx-auto max-w-7xl">
         <PageHeader
-          eyebrow="Golf"
-          title="Submit Round"
+          eyebrow="Golf Form"
+          title="Round Scorecard"
           description="Start with the round setup, then log each hole with the details that actually drive performance."
-          tone="text-[#1F4D3A]"
+          tone="text-golf"
         />
 
         {step === "setup" ? (
@@ -226,10 +226,10 @@ export default function RoundTracker() {
             <div className="mb-8 grid gap-4 md:grid-cols-2">
               <button
                 onClick={() => setHolesPlayed(9)}
-                className={`rounded-[2rem] border p-6 text-left transition ${
+                className={`rounded-xl border p-6 text-left transition ${
                   holesPlayed === 9
-                    ? "border-[#1F4D3A] bg-[#1F4D3A] text-white"
-                    : "border-[#1F4D3A]/10 bg-cream text-black"
+                    ? "border-golf bg-golf text-white"
+                    : "border-line bg-steel/5 text-dark hover:border-golf/30"
                 }`}
               >
                 <p className="mb-2 text-sm opacity-70">Round Length</p>
@@ -238,10 +238,10 @@ export default function RoundTracker() {
 
               <button
                 onClick={() => setHolesPlayed(18)}
-                className={`rounded-[2rem] border p-6 text-left transition ${
+                className={`rounded-xl border p-6 text-left transition ${
                   holesPlayed === 18
-                    ? "border-[#1F4D3A] bg-[#1F4D3A] text-white"
-                    : "border-[#1F4D3A]/10 bg-cream text-black"
+                    ? "border-golf bg-golf text-white"
+                    : "border-line bg-steel/5 text-dark hover:border-golf/30"
                 }`}
               >
                 <p className="mb-2 text-sm opacity-70">Round Length</p>
@@ -253,7 +253,7 @@ export default function RoundTracker() {
               <Field label="Course name" value={course} onChange={setCourse} />
               <Field label="Tees played" value={teeColour} onChange={setTeeColour} />
               <Field label="Date" value={date} onChange={setDate} type="date" />
-              <label className="flex items-center gap-3 rounded-2xl border border-black/10 px-5 py-4">
+              <label className="flex items-center gap-3 rounded-lg border border-line px-5 py-4">
                 <input
                   type="checkbox"
                   checked={competition}
@@ -267,14 +267,15 @@ export default function RoundTracker() {
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
                   rows={4}
-                  className="w-full rounded-2xl border border-black/10 px-5 py-4 outline-none focus:border-[#1F4D3A]"
+                  className="w-full rounded-lg border border-line px-5 py-4 outline-none focus:border-golf"
                 />
               </div>
             </div>
 
             <Button
               onClick={startRound}
-              className="mt-8 bg-[#1F4D3A] hover:bg-[#17392b]"
+              variant="golf"
+              className="mt-8"
             >
               <Flag className="h-4 w-4" />
               Start Hole Entry
@@ -294,8 +295,8 @@ export default function RoundTracker() {
             </section>
 
             {step === "review" && (
-              <Card className="mb-6 border-[#1F4D3A]/20 bg-[#1F4D3A]/5">
-                <h2 className="mb-2 text-2xl font-semibold text-[#1F4D3A]">
+              <Card className="mb-6 border-golf/20 bg-golf/5">
+                <h2 className="mb-2 text-2xl font-semibold text-golf">
                   Review Before Saving
                 </h2>
                 <p className="text-black/60">
@@ -314,13 +315,13 @@ export default function RoundTracker() {
                   <Card key={index} className="p-5">
                     <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                       <div>
-                        <p className="text-sm text-[#1F4D3A]/70">Hole {index + 1}</p>
+                        <p className="text-sm font-semibold text-golf">Hole {index + 1}</p>
                         <h2 className="text-2xl font-semibold">
                           {hole.score ? formatToPar(holeScore ?? 0) : "Not scored"}
                         </h2>
                       </div>
                       {index === 8 && holesPlayed === 18 && (
-                        <span className="rounded-full bg-[#1F4D3A]/10 px-4 py-2 text-sm font-medium text-[#1F4D3A]">
+                        <span className="rounded-full bg-golf/10 px-4 py-2 text-sm font-medium text-golf">
                           Turn after this hole
                         </span>
                       )}
@@ -352,7 +353,7 @@ export default function RoundTracker() {
                         }
                         options={["na", "hit", "left", "right", "miss"]}
                       />
-                      <label className="flex items-center gap-3 rounded-2xl border border-black/10 px-4 py-3">
+                      <label className="flex items-center gap-3 rounded-lg border border-line px-4 py-3">
                         <input
                           type="checkbox"
                           checked={hole.gir}
@@ -407,7 +408,7 @@ export default function RoundTracker() {
                 {step === "holes" ? (
                   <Button
                     onClick={() => setStep("review")}
-                    className="bg-[#1F4D3A] hover:bg-[#17392b]"
+                    variant="golf"
                   >
                     Review Round
                   </Button>
@@ -415,7 +416,7 @@ export default function RoundTracker() {
                   <Button
                     onClick={finishRound}
                     disabled={saving}
-                    className="bg-[#1F4D3A] hover:bg-[#17392b]"
+                    variant="golf"
                   >
                     <Save className="h-4 w-4" />
                     {saving ? "Saving..." : "Save Round"}
@@ -443,13 +444,13 @@ function Field({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-sm text-black/50">{label}</label>
+      <label className="mb-2 block text-sm text-muted">{label}</label>
       <input
         type={type}
         min={type === "number" ? 0 : undefined}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-black/10 px-4 py-3 outline-none focus:border-[#1F4D3A]"
+        className="w-full rounded-lg border border-line px-4 py-3 outline-none focus:border-golf"
       />
     </div>
   );
@@ -470,12 +471,12 @@ function SelectField({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-sm text-black/50">{label}</label>
+      <label className="mb-2 block text-sm text-muted">{label}</label>
       <select
         value={value}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 capitalize outline-none focus:border-[#1F4D3A] disabled:bg-black/5 disabled:text-black/35"
+        className="w-full rounded-lg border border-line bg-white px-4 py-3 capitalize outline-none focus:border-golf disabled:bg-steel/5 disabled:text-muted"
       >
         {options.map((option) => (
           <option key={option} value={option}>

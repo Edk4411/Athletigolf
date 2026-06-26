@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { ArrowRight, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { Button, FieldLabel, TextInput } from "@/components/ui";
 
 export default function AuthPage() {
   const { signUp, signIn } = useAuth();
@@ -32,30 +34,46 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-cream flex items-center justify-center px-6">
-      <div className="w-full max-w-5xl bg-white rounded-[2rem] shadow-2xl overflow-hidden grid lg:grid-cols-2">
-        {/* LEFT SIDE */}
-        <div className="bg-dark text-white p-12 flex flex-col justify-center">
-          <p className="uppercase tracking-[0.25em] text-sm text-white/50 mb-6">AthletiGolf</p>
-          <h1 className="text-5xl font-semibold leading-tight mb-6">
-            Build Performance<br />On and Off the Course.
-          </h1>
-          <p className="text-white/70 leading-relaxed text-lg">
-            Track workouts, monitor progression, analyse golf performance and train with purpose.
-          </p>
-        </div>
+    <div className="flex min-h-screen items-center justify-center bg-cream px-4 py-8">
+      <div className="grid w-full max-w-5xl overflow-hidden rounded-xl border border-line bg-panel shadow-2xl lg:grid-cols-[1.05fr_0.95fr]">
+        <section className="relative flex min-h-[520px] flex-col justify-between overflow-hidden bg-dark p-8 text-white md:p-12">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(0,166,200,0.28),transparent_34%),radial-gradient(circle_at_80%_80%,rgba(65,87,216,0.24),transparent_38%)]" />
+          <div className="relative">
+            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-pulse">
+              <ShieldCheck className="h-4 w-4" />
+              AthletiGolf OS
+            </div>
+            <h1 className="max-w-xl text-5xl font-semibold leading-tight">
+              Your golf and athletic performance in one place.
+            </h1>
+            <p className="mt-6 max-w-lg text-lg leading-relaxed text-white/65">
+              Track rounds, log training, and build the data layer for smarter progress.
+            </p>
+          </div>
 
-        {/* RIGHT SIDE */}
-        <div className="p-10 md:p-14 flex flex-col justify-center">
-          <h2 className="text-4xl font-semibold mb-3">
-            {isLogin ? "Welcome Back" : `Welcome ${username || ""}`}
+          <div className="relative grid gap-3 sm:grid-cols-3">
+            {["Rounds", "Training", "Insights"].map((item) => (
+              <div key={item} className="rounded-lg border border-white/10 bg-white/8 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-white/40">Module</p>
+                <p className="mt-2 font-semibold">{item}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="flex flex-col justify-center p-8 md:p-12">
+          <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-lab">
+            {isLogin ? "Sign in" : "Create account"}
+          </p>
+          <h2 className="mb-3 text-4xl font-semibold text-dark">
+            {isLogin ? "Welcome back" : `Welcome ${username || ""}`}
           </h2>
-          <p className="text-black/60 mb-10">
-            {isLogin ? "Sign in to continue your progress." : "Create your account to get started."}
+          <p className="mb-8 text-muted">
+            {isLogin ? "Open your command center and continue the work." : "Set up your profile and start tracking properly."}
           </p>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl mb-6 text-sm">
+            <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
             </div>
           )}
@@ -63,68 +81,67 @@ export default function AuthPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {!isLogin && (
               <div>
-                <label className="block text-sm mb-2 text-black/60">Username</label>
-                <input
+                <FieldLabel>Username</FieldLabel>
+                <TextInput
                   type="text"
                   placeholder="Enter username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full border border-black/10 rounded-2xl px-5 py-4 outline-none focus:border-black transition"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-sm mb-2 text-black/60">Email</label>
-              <input
+              <FieldLabel>Email</FieldLabel>
+              <TextInput
                 type="email"
                 placeholder="Enter email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full border border-black/10 rounded-2xl px-5 py-4 outline-none focus:border-black transition"
               />
             </div>
 
             <div>
-              <label className="block text-sm mb-2 text-black/60">Password</label>
-              <input
+              <FieldLabel>Password</FieldLabel>
+              <TextInput
                 type="password"
                 placeholder="Enter password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full border border-black/10 rounded-2xl px-5 py-4 outline-none focus:border-black transition"
               />
             </div>
 
-            <button
+            <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-dark text-white py-4 rounded-2xl hover:scale-[1.01] transition disabled:opacity-50"
+              variant="pulse"
+              className="w-full"
             >
               {loading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
-            </button>
+              <ArrowRight className="h-4 w-4" />
+            </Button>
           </form>
 
-          <div className="mt-8 text-center text-black/60">
+          <div className="mt-8 text-center text-muted">
             {isLogin ? (
               <>
                 Don&apos;t have an account?{" "}
-                <button onClick={() => setIsLogin(false)} className="text-black font-medium hover:underline">
+                <button onClick={() => setIsLogin(false)} className="font-semibold text-dark hover:underline">
                   Create one
                 </button>
               </>
             ) : (
               <>
                 Already have an account?{" "}
-                <button onClick={() => setIsLogin(true)} className="text-black font-medium hover:underline">
+                <button onClick={() => setIsLogin(true)} className="font-semibold text-dark hover:underline">
                   Sign in
                 </button>
               </>
             )}
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );

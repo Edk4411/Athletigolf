@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import { Button, FieldLabel, SelectInput, TextArea, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 
 type PracticeType = "Driving Range" | "Putting" | "Chipping" | "Short Game" | "On Course";
@@ -45,25 +46,14 @@ export default function PracticeSession() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-[#f7f3ea] text-[#101010] flex items-center justify-center p-6">
-        <div className="bg-white rounded-[2rem] shadow-sm border border-black/5 p-10 max-w-xl w-full text-center">
-          <h1 className="text-4xl font-semibold mb-4">Practice Logged</h1>
-          <p className="text-black/60 mb-8">
-            Nice work. Your practice session has been saved.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/golf/practice">
-              <button className="bg-[#1f4d3a] text-white px-6 py-3 rounded-full font-medium hover:bg-[#17392b] transition">
-                Log Another
-              </button>
-            </Link>
-
-            <Link href="/golf/practice-history">
-              <button className="bg-black text-white px-6 py-3 rounded-full font-medium hover:bg-black/80 transition">
-                View History
-              </button>
-            </Link>
+      <div className="flex min-h-screen items-center justify-center bg-cream p-6 text-ink">
+        <div className="w-full max-w-xl rounded-xl border border-line bg-panel p-8 text-center shadow-sm">
+          <div className="mx-auto mb-5 h-1 w-16 rounded-full bg-pulse" />
+          <h1 className="mb-4 text-4xl font-semibold">Practice Logged</h1>
+          <p className="mb-8 text-muted">Nice work. Your practice session has been saved.</p>
+          <div className="flex flex-col justify-center gap-4 sm:flex-row">
+            <Link href="/golf/practice"><a><Button variant="golf">Log Another</Button></a></Link>
+            <Link href="/golf/practice-history"><a><Button variant="primary">View History</Button></a></Link>
           </div>
         </div>
       </div>
@@ -73,124 +63,90 @@ export default function PracticeSession() {
   const focusOptions = focusOptionsMap[practiceType];
 
   return (
-    <div className="min-h-screen bg-[#f7f3ea] text-[#101010] p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-8">
+    <div className="min-h-screen bg-cream p-5 text-ink md:p-7">
+      <div className="mx-auto max-w-4xl">
+        <div className="mb-7 border-b border-line pb-6">
           <Link href="/dashboard">
-            <button className="text-sm text-black/50 hover:text-black mb-4">
+            <button className="mb-4 text-sm font-medium text-muted transition hover:text-dark">
               Back to Dashboard
             </button>
           </Link>
-
-          <h1 className="text-5xl font-semibold tracking-tight mb-3">
-            Log Practice
-          </h1>
-          <p className="text-black/60">
-            Track your range, putting, chipping and short game sessions.
-          </p>
+          <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-golf">Golf Practice</p>
+          <h1 className="mb-3 text-4xl font-semibold tracking-tight text-dark">Log Practice</h1>
+          <p className="text-muted">Track your range, putting, chipping and short game sessions.</p>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white rounded-[2rem] shadow-sm border border-black/5 p-8"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <form onSubmit={handleSubmit} className="rounded-xl border border-line bg-panel p-6 shadow-sm">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
-              <label className="block text-sm text-black/50 mb-2">
-                Practice Type
-              </label>
-              <select
+              <FieldLabel>Practice Type</FieldLabel>
+              <SelectInput
                 value={practiceType}
                 onChange={(e) => {
                   setPracticeType(e.target.value as PracticeType);
                   setFocusArea("");
                 }}
-                className="w-full rounded-2xl border border-black/10 p-4 outline-none focus:border-[#1f4d3a]"
               >
                 <option>Driving Range</option>
                 <option>Putting</option>
                 <option>Chipping</option>
                 <option>Short Game</option>
                 <option>On Course</option>
-              </select>
+              </SelectInput>
             </div>
 
             <div>
-              <label className="block text-sm text-black/50 mb-2">
-                Duration (minutes)
-              </label>
-              <input
+              <FieldLabel>Duration (minutes)</FieldLabel>
+              <TextInput
                 type="number"
                 min="1"
                 value={durationMinutes}
                 onChange={(e) => setDurationMinutes(e.target.value)}
                 placeholder="e.g. 45"
                 required
-                className="w-full rounded-2xl border border-black/10 p-4 outline-none focus:border-[#1f4d3a]"
               />
             </div>
 
             <div>
-              <label className="block text-sm text-black/50 mb-2">
-                Focus Area
-              </label>
-              <select
-                value={focusArea}
-                onChange={(e) => setFocusArea(e.target.value)}
-                required
-                className="w-full rounded-2xl border border-black/10 p-4 outline-none focus:border-[#1f4d3a]"
-              >
+              <FieldLabel>Focus Area</FieldLabel>
+              <SelectInput value={focusArea} onChange={(e) => setFocusArea(e.target.value)} required>
                 <option value="">Select focus</option>
                 {focusOptions.map((option) => (
                   <option key={option}>{option}</option>
                 ))}
-              </select>
+              </SelectInput>
             </div>
 
             <div>
-              <label className="block text-sm text-black/50 mb-2">
-                Session Rating
-              </label>
-              <select
-                value={rating}
-                onChange={(e) => setRating(e.target.value)}
-                required
-                className="w-full rounded-2xl border border-black/10 p-4 outline-none focus:border-[#1f4d3a]"
-              >
+              <FieldLabel>Session Rating</FieldLabel>
+              <SelectInput value={rating} onChange={(e) => setRating(e.target.value)} required>
                 <option value="">Rate session</option>
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                   <option key={num} value={num}>{num}/10</option>
                 ))}
-              </select>
+              </SelectInput>
             </div>
           </div>
 
           <div className="mt-6">
-            <label className="block text-sm text-black/50 mb-2">
-              Notes
-            </label>
-            <textarea
+            <FieldLabel>Notes</FieldLabel>
+            <TextArea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="What felt good? What needs work?"
               rows={5}
-              className="w-full rounded-2xl border border-black/10 p-4 outline-none focus:border-[#1f4d3a]"
             />
           </div>
 
           {saveError && (
-            <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
               {saveError}
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={saving}
-            className="mt-8 w-full bg-[#1f4d3a] text-white py-4 rounded-full font-medium hover:bg-[#17392b] transition disabled:opacity-50"
-          >
+          <Button type="submit" disabled={saving} variant="golf" className="mt-8 w-full">
             {saving ? "Saving..." : "Save Practice Session"}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

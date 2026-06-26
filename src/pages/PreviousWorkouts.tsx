@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Edit3, Plus, Trash2, X } from "lucide-react";
-import { Button, Card, PageHeader, StatCard } from "@/components/ui";
+import { Button, FieldLabel, PageHeader, StatCard, Surface, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { ExerciseLog, Workout } from "@/lib/types";
 
@@ -123,27 +123,27 @@ export default function PreviousWorkouts() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
-        <div className="text-black/40 text-lg">Loading...</div>
+      <div className="flex min-h-screen items-center justify-center bg-cream">
+        <div className="text-lg text-muted">Loading your training logbook...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-cream px-6 py-8 text-[#171717]">
+    <main className="min-h-screen bg-cream px-4 py-5 text-ink md:px-8 md:py-7">
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <PageHeader
-            eyebrow="Gym History"
-            title="Previous Workouts"
-            description="Review, edit and clean up your recent gym sessions."
-            tone="text-[#7A1F1F]"
+            eyebrow="Performance Lab"
+            title="Training Logbook"
+            description="Review, edit and clean up the strength sessions feeding your golf performance."
+            tone="text-lab"
           />
 
           <Link href="/workouts/submit">
-            <a className="inline-flex items-center justify-center rounded-2xl bg-[#7A1F1F] px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-[#651919]">
+            <a className="inline-flex items-center justify-center gap-2 rounded-lg bg-pulse px-5 py-3 font-semibold text-dark shadow-sm transition hover:-translate-y-0.5 hover:bg-pulse/85">
               <Plus className="mr-2 h-4 w-4" />
-              Submit Session
+              Log Session
             </a>
           </Link>
         </div>
@@ -161,8 +161,8 @@ export default function PreviousWorkouts() {
               onClick={() => setSelectedSplit(split)}
               className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                 selectedSplit === split
-                  ? "bg-[#7A1F1F] text-white"
-                  : "border border-black/10 bg-white text-black/60 hover:border-[#7A1F1F]/30"
+                  ? "bg-dark text-white"
+                  : "border border-line bg-white text-muted hover:border-lab/30"
               }`}
             >
               {split}
@@ -177,63 +177,49 @@ export default function PreviousWorkouts() {
         )}
 
         {filteredWorkouts.length === 0 ? (
-          <Card className="p-10 text-center">
-            <h2 className="mb-2 text-2xl font-bold text-[#7A1F1F]">
-              No workouts yet
-            </h2>
-            <p className="mb-5 text-black/50">
-              Submit a gym session and it'll appear here.
+          <Surface className="p-10 text-center">
+            <h2 className="mb-2 text-2xl font-bold text-dark">No sessions yet</h2>
+            <p className="mb-5 text-muted">
+              Log a training session and it'll appear here.
             </p>
             <Link href="/workouts/submit">
-              <a className="inline-flex items-center justify-center rounded-2xl bg-[#7A1F1F] px-5 py-3 font-semibold text-white transition hover:bg-[#651919]">
-                Submit First Session
+              <a className="inline-flex items-center justify-center rounded-lg bg-pulse px-5 py-3 font-semibold text-dark transition hover:bg-pulse/85">
+                Log First Session
               </a>
             </Link>
-          </Card>
+          </Surface>
         ) : (
-          <div className="grid gap-5">
+          <div className="overflow-hidden rounded-xl border border-line bg-panel shadow-sm">
+            <div className="hidden grid-cols-[1fr_120px_120px_110px] gap-4 border-b border-line bg-steel/5 px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-muted md:grid">
+              <span>Session</span>
+              <span>Date</span>
+              <span>Exercises</span>
+              <span />
+            </div>
             {filteredWorkouts.map((workout, index) => (
-              <Card
+              <article
                 key={workout.id || index}
-                className="transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                className="border-b border-line p-5 last:border-b-0 hover:bg-steel/5"
               >
-                <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="grid gap-4 md:grid-cols-[1fr_120px_120px_110px] md:items-center">
                   <div>
-                    <h2 className="text-2xl font-bold text-[#7A1F1F]">
+                    <h2 className="text-xl font-bold text-dark">
                       {workout.workout_name || "Workout"}
                     </h2>
-                    <p className="text-black/50">{workout.date || "-"}</p>
+                    <p className="mt-1 text-sm text-muted">
+                      {(workout.exercises || []).slice(0, 3).map((exercise) => exercise.name).join(", ") || "No exercises recorded"}
+                    </p>
                   </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <div className="w-fit rounded-full bg-[#7A1F1F]/10 px-4 py-2 text-sm font-semibold text-[#7A1F1F]">
-                      {workout.exercises?.length || 0} exercises
-                    </div>
-                    <Button variant="secondary" onClick={() => openEditor(workout)}>
-                      <Edit3 className="h-4 w-4" />
-                      Edit
-                    </Button>
+                  <p className="text-sm font-semibold text-muted">{workout.date || "-"}</p>
+                  <div className="w-fit rounded-full bg-lab/10 px-3 py-1.5 text-sm font-semibold text-lab">
+                    {workout.exercises?.length || 0} exercises
                   </div>
+                  <Button variant="secondary" onClick={() => openEditor(workout)}>
+                    <Edit3 className="h-4 w-4" />
+                    Edit
+                  </Button>
                 </div>
-
-                <div className="grid gap-3">
-                  {(workout.exercises || []).map((exercise, i) => (
-                    <div
-                      key={i}
-                      className="grid grid-cols-1 items-center gap-3 rounded-2xl border border-black/5 bg-cream p-4 md:grid-cols-3"
-                    >
-                      <p className="font-semibold">{exercise.name}</p>
-                      <p className="text-black/60">
-                        {exercise.sets ? `${exercise.sets} sets` : "-"} x{" "}
-                        {exercise.reps ? `${exercise.reps} reps` : "-"}
-                      </p>
-                      <p className="font-semibold text-[#7A1F1F] md:text-right">
-                        {exercise.weight || "-"}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </Card>
+              </article>
             ))}
           </div>
         )}
@@ -246,19 +232,15 @@ export default function PreviousWorkouts() {
             className="absolute inset-0 bg-black/50"
             aria-label="Close workout editor"
           />
-          <div className="relative z-10 max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] bg-white p-8 shadow-2xl">
+          <div className="relative z-10 max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-panel p-6 shadow-2xl">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
-                <p className="mb-2 text-sm uppercase tracking-[0.25em] text-[#7A1F1F]/70">
-                  Edit Workout
-                </p>
-                <h2 className="text-4xl font-semibold text-[#7A1F1F]">
-                  {editName || "Workout"}
-                </h2>
+                <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-lab">Edit Session</p>
+                <h2 className="text-3xl font-semibold text-dark">{editName || "Training Session"}</h2>
               </div>
               <button
                 onClick={() => setEditingWorkout(null)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl text-black/50 transition hover:bg-black/5 hover:text-black"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-steel/10 hover:text-dark"
                 aria-label="Close workout editor"
               >
                 <X className="h-5 w-5" />
@@ -272,9 +254,9 @@ export default function PreviousWorkouts() {
 
             <div className="space-y-4">
               {editExercises.map((exercise, index) => (
-                <Card key={index} className="bg-cream p-4">
+                <Surface key={index} className="bg-steel/5 p-4">
                   <div className="mb-3 flex items-center justify-between">
-                    <p className="font-semibold text-[#7A1F1F]">Exercise {index + 1}</p>
+                    <p className="font-semibold text-lab">Exercise {index + 1}</p>
                     <button
                       onClick={() =>
                         setEditExercises((prev) => prev.filter((_, i) => i !== index))
@@ -311,7 +293,7 @@ export default function PreviousWorkouts() {
                       onChange={(value) => updateExercise(index, "notes", value)}
                     />
                   </div>
-                </Card>
+                </Surface>
               ))}
             </div>
 
@@ -336,16 +318,16 @@ export default function PreviousWorkouts() {
                 <Button
                   onClick={saveWorkout}
                   disabled={saving}
-                  className="bg-[#7A1F1F] hover:bg-[#651919]"
+                  variant="pulse"
                 >
-                  {saving ? "Saving..." : "Save Workout"}
+                  {saving ? "Saving..." : "Save Session"}
                 </Button>
               </div>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }
 
@@ -362,12 +344,11 @@ function Field({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-sm text-black/50">{label}</label>
-      <input
+      <FieldLabel>{label}</FieldLabel>
+      <TextInput
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 outline-none focus:border-[#7A1F1F]"
       />
     </div>
   );

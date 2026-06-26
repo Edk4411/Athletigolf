@@ -41,11 +41,12 @@ function AppShell() {
 
  return (
   <div
-    className="min-h-screen bg-cream font-sans"
+    className="min-h-screen bg-cream font-sans text-ink"
     onBlurCapture={(event) => applyTextAutoFormatToField(event.target)}
   >
     {!hideSidebar && <MobileSidebar />}
-    <Switch>
+    <div className={!hideSidebar ? "min-h-screen pt-20 lg:pl-72" : ""}>
+      <Switch>
       <Route path="/coming-soon">
         <ComingSoon />
       </Route>
@@ -154,6 +155,7 @@ function AppShell() {
           <Redirect to="/" />
         </Route>
       </Switch>
+    </div>
     </div>
   );
 }

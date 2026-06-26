@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { GripVertical, Plus, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { Button, Card, PageHeader } from "@/components/ui";
+import { Button, FieldLabel, PageHeader, Surface, TextInput } from "@/components/ui";
 import type { SplitDay } from "@/lib/types";
 
 type SplitDayState = {
@@ -137,78 +137,82 @@ export default function CreateSplit() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
-        <div className="text-black/40 text-lg">Loading...</div>
+      <div className="flex min-h-screen items-center justify-center bg-cream">
+        <div className="text-lg text-muted">Loading your training board...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-cream p-8 md:p-12">
+    <main className="min-h-screen bg-cream px-4 py-5 md:px-8 md:py-7">
       <div className="mx-auto max-w-7xl">
         <PageHeader
-          eyebrow="Fitness"
-          title="Create Your Split"
-          description="Build your weekly training timetable so AthletiGolf can track your gym progression."
-          tone="text-[#7A1F1F]"
+          eyebrow="Performance Lab"
+          title="Training Board"
+          description="Design the week, set exercise order, and keep every session ready for fast logging."
+          tone="text-lab"
+          actions={
+            <Button onClick={saveAll} disabled={saving} variant="pulse">
+              {saving ? "Saving..." : "Save Board"}
+            </Button>
+          }
         />
 
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 items-stretch">
+        <div className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           {split.map((day, index) => (
             <button
               key={day.day}
               onClick={() => openEditor(index)}
-              className="flex h-full min-h-[390px] flex-col rounded-[2rem] border border-[#7A1F1F]/10 bg-white p-5 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+              className="flex h-full min-h-[370px] flex-col rounded-xl border border-line bg-panel p-4 text-left shadow-sm transition hover:-translate-y-1 hover:border-lab/35 hover:shadow-xl"
             >
-              <div className="mb-5 rounded-2xl bg-[#7A1F1F] p-4 text-white">
-                <p className="text-sm text-white/60">{day.day}</p>
-                <h2 className="text-2xl font-semibold">{day.focus}</h2>
+              <div className="mb-4 rounded-lg bg-dark p-4 text-white">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-pulse">{day.day}</p>
+                <h2 className="mt-2 text-xl font-semibold">{day.focus}</h2>
               </div>
 
-              <div className="flex-1 space-y-3">
+              <div className="flex-1 space-y-2">
                 {day.exercises.length > 0 ? (
                   day.exercises.map((exercise, i) => (
                     <div
                       key={i}
-                      className="rounded-xl border border-[#7A1F1F]/10 bg-cream px-4 py-3"
+                      className="flex items-center gap-2 rounded-lg border border-line bg-steel/5 px-3 py-2"
                     >
+                      <span className="h-1.5 w-1.5 rounded-full bg-pulse" />
                       <p className="text-sm font-medium">{exercise}</p>
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-xl border border-[#7A1F1F]/10 bg-cream px-4 py-3">
-                    <p className="text-sm text-black/50">No exercises yet</p>
+                  <div className="rounded-lg border border-dashed border-line bg-steel/5 px-4 py-3">
+                    <p className="text-sm text-muted">No exercises yet</p>
                   </div>
                 )}
               </div>
 
-              <p className="mt-5 text-sm text-[#7A1F1F]/70">Click to edit</p>
+              <p className="mt-5 text-sm font-semibold text-lab">Click to edit</p>
             </button>
           ))}
         </div>
 
         <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <Card className="flex-1 border-[#7A1F1F]/10">
-            <p className="mb-2 text-sm text-[#7A1F1F]/70">Tip</p>
-            <h2 className="mb-2 text-2xl font-semibold">
-              Make your split match your week
-            </h2>
-            <p className="text-black/60">
+          <Surface className="flex-1">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-lab">Board logic</p>
+            <h2 className="mb-2 text-2xl font-semibold text-dark">Make the split match your real week</h2>
+            <p className="text-muted">
               Drag exercises inside each day to set the order they appear when
-              you submit a workout.
+              you submit a training session.
             </p>
-          </Card>
+          </Surface>
 
           <div className="flex flex-col gap-3">
             {savedMessage && (
-              <p className="text-sm font-medium text-[#1F4D3A]">{savedMessage}</p>
+              <p className="text-sm font-medium text-golf">{savedMessage}</p>
             )}
             <Button
               onClick={saveAll}
               disabled={saving}
-              className="bg-[#7A1F1F] hover:bg-[#651919]"
+              variant="pulse"
             >
-              {saving ? "Saving..." : "Save Split"}
+              {saving ? "Saving..." : "Save Board"}
             </Button>
           </div>
         </div>
@@ -221,20 +225,20 @@ export default function CreateSplit() {
             className="absolute inset-0 bg-black/50"
           />
 
-          <div className="relative z-10 w-full max-w-xl rounded-[2rem] bg-white p-8 shadow-2xl">
+          <div className="relative z-10 max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl bg-panel p-6 shadow-2xl">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
-                <p className="mb-2 text-sm uppercase tracking-[0.25em] text-[#7A1F1F]/70">
+                <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-lab">
                   Edit {editingDay.day}
                 </p>
-                <h2 className="text-4xl font-semibold text-[#7A1F1F]">
+                <h2 className="text-3xl font-semibold text-dark">
                   {editFocus || "Training Day"}
                 </h2>
               </div>
 
               <button
                 onClick={closeEditor}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl text-black/50 transition hover:bg-black/5 hover:text-black"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-steel/10 hover:text-dark"
                 aria-label="Close editor"
               >
                 <X className="h-5 w-5" />
@@ -242,22 +246,17 @@ export default function CreateSplit() {
             </div>
 
             <div className="mb-6">
-              <label className="mb-2 block text-sm text-black/50">
-                Split Name
-              </label>
-              <input
+              <FieldLabel>Training focus</FieldLabel>
+              <TextInput
                 value={editFocus}
                 onChange={(e) => setEditFocus(e.target.value)}
                 placeholder="Push, Pull, Legs..."
-                className="w-full rounded-2xl border border-black/10 px-5 py-4 outline-none focus:border-[#7A1F1F]"
               />
             </div>
 
             <div>
-              <label className="mb-3 block text-sm text-black/50">
-                Exercises
-              </label>
-              <p className="mb-3 text-sm text-black/45">
+              <FieldLabel>Exercises</FieldLabel>
+              <p className="mb-3 text-sm text-muted">
                 Drag the handle to reorder exercises before saving the day.
               </p>
 
@@ -274,13 +273,13 @@ export default function CreateSplit() {
                       }
                     }}
                     onDragEnd={() => setDraggedExercise(null)}
-                    className={`flex gap-3 rounded-2xl border border-black/10 bg-white p-2 transition ${
+                    className={`flex gap-3 rounded-lg border border-line bg-white p-2 transition ${
                       draggedExercise === index ? "scale-[0.99] opacity-70" : ""
                     }`}
                   >
                     <button
                       type="button"
-                      className="flex cursor-grab items-center rounded-xl px-2 text-black/35 active:cursor-grabbing"
+                      className="flex cursor-grab items-center rounded-lg px-2 text-muted active:cursor-grabbing"
                       aria-label="Drag to reorder exercise"
                     >
                       <GripVertical className="h-5 w-5" />
@@ -289,12 +288,12 @@ export default function CreateSplit() {
                       value={exercise}
                       onChange={(e) => updateExercise(index, e.target.value)}
                       placeholder="Exercise name"
-                      className="flex-1 rounded-xl border border-transparent px-3 py-2 outline-none focus:border-[#7A1F1F]"
+                      className="flex-1 rounded-lg border border-transparent px-3 py-2 outline-none focus:border-pulse"
                     />
 
                     <button
                       onClick={() => removeExercise(index)}
-                      className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-black/10 text-black/50 transition hover:border-red-500 hover:text-red-500"
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-line text-muted transition hover:border-danger hover:text-danger"
                       aria-label="Remove exercise"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -306,7 +305,7 @@ export default function CreateSplit() {
               <Button
                 onClick={addExercise}
                 variant="secondary"
-                className="mt-4 border-[#7A1F1F]/20 text-[#7A1F1F] hover:bg-[#7A1F1F]/5"
+                className="mt-4"
               >
                 <Plus className="h-4 w-4" />
                 Add Exercise
@@ -323,7 +322,7 @@ export default function CreateSplit() {
 
               <Button
                 onClick={saveChanges}
-                className="bg-[#7A1F1F] hover:bg-[#651919]"
+                variant="pulse"
               >
                 Save Changes
               </Button>
@@ -331,6 +330,6 @@ export default function CreateSplit() {
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }

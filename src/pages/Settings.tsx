@@ -141,7 +141,7 @@ export default function Settings() {
         <section className="grid gap-6">
 
           {/* PROFILE */}
-          <div className="rounded-[2rem] border border-black/5 bg-white p-6 shadow-sm">
+          <div className="rounded-xl border border-line bg-white p-6 shadow-sm">
             <h2 className="mb-2 text-2xl font-semibold">Profile</h2>
             <p className="mb-6 text-black/60">
               Update your name, handicap, goals and personal details.
@@ -151,7 +151,7 @@ export default function Settings() {
               <div className="flex flex-col gap-1">
                 <label className="text-sm text-black/50">Full name</label>
                 <input
-                  className="rounded-2xl border border-black/10 p-4 outline-none focus:border-black/30 transition"
+                  className="rounded-2xl border border-line p-4 outline-none focus:border-black/30 transition"
                   placeholder="e.g. Jamie Wilson"
                   value={profile.full_name}
                   onChange={(e) => set("full_name", e.target.value)}
@@ -161,7 +161,7 @@ export default function Settings() {
               <div className="flex flex-col gap-1">
                 <label className="text-sm text-black/50">Golf handicap</label>
                 <input
-                  className="rounded-2xl border border-black/10 p-4 outline-none focus:border-black/30 transition"
+                  className="rounded-2xl border border-line p-4 outline-none focus:border-black/30 transition"
                   placeholder="e.g. 12.4"
                   type="number"
                   step="0.1"
@@ -173,7 +173,7 @@ export default function Settings() {
               <div className="flex flex-col gap-1">
                 <label className="text-sm text-black/50">Height</label>
                 <input
-                  className="rounded-2xl border border-black/10 p-4 outline-none focus:border-black/30 transition"
+                  className="rounded-2xl border border-line p-4 outline-none focus:border-black/30 transition"
                   placeholder="e.g. 180cm"
                   value={profile.height}
                   onChange={(e) => set("height", e.target.value)}
@@ -183,7 +183,7 @@ export default function Settings() {
               <div className="flex flex-col gap-1">
                 <label className="text-sm text-black/50">Weight</label>
                 <input
-                  className="rounded-2xl border border-black/10 p-4 outline-none focus:border-black/30 transition"
+                  className="rounded-2xl border border-line p-4 outline-none focus:border-black/30 transition"
                   placeholder="e.g. 80kg"
                   value={profile.weight}
                   onChange={(e) => set("weight", e.target.value)}
@@ -193,7 +193,7 @@ export default function Settings() {
               <div className="flex flex-col gap-1 md:col-span-2">
                 <label className="text-sm text-black/50">Main goal</label>
                 <input
-                  className="rounded-2xl border border-black/10 p-4 outline-none focus:border-black/30 transition"
+                  className="rounded-2xl border border-line p-4 outline-none focus:border-black/30 transition"
                   placeholder="e.g. Break 80, Improve strength, Lose 5kg"
                   value={profile.main_goal}
                   onChange={(e) => set("main_goal", e.target.value)}
@@ -203,7 +203,7 @@ export default function Settings() {
           </div>
 
           {/* UNITS */}
-          <div className="rounded-[2rem] border border-black/5 bg-white p-6 shadow-sm">
+          <div className="rounded-xl border border-line bg-white p-6 shadow-sm">
             <h2 className="mb-2 text-2xl font-semibold">Units</h2>
             <p className="mb-6 text-black/60">
               Switch between yards/metres and kg/lbs.
@@ -213,7 +213,7 @@ export default function Settings() {
               <div className="flex flex-col gap-1">
                 <label className="text-sm text-black/50">Distance unit</label>
                 <select
-                  className="rounded-2xl border border-black/10 p-4 outline-none focus:border-black/30 transition bg-white"
+                  className="rounded-2xl border border-line p-4 outline-none focus:border-black/30 transition bg-white"
                   value={profile.distance_unit}
                   onChange={(e) => set("distance_unit", e.target.value)}
                 >
@@ -225,7 +225,7 @@ export default function Settings() {
               <div className="flex flex-col gap-1">
                 <label className="text-sm text-black/50">Weight unit</label>
                 <select
-                  className="rounded-2xl border border-black/10 p-4 outline-none focus:border-black/30 transition bg-white"
+                  className="rounded-2xl border border-line p-4 outline-none focus:border-black/30 transition bg-white"
                   value={profile.weight_unit}
                   onChange={(e) => set("weight_unit", e.target.value)}
                 >
@@ -237,7 +237,7 @@ export default function Settings() {
           </div>
 
           {/* THEME */}
-          <div className="rounded-[2rem] border border-black/5 bg-white p-6 shadow-sm">
+          <div className="rounded-xl border border-line bg-white p-6 shadow-sm">
             <h2 className="mb-2 text-2xl font-semibold">Theme</h2>
             <p className="mb-6 text-black/60">
               Customise the look of AthletiGolf.
@@ -251,7 +251,7 @@ export default function Settings() {
                   className={`rounded-full px-5 py-3 text-sm font-medium transition border ${
                     profile.theme === t.value
                       ? "bg-black text-white border-black"
-                      : "bg-cream text-black/60 border-black/10 hover:border-black/30"
+                      : "bg-cream text-black/60 border-line hover:border-black/30"
                   }`}
                 >
                   {t.label}
@@ -261,7 +261,7 @@ export default function Settings() {
           </div>
 
           {/* NOTIFICATIONS */}
-          <div className="rounded-[2rem] border border-black/5 bg-white p-6 shadow-sm">
+          <div className="rounded-xl border border-line bg-white p-6 shadow-sm">
             <h2 className="mb-2 text-2xl font-semibold">Notifications</h2>
             <p className="mb-6 text-black/60">
               Choose whether to receive app reminders and updates.
@@ -295,7 +295,7 @@ export default function Settings() {
         </section>
 
         {/* ACCOUNT CONTROLS */}
-        <section className="mt-10 rounded-[2rem] bg-slate-950 p-8 text-white shadow-2xl">
+        <section className="mt-10 rounded-xl bg-dark p-8 text-white shadow-2xl">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.25em] text-[#D4AF37]">
             Account
           </p>

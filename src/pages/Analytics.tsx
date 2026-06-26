@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { Link } from "wouter";
+import { ArrowUpRight, BarChart3, Dumbbell, Flag, Target } from "lucide-react";
+import { Button, EmptyState, SectionTitle, Surface } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { formatAverage, formatPercent, getGolfStats } from "@/lib/golfStats";
 import type { Round, Workout } from "@/lib/types";
@@ -29,266 +32,200 @@ export default function Analytics() {
 
   const golfStats = getGolfStats(rounds);
   const roundsWithScores = rounds.filter((r) => r.score !== null);
-  const avgScore = formatAverage(golfStats.avgScore);
-
+  const recentScores = roundsWithScores.slice(0, 8).reverse().map((r) => r.score || 0);
   const workoutsThisWeek = (() => {
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     return workouts.filter((w) => w.created_at && new Date(w.created_at) >= weekAgo).length;
   })();
+  const exerciseCount = workouts.reduce((sum, workout) => sum + (workout.exercises?.length || 0), 0);
 
-  const avgFairways = golfStats.avgFairwayPercent ?? 0;
-  const avgGir = golfStats.avgGirPercent ?? 0;
-  const totalPenaltyShots = golfStats.totalPenaltyShots;
-
-  const recentScores = roundsWithScores
-    .slice(0, 5)
-    .reverse()
-    .map((r) => r.score || 0);
-
-  const topStats = [
-    ["Avg Score", avgScore],
-    ["Workouts / Week", workoutsThisWeek.toString()],
-    ["Rounds Logged", rounds.length.toString()],
-    ["Workouts Logged", workouts.length.toString()],
-  ];
+  const biggestOpportunity =
+    rounds.length === 0
+      ? "Log rounds to unlock scoring opportunities."
+      : (golfStats.avgGirPercent ?? 0) < 55
+      ? "Approach play is the clearest scoring opportunity."
+      : (golfStats.avgFairwayPercent ?? 0) < 55
+      ? "Driving accuracy is the clearest scoring opportunity."
+      : "Short-game and putting consistency are the next useful focus.";
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
-        <div className="text-black/40 text-lg">Loading...</div>
+      <div className="flex min-h-screen items-center justify-center bg-cream">
+        <div className="text-lg text-muted">Loading performance report...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-cream p-8 md:p-12">
-      <div className="max-w-7xl mx-auto">
+    <main className="min-h-screen bg-cream px-4 py-5 md:px-8 md:py-7">
+      <section className="mb-5 overflow-hidden rounded-2xl border border-white/10 bg-dark text-white">
+        <div className="grid gap-6 p-6 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-pulse">Performance Report</p>
+            <h1 className="mt-4 text-4xl font-semibold tracking-tight md:text-5xl">
+              Intelligence, not noise.
+            </h1>
+            <p className="mt-4 max-w-2xl leading-relaxed text-white/64">
+              See the relationship between scoring, practice markers and training consistency without turning the product into a spreadsheet.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/golf/submit"><a><Button variant="golf"><Flag className="h-4 w-4" />Round</Button></a></Link>
+            <Link href="/workouts/submit"><a><Button variant="pulse"><Dumbbell className="h-4 w-4" />Training</Button></a></Link>
+          </div>
+        </div>
+      </section>
 
-        {/* HEADER */}
-        <div className="mb-12">
-          <p className="uppercase tracking-[0.25em] text-xs text-[#D4AF37] mb-4 font-semibold">
-            AthletiGolf Analytics
-          </p>
+      <section className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <ReportKpi label="Avg Score" value={formatAverage(golfStats.avgScore)} sub={`${rounds.length} rounds`} tone="golf" />
+        <ReportKpi label="FIR" value={formatPercent(golfStats.avgFairwayPercent)} sub="tee accuracy" tone="golf" />
+        <ReportKpi label="GIR" value={formatPercent(golfStats.avgGirPercent)} sub="approach marker" tone="pulse" />
+        <ReportKpi label="Training" value={workoutsThisWeek} sub={`${workouts.length} total sessions`} tone="lab" />
+      </section>
 
-          <h1 className="text-5xl  font-semibold mb-4">
-            Performance Intelligence
-          </h1>
+      <section className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
+        <div className="space-y-5">
+          <Surface>
+            <SectionTitle eyebrow="Score Trend" title="Recent rounds" action={<BarChart3 className="h-5 w-5 text-muted" />} />
+            {recentScores.length ? (
+              <div className="flex h-80 items-end gap-3 overflow-x-auto pb-2">
+                {recentScores.map((score, index) => {
+                  const minScore = Math.min(...recentScores);
+                  const maxScore = Math.max(...recentScores);
+                  const range = maxScore - minScore || 1;
+                  const height = ((maxScore - score) / range) * 220 + 42;
+                  return (
+                    <div key={`${score}-${index}`} className="flex min-w-16 flex-1 flex-col items-center justify-end gap-3">
+                      <p className="text-sm font-semibold text-dark">{score}</p>
+                      <div className="w-full rounded-t-lg bg-gradient-to-t from-golf to-pulse" style={{ height }} />
+                      <p className="text-xs text-muted">R{index + 1}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <EmptyState
+                title="No scores yet"
+                description="Submit a round to start building your scoring trend."
+                action={<Link href="/golf/submit"><a><Button variant="golf">Submit Round</Button></a></Link>}
+              />
+            )}
+          </Surface>
 
-          <p className="text-black/60 text-lg max-w-3xl">
-            Connect your golf performance, gym training and long-term progress
-            to uncover the habits that lead to lower scores and better athletic performance.
-          </p>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <Surface>
+              <SectionTitle eyebrow="Golf" title="Scoring markers" />
+              <div className="space-y-4">
+                <Metric label="Fairways Hit" value={formatPercent(golfStats.avgFairwayPercent)} color="bg-golf" />
+                <Metric label="Greens In Regulation" value={formatPercent(golfStats.avgGirPercent)} color="bg-pulse" />
+                <Metric label="Scramble Rate" value={formatPercent(golfStats.avgScramblePercent)} color="bg-gold" />
+                <Metric label="Putts Per Round" value={formatAverage(golfStats.avgPutts)} color="bg-steel" />
+              </div>
+            </Surface>
+
+            <Surface>
+              <SectionTitle eyebrow="Performance Lab" title="Training markers" />
+              <div className="space-y-4">
+                <Metric label="Total Sessions" value={`${workouts.length}`} color="bg-lab" />
+                <Metric label="This Week" value={`${workoutsThisWeek}`} color="bg-pulse" />
+                <Metric label="Exercises Logged" value={`${exerciseCount}`} color="bg-lab" />
+                <Metric label="Status" value={workouts.length ? "Active" : "-"} color="bg-dark" />
+              </div>
+            </Surface>
+          </div>
         </div>
 
-        {/* TOP STATS */}
-        <section className="grid md:grid-cols-4 gap-6 mb-12">
-          {topStats.map(([label, value], index) => (
-            <div
-              key={index}
-              className="bg-white rounded-[2rem] p-6 shadow-sm border border-black/5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
-            >
-              <p className="text-black/50 text-sm mb-3">{label}</p>
-              <h2 className="text-4xl font-semibold">{value}</h2>
-            </div>
-          ))}
-        </section>
-
-        {/* ATHLETIGOLF INSIGHTS */}
-        <section className="mb-12">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="h-3 w-3 rounded-full bg-[#D4AF37]" />
-            <h2 className="text-3xl font-semibold">
-              AthletiGolf Insights
-            </h2>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                title: rounds.length > 0 ? `${avgScore} Avg Score` : "Start Logging",
-                text: rounds.length > 0
-                  ? `Your average score across ${rounds.length} logged rounds.`
-                  : "Log rounds to start seeing performance insights.",
-              },
-              {
-                title: workouts.length > 0 ? `${workouts.length} Workouts` : "Track Workouts",
-                text: workouts.length > 0
-                  ? `You've logged ${workouts.length} gym sessions total.`
-                  : "Submit workouts to track your gym progression.",
-              },
-              {
-                title: rounds.length > 0 ? "Biggest Opportunity" : "Get Started",
-                text: rounds.length > 0
-                  ? avgGir < 60
-                    ? "Approach play remains the largest contributor to dropped shots."
-                    : "Keep maintaining your greens in regulation percentage."
-                  : "Log rounds and workouts to unlock personalised insights.",
-              },
-            ].map((item, index) => (
-              <div
-                key={index}
-                className="bg-white rounded-[2rem] p-6 shadow-sm border border-[#D4AF37]/20 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
-              >
-                <h3 className="text-2xl font-semibold mb-3 text-[#D4AF37]">
-                  {item.title}
-                </h3>
-
-                <p className="text-black/60 leading-relaxed">
-                  {item.text}
-                </p>
+        <div className="space-y-5">
+          <Surface className="bg-dark text-white">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-pulse/15 text-pulse">
+                <Target className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-pulse">Focus</p>
+                <h2 className="text-xl font-semibold">Recommended next move</h2>
               </div>
-            ))}
-          </div>
-        </section>
-
-        {/* GOLF ANALYTICS */}
-        <section className="bg-white rounded-[2rem] p-8 shadow-sm border border-black/5 mb-10 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-          <div className="mb-8">
-            <p className="text-sm text-black/50 mb-2">
-              Golf Analytics
-            </p>
-
-            <h2 className="text-3xl font-semibold">
-              Score Trend
-            </h2>
-          </div>
-
-          {recentScores.length > 0 ? (() => {
-            const minScore = Math.min(...recentScores);
-            const maxScore = Math.max(...recentScores);
-            const range = maxScore - minScore || 1;
-            return (
-              <div className="grid gap-4 items-end h-56" style={{ gridTemplateColumns: `repeat(${recentScores.length}, 1fr)` }}>
-                {recentScores.map((score, index) => (
-                  <div key={index} className="flex flex-col items-center gap-3 h-full justify-end">
-                    <p className="font-semibold text-sm">{score}</p>
-                    <div
-                      className="w-full rounded-t-2xl bg-[#1F4D3A] min-h-[24px]"
-                      style={{ height: `${((maxScore - score) / range) * 160 + 24}px` }}
-                    />
-                  </div>
-                ))}
-              </div>
-            );
-          })() : (
-            <div className="h-56 flex items-center justify-center text-black/40">
-              No rounds logged yet
             </div>
-          )}
-        </section>
+            <p className="mt-5 leading-relaxed text-white/70">{biggestOpportunity}</p>
+            <Link href="/golf/practice">
+              <a className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-pulse">
+                Log focused practice <ArrowUpRight className="h-4 w-4" />
+              </a>
+            </Link>
+          </Surface>
 
-        {/* GOLF + GYM */}
-        <section className="grid lg:grid-cols-2 gap-8 mb-10">
-
-          {/* GOLF */}
-          <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-black/5">
-            <h2 className="text-3xl font-semibold mb-8">
-              Golf Performance
-            </h2>
-
-            <div className="space-y-8">
-              {[
-                ["Fairways Hit (avg)", formatPercent(golfStats.avgFairwayPercent)],
-                ["Greens in Regulation (avg)", formatPercent(golfStats.avgGirPercent)],
-                ["Scrambling (avg)", formatPercent(golfStats.avgScramblePercent)],
-                ["Putts Per Round", formatAverage(golfStats.avgPutts)],
-                ["Penalty Shots (avg)", formatAverage(golfStats.avgPenaltyShots)],
-                ["Chip Shots (avg)", formatAverage(golfStats.avgChipShots)],
-                ["Bunker Shots (avg)", formatAverage(golfStats.avgGreensideBunkerShots)],
-                ["Total Penalty Shots", `${totalPenaltyShots}`],
-              ].map(([label, value], index) => (
-                <div key={index}>
-                  <div className="flex justify-between mb-3">
-                    <span>{label}</span>
-                    <span>{value}</span>
-                  </div>
-
-                  <div className="h-4 bg-black/10 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-[#1F4D3A] rounded-full"
-                      style={{
-                        width: rounds.length === 0
-                          ? "0%"
-                          : value.includes("%")
-                          ? value
-                          : `${Math.min(Number(value) * 5, 100)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
+          <Surface>
+            <SectionTitle eyebrow="Data Health" title="Signal strength" />
+            <div className="space-y-3">
+              <Health label="Rounds" value={rounds.length} target={5} tone="golf" />
+              <Health label="Training sessions" value={workouts.length} target={8} tone="lab" />
+              <Health label="This week" value={workoutsThisWeek} target={3} tone="pulse" />
             </div>
-          </div>
+          </Surface>
+        </div>
+      </section>
+    </main>
+  );
+}
 
-          {/* GYM */}
-          <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-black/5">
-            <h2 className="text-3xl font-semibold mb-8">
-              Gym Performance
-            </h2>
+function ReportKpi({
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  label: string;
+  value: React.ReactNode;
+  sub: string;
+  tone: "golf" | "pulse" | "lab";
+}) {
+  const line = tone === "golf" ? "bg-golf" : tone === "pulse" ? "bg-pulse" : "bg-lab";
+  return (
+    <div className="rounded-xl border border-line bg-panel p-5 shadow-sm">
+      <div className={`mb-4 h-1 w-12 rounded-full ${line}`} />
+      <p className="text-sm font-medium text-muted">{label}</p>
+      <h2 className="mt-3 text-3xl font-semibold tracking-tight text-dark">{value}</h2>
+      <p className="mt-2 text-sm text-muted">{sub}</p>
+    </div>
+  );
+}
 
-            <div className="space-y-8">
-              {[
-                ["Total Workouts", `${workouts.length}`],
-                ["This Week", `${workoutsThisWeek}`],
-                ["Total Exercises", `${workouts.reduce((s, w) => s + (w.exercises?.length || 0), 0)}`],
-                ["Consistency", rounds.length > 0 && workouts.length > 0 ? "Active" : "-"],
-              ].map(([label, value], index) => (
-                <div key={index}>
-                  <div className="flex justify-between mb-3">
-                    <span>{label}</span>
-                    <span>{value}</span>
-                  </div>
+function Metric({ label, value, color }: { label: string; value: string; color: string }) {
+  const width = value.includes("%") ? value : `${Math.min(Number(value) * 10 || 18, 100)}%`;
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-4">
+        <p className="text-sm font-medium text-muted">{label}</p>
+        <p className="font-semibold text-dark">{value}</p>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-steel/10">
+        <div className={`h-full rounded-full ${color}`} style={{ width }} />
+      </div>
+    </div>
+  );
+}
 
-                  <div className="h-4 bg-black/10 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-[#7A1F1F] rounded-full"
-                      style={{
-                        width: typeof value === "string" && /^\d+$/.test(value)
-                          ? `${Math.min(Number(value) * 10, 100)}%`
-                          : "0%",
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-        </section>
-
-        {/* INSIGHT ENGINE */}
-        <section className="bg-slate-950 text-white rounded-[2rem] p-8 shadow-2xl border border-[#D4AF37]/20">
-          <p className="uppercase tracking-[0.25em] text-xs text-[#D4AF37] mb-4">
-            AthletiGolf Insight Engine
-          </p>
-
-          <h2 className="text-4xl font-semibold mb-6">
-            Recommended Focus
-          </h2>
-
-          <p className="text-white/70 text-lg leading-relaxed mb-8">
-            {rounds.length === 0 && workouts.length === 0
-              ? "Start logging rounds and workouts to receive personalised training and practice recommendations."
-              : rounds.length > 0 && workouts.length > 0
-              ? `Your strongest scoring periods occur when you maintain consistent gym sessions. You've logged ${workouts.length} workouts and ${rounds.length} rounds. Keep building lower-body strength and focus practice time on approach shots.`
-              : rounds.length > 0
-              ? `You've logged ${rounds.length} rounds with an average score of ${avgScore}. Start logging workouts to see how gym training affects your golf performance.`
-              : `You've logged ${workouts.length} workouts. Start logging rounds to connect your gym training to your golf performance.`}
-          </p>
-
-          <div className="bg-white/5 rounded-3xl p-6 border border-white/10">
-            <h3 className="text-2xl font-semibold mb-3 text-[#D4AF37]">
-              Next Target
-            </h3>
-
-            <p className="text-white/70">
-              {rounds.length > 0
-                ? `Improve your average score below ${Math.max(Number(avgScore) - 2, 70)} by maintaining workout consistency and focusing on approach play.`
-                : "Log your first round to start tracking your progress toward lower scores."}
-            </p>
-          </div>
-        </section>
-
+function Health({
+  label,
+  value,
+  target,
+  tone,
+}: {
+  label: string;
+  value: number;
+  target: number;
+  tone: "golf" | "lab" | "pulse";
+}) {
+  const width = `${Math.min((value / target) * 100, 100)}%`;
+  const color = tone === "golf" ? "bg-golf" : tone === "lab" ? "bg-lab" : "bg-pulse";
+  return (
+    <div className="rounded-lg border border-line bg-white p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-sm font-medium text-muted">{label}</p>
+        <p className="font-semibold text-dark">{value}/{target}</p>
+      </div>
+      <div className="h-2 rounded-full bg-steel/10">
+        <div className={`h-full rounded-full ${color}`} style={{ width }} />
       </div>
     </div>
   );

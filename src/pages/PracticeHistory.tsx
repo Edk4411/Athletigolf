@@ -233,7 +233,7 @@ export default function PracticeHistory() {
             className="absolute inset-0 bg-black/50"
             aria-label="Close practice editor"
           />
-          <div className="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] bg-white p-8 shadow-2xl">
+          <div className="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-8 shadow-2xl">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
                 <p className="mb-2 text-sm uppercase tracking-[0.25em] text-[#1F4D3A]/70">
@@ -263,7 +263,7 @@ export default function PracticeHistory() {
                       practice_type: event.target.value as PracticeType,
                     }))
                   }
-                  className="w-full rounded-2xl border border-black/10 bg-white px-5 py-4 outline-none focus:border-[#1F4D3A]"
+                  className="w-full rounded-2xl border border-line bg-white px-5 py-4 outline-none focus:border-[#1F4D3A]"
                 >
                   {practiceTypes.map((type) => (
                     <option key={type}>{type}</option>
@@ -297,7 +297,7 @@ export default function PracticeHistory() {
                     setEditForm((prev) => ({ ...prev, notes: event.target.value }))
                   }
                   rows={5}
-                  className="w-full rounded-2xl border border-black/10 px-5 py-4 outline-none focus:border-[#1F4D3A]"
+                  className="w-full rounded-2xl border border-line px-5 py-4 outline-none focus:border-[#1F4D3A]"
                 />
               </div>
             </div>
@@ -346,7 +346,7 @@ function Field({
         min={type === "number" ? 0 : undefined}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-black/10 px-5 py-4 outline-none focus:border-[#1F4D3A]"
+        className="w-full rounded-2xl border border-line px-5 py-4 outline-none focus:border-[#1F4D3A]"
       />
     </div>
   );

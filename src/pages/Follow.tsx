@@ -45,13 +45,13 @@ export default function Follow() {
           {socials.map((social) => (
             <div
               key={social.name}
-              className="rounded-[2rem] border border-black/5 bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+              className="rounded-xl border border-line bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
             >
               <h2 className="mb-2 text-3xl font-semibold">
                 {social.name}
               </h2>
 
-              <p className="mb-4 text-[#7A1F1F] font-medium">
+              <p className="mb-4 text-[#4157d8] font-medium">
                 {social.handle}
               </p>
 
@@ -59,14 +59,14 @@ export default function Follow() {
                 {social.description}
               </p>
 
-              <button className="rounded-2xl bg-slate-950 px-6 py-3 text-white font-semibold transition hover:bg-slate-800">
+              <button className="rounded-2xl bg-dark px-6 py-3 text-white font-semibold transition hover:bg-slate-800">
                 Follow
               </button>
             </div>
           ))}
         </section>
 
-        <section className="mt-10 rounded-[2rem] bg-slate-950 p-8 text-white shadow-2xl">
+        <section className="mt-10 rounded-xl bg-dark p-8 text-white shadow-2xl">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.25em] text-[#D4AF37]">
             Community
           </p>

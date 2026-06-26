@@ -194,7 +194,7 @@ export default function RoundHistory() {
         )}
 
         {rounds.length === 0 ? (
-          <div className="bg-white rounded-[2rem] p-10 text-center shadow-sm border border-black/5">
+          <div className="bg-white rounded-xl p-10 text-center shadow-sm border border-line">
             <h2 className="text-3xl font-semibold mb-3">No rounds yet</h2>
             <p className="text-black/60 mb-6">
               Submit your first round to start building your round history.
@@ -292,7 +292,7 @@ export default function RoundHistory() {
             className="absolute inset-0 bg-black/50"
             aria-label="Close round editor"
           />
-          <div className="relative z-10 max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] bg-white p-8 shadow-2xl">
+          <div className="relative z-10 max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-8 shadow-2xl">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
                 <p className="mb-2 text-sm uppercase tracking-[0.25em] text-[#1F4D3A]/70">
@@ -388,7 +388,7 @@ export default function RoundHistory() {
                   setEditForm((prev) => ({ ...prev, greenside_bunker_shots: value }))
                 }
               />
-              <label className="flex items-center gap-3 rounded-2xl border border-black/10 px-5 py-4">
+              <label className="flex items-center gap-3 rounded-2xl border border-line px-5 py-4">
                 <input
                   type="checkbox"
                   checked={editForm.is_competition}
@@ -409,7 +409,7 @@ export default function RoundHistory() {
                     setEditForm((prev) => ({ ...prev, notes: event.target.value }))
                   }
                   rows={4}
-                  className="w-full rounded-2xl border border-black/10 px-5 py-4 outline-none focus:border-[#1F4D3A]"
+                  className="w-full rounded-2xl border border-line px-5 py-4 outline-none focus:border-[#1F4D3A]"
                 />
               </div>
             </div>
@@ -459,7 +459,7 @@ function RoundDetailsModal({
         className="absolute inset-0 bg-black/50"
         aria-label="Close round details"
       />
-      <div className="relative z-10 w-full max-w-4xl rounded-[2rem] bg-white p-8 shadow-2xl">
+      <div className="relative z-10 w-full max-w-4xl rounded-xl bg-white p-8 shadow-2xl">
         <div className="mb-8 flex items-start justify-between gap-4">
           <div>
             <p className="mb-2 text-sm uppercase tracking-[0.25em] text-[#1F4D3A]/70">
@@ -515,7 +515,7 @@ function RoundDetailsModal({
               </thead>
               <tbody>
                 {holes.map((hole) => (
-                  <tr key={hole.id} className="border-t border-black/5">
+                  <tr key={hole.id} className="border-t border-line">
                     <td className="p-3 font-medium">{hole.hole_number}</td>
                     <td className="p-3">{hole.par}</td>
                     <td className="p-3">{hole.score ?? "-"}</td>
@@ -577,7 +577,7 @@ function Field({
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-black/10 px-5 py-4 outline-none focus:border-[#1F4D3A]"
+        className="w-full rounded-2xl border border-line px-5 py-4 outline-none focus:border-[#1F4D3A]"
       />
     </div>
   );

@@ -37,7 +37,7 @@ export default function Contact() {
           {contactOptions.map((item) => (
             <div
               key={item.title}
-              className="rounded-[2rem] bg-white p-8 shadow-sm border border-black/5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+              className="rounded-xl bg-white p-8 shadow-sm border border-line hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
             >
               <h2 className="text-2xl font-semibold mb-4">
                 {item.title}
@@ -50,7 +50,7 @@ export default function Contact() {
           ))}
         </section>
 
-        <section className="rounded-[2rem] bg-white p-8 shadow-sm border border-black/5 mb-10">
+        <section className="rounded-xl bg-white p-8 shadow-sm border border-line mb-10">
           <h2 className="text-3xl font-semibold mb-6">
             Contact Information
           </h2>
@@ -68,7 +68,7 @@ export default function Contact() {
           </div>
         </section>
 
-        <section className="rounded-[2rem] bg-slate-950 p-8 text-white shadow-2xl">
+        <section className="rounded-xl bg-dark p-8 text-white shadow-2xl">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.25em] text-[#D4AF37]">
             Feedback
           </p>

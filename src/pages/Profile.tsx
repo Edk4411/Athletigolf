@@ -154,7 +154,7 @@ export default function Profile() {
           {/* LEFT COLUMN */}
           <div className="space-y-8">
             {/* CONSISTENCY */}
-            <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-black/5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+            <div className="bg-white rounded-xl p-8 shadow-sm border border-line hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
               <h2 className="text-3xl font-semibold mb-8">Consistency</h2>
               <div className="space-y-6">
                 {[
@@ -171,7 +171,7 @@ export default function Profile() {
             </div>
 
             {/* PERSONAL DETAILS */}
-            <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-black/5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+            <div className="bg-white rounded-xl p-8 shadow-sm border border-line hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
               <h2 className="text-3xl font-semibold mb-8">Personal Details</h2>
               <div className="space-y-6">
                 {[
@@ -192,7 +192,7 @@ export default function Profile() {
           {/* RIGHT SIDE */}
           <div className="xl:col-span-2 space-y-8">
             {/* GOLF PERFORMANCE */}
-            <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-black/5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+            <div className="bg-white rounded-xl p-8 shadow-sm border border-line hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
               <div className="flex items-center justify-between mb-10">
                 <div>
                   <p className="text-sm text-black/50 mb-2">Golf Performance</p>
@@ -206,7 +206,7 @@ export default function Profile() {
 
               <div className="grid md:grid-cols-3 gap-6 mb-10">
                 {[["Average Score", avgScore], ["Rounds Logged", roundsLogged.toString()], ["Workouts Logged", workoutsLogged.toString()]].map(([label, value], index) => (
-                  <div key={index} className="bg-cream rounded-[2rem] p-8">
+                  <div key={index} className="bg-cream rounded-xl p-8">
                     <p className="text-black/50 mb-3">{label}</p>
                     <h3 className="text-5xl font-semibold">{value}</h3>
                   </div>
@@ -241,7 +241,7 @@ export default function Profile() {
             </div>
 
             {/* PERFORMANCE FOCUS */}
-            <div className="bg-dark text-white rounded-[2rem] p-8 shadow-2xl">
+            <div className="bg-dark text-white rounded-xl p-8 shadow-2xl">
               <p className="uppercase tracking-[0.25em] text-xs text-white/50 mb-4">Performance Focus</p>
               <h2 className="text-4xl font-semibold mb-6">
                 {rounds.length === 0
@@ -272,7 +272,7 @@ export default function Profile() {
             onClick={() => setEditing(false)}
             className="absolute inset-0 bg-black/50"
           />
-          <div className="relative z-10 w-full max-w-lg rounded-[2rem] bg-white p-8 shadow-2xl">
+          <div className="relative z-10 w-full max-w-lg rounded-xl bg-white p-8 shadow-2xl">
             <div className="mb-6 flex items-start justify-between">
               <div>
                 <p className="mb-2 text-sm uppercase tracking-[0.25em] text-black/40">
@@ -295,7 +295,7 @@ export default function Profile() {
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   placeholder="Enter your name"
-                  className="w-full rounded-2xl border border-black/10 px-5 py-4 outline-none focus:border-black"
+                  className="w-full rounded-2xl border border-line px-5 py-4 outline-none focus:border-black"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -306,7 +306,7 @@ export default function Profile() {
                     value={editAge}
                     onChange={(e) => setEditAge(e.target.value)}
                     placeholder="e.g. 25"
-                    className="w-full rounded-2xl border border-black/10 px-5 py-4 outline-none focus:border-black"
+                    className="w-full rounded-2xl border border-line px-5 py-4 outline-none focus:border-black"
                   />
                 </div>
                 <div>
@@ -317,7 +317,7 @@ export default function Profile() {
                     value={editHandicap}
                     onChange={(e) => setEditHandicap(e.target.value)}
                     placeholder="e.g. 12.4"
-                    className="w-full rounded-2xl border border-black/10 px-5 py-4 outline-none focus:border-black"
+                    className="w-full rounded-2xl border border-line px-5 py-4 outline-none focus:border-black"
                   />
                 </div>
               </div>
@@ -328,7 +328,7 @@ export default function Profile() {
                     value={editHeight}
                     onChange={(e) => setEditHeight(e.target.value)}
                     placeholder="e.g. 180cm"
-                    className="w-full rounded-2xl border border-black/10 px-5 py-4 outline-none focus:border-black"
+                    className="w-full rounded-2xl border border-line px-5 py-4 outline-none focus:border-black"
                   />
                 </div>
                 <div>
@@ -337,7 +337,7 @@ export default function Profile() {
                     value={editWeight}
                     onChange={(e) => setEditWeight(e.target.value)}
                     placeholder="e.g. 80kg"
-                    className="w-full rounded-2xl border border-black/10 px-5 py-4 outline-none focus:border-black"
+                    className="w-full rounded-2xl border border-line px-5 py-4 outline-none focus:border-black"
                   />
                 </div>
               </div>
@@ -346,7 +346,7 @@ export default function Profile() {
             <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
                 onClick={() => setEditing(false)}
-                className="rounded-2xl border border-black/10 px-6 py-3 transition hover:bg-black/5"
+                className="rounded-2xl border border-line px-6 py-3 transition hover:bg-black/5"
               >
                 Cancel
               </button>
