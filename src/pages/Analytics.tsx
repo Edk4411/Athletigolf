@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { formatAverage, formatPercent, getGolfStats } from "@/lib/golfStats";
 import type { Round, Workout } from "@/lib/types";
 
 export default function Analytics() {
@@ -26,76 +27,18 @@ export default function Analytics() {
     setLoading(false);
   };
 
+  const golfStats = getGolfStats(rounds);
   const roundsWithScores = rounds.filter((r) => r.score !== null);
-  const avgScore =
-    roundsWithScores.length > 0
-      ? (
-          roundsWithScores.reduce((sum, r) => sum + (r.score || 0), 0) /
-          roundsWithScores.length
-        ).toFixed(1)
-      : "-";
+  const avgScore = formatAverage(golfStats.avgScore);
 
   const workoutsThisWeek = (() => {
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     return workouts.filter((w) => w.created_at && new Date(w.created_at) >= weekAgo).length;
   })();
 
-  const avgFairways =
-    rounds.length > 0
-      ? Math.round(
-          rounds.reduce((sum, r) => sum + (r.fairways_hit || 0), 0) /
-            rounds.length
-        )
-      : 0;
-
-  const avgGir =
-    rounds.length > 0
-      ? Math.round(
-          rounds.reduce((sum, r) => sum + (r.greens_in_regulation || 0), 0) /
-            rounds.length
-        )
-      : 0;
-
-  const avgScramble =
-    rounds.length > 0
-      ? Math.round(
-          rounds.reduce((sum, r) => sum + (r.scramble_percentage || 0), 0) /
-            rounds.length
-        )
-      : 0;
-
-  const avgPutts =
-    rounds.length > 0
-      ? (
-          rounds.reduce((sum, r) => sum + (r.putts || 0), 0) / rounds.length
-        ).toFixed(1)
-      : "-";
-
-  const avgPenaltyShots =
-    rounds.length > 0
-      ? (
-          rounds.reduce((sum, r) => sum + (r.penalty_shots ?? 0), 0) /
-          rounds.length
-        ).toFixed(1)
-      : "-";
-
-  const avgChipShots =
-    rounds.length > 0
-      ? (
-          rounds.reduce((sum, r) => sum + (r.chip_shots ?? 0), 0) /
-          rounds.length
-        ).toFixed(1)
-      : "-";
-
-  const avgGreensideBunkerShots =
-    rounds.length > 0
-      ? (
-          rounds.reduce((sum, r) => sum + (r.greenside_bunker_shots ?? 0), 0) /
-          rounds.length
-        ).toFixed(1)
-      : "-";
-
-  const totalPenaltyShots = rounds.reduce((sum, r) => sum + (r.penalty_shots ?? 0), 0);
+  const avgFairways = golfStats.avgFairwayPercent ?? 0;
+  const avgGir = golfStats.avgGirPercent ?? 0;
+  const totalPenaltyShots = golfStats.totalPenaltyShots;
 
   const recentScores = roundsWithScores
     .slice(0, 5)
@@ -245,13 +188,13 @@ export default function Analytics() {
 
             <div className="space-y-8">
               {[
-                ["Fairways Hit (avg)", `${avgFairways}`],
-                ["Greens in Regulation (avg)", `${avgGir}`],
-                ["Scrambling (avg)", `${avgScramble}%`],
-                ["Putting (avg)", avgPutts],
-                ["Penalty Shots (avg)", avgPenaltyShots],
-                ["Chip Shots (avg)", avgChipShots],
-                ["Bunker Shots (avg)", avgGreensideBunkerShots],
+                ["Fairways Hit (avg)", formatPercent(golfStats.avgFairwayPercent)],
+                ["Greens in Regulation (avg)", formatPercent(golfStats.avgGirPercent)],
+                ["Scrambling (avg)", formatPercent(golfStats.avgScramblePercent)],
+                ["Putts Per Round", formatAverage(golfStats.avgPutts)],
+                ["Penalty Shots (avg)", formatAverage(golfStats.avgPenaltyShots)],
+                ["Chip Shots (avg)", formatAverage(golfStats.avgChipShots)],
+                ["Bunker Shots (avg)", formatAverage(golfStats.avgGreensideBunkerShots)],
                 ["Total Penalty Shots", `${totalPenaltyShots}`],
               ].map(([label, value], index) => (
                 <div key={index}>

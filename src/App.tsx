@@ -103,9 +103,17 @@ function AppShell() {
           </ProtectedRoute>
         </Route>
 
-<Route path="/golf/practice" component={PracticeSession} />
+        <Route path="/golf/practice">
+          <ProtectedRoute>
+            <PracticeSession />
+          </ProtectedRoute>
+        </Route>
 
-<Route path="/golf/practice-history" component={PracticeHistory} />
+        <Route path="/golf/practice-history">
+          <ProtectedRoute>
+            <PracticeHistory />
+          </ProtectedRoute>
+        </Route>
 
         <Route path="/setup/golf">
           <ProtectedRoute>

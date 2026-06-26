@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import type { SplitDay } from "@/lib/types";
 
 const GYM_RED = "#7A1F1F";
 
@@ -19,20 +20,62 @@ const workoutTemplates: Record<string, string[]> = {
   Lower: ["Leg Extension", "RDL", "Hamstring Curl", "Calves"],
 };
 
+type WorkoutOption = {
+  id: string;
+  name: string;
+  exercises: string[];
+};
+
+const fallbackOptions: WorkoutOption[] = Object.entries(workoutTemplates).map(
+  ([name, exercises]) => ({ id: name, name, exercises })
+);
+
 export default function SubmitSession() {
-  const splitDays = Object.keys(workoutTemplates);
+  const [workoutOptions, setWorkoutOptions] = useState<WorkoutOption[]>(fallbackOptions);
+  const [loadingSplit, setLoadingSplit] = useState(true);
   const [selectedDay, setSelectedDay] = useState("");
   const [exercises, setExercises] = useState<ExerciseLog[]>([]);
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
+  useEffect(() => {
+    const loadSplit = async () => {
+      const { data, error } = await supabase
+        .from("split_days")
+        .select("*")
+        .order("created_at", { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        const savedOptions = (data as SplitDay[])
+          .filter((day) => day.split_name && day.exercises?.length)
+          .map((day) => ({
+            id: day.id,
+            name: `${day.day_name} - ${day.split_name}`,
+            exercises: day.exercises,
+          }));
+
+        if (savedOptions.length > 0) {
+          setWorkoutOptions(savedOptions);
+        }
+      }
+
+      setLoadingSplit(false);
+    };
+
+    loadSplit();
+  }, []);
+
   const selectDay = (day: string) => {
+    const selectedWorkout = workoutOptions.find((workout) => workout.name === day);
+
+    if (!selectedWorkout) return;
+
     setSelectedDay(day);
     setSubmitted(false);
 
     setExercises(
-      workoutTemplates[day].map((exercise) => ({
+      selectedWorkout.exercises.map((exercise) => ({
         name: exercise,
         weight: "",
         sets: "",
@@ -88,6 +131,14 @@ export default function SubmitSession() {
     setSubmitted(true);
   };
 
+  if (loadingSplit) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="text-black/40 text-lg">Loading your split...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-cream p-8 md:p-12">
       <div className="mx-auto max-w-7xl">
@@ -106,28 +157,28 @@ export default function SubmitSession() {
         </div>
 
         <div className="mb-12 grid gap-6 md:grid-cols-2 lg:grid-cols-5">
-          {splitDays.map((day) => (
+          {workoutOptions.map((workout) => (
             <button
-              key={day}
-              onClick={() => selectDay(day)}
+              key={workout.id}
+              onClick={() => selectDay(workout.name)}
               className={`rounded-[2rem] border p-8 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
-                selectedDay === day
+                selectedDay === workout.name
                   ? "border-[#7A1F1F] bg-[#7A1F1F] text-white"
                   : "border-[#7A1F1F]/10 bg-white text-black hover:border-[#7A1F1F]/30"
               }`}
             >
               <p
                 className={
-                  selectedDay === day ? "mb-2 text-white/60" : "mb-2 text-[#7A1F1F]/70"
+                  selectedDay === workout.name ? "mb-2 text-white/60" : "mb-2 text-[#7A1F1F]/70"
                 }
               >
                 Workout
               </p>
 
-              <h2 className="mb-3 text-3xl font-semibold">{day}</h2>
+              <h2 className="mb-3 text-3xl font-semibold">{workout.name}</h2>
 
-              <p className={selectedDay === day ? "text-white/70" : "text-black/60"}>
-                Log sets, reps, weight and notes.
+              <p className={selectedDay === workout.name ? "text-white/70" : "text-black/60"}>
+                {workout.exercises.length} exercises ready to log.
               </p>
             </button>
           ))}

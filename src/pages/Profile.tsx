@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import { formatAverage, formatPercent, getGolfStats } from "@/lib/golfStats";
 import type { Profile, Round, Workout } from "@/lib/types";
 
 export default function Profile() {
@@ -91,43 +92,8 @@ export default function Profile() {
 
   const handicap = profile?.golf_handicap ?? null;
 
-  const avgScore =
-    rounds.length > 0
-      ? (
-          rounds.reduce((sum, r) => sum + (r.score || 0), 0) / rounds.length
-        ).toFixed(1)
-      : "-";
-
-  const avgFairways =
-    rounds.length > 0
-      ? Math.round(
-          rounds.reduce((sum, r) => sum + (r.fairways_hit || 0), 0) /
-            rounds.length
-        )
-      : 0;
-
-  const avgGir =
-    rounds.length > 0
-      ? Math.round(
-          rounds.reduce((sum, r) => sum + (r.greens_in_regulation || 0), 0) /
-            rounds.length
-        )
-      : 0;
-
-  const avgPutts =
-    rounds.length > 0
-      ? (
-          rounds.reduce((sum, r) => sum + (r.putts || 0), 0) / rounds.length
-        ).toFixed(1)
-      : "-";
-
-  const avgScramble =
-    rounds.length > 0
-      ? Math.round(
-          rounds.reduce((sum, r) => sum + (r.scramble_percentage || 0), 0) /
-            rounds.length
-        )
-      : 0;
+  const golfStats = getGolfStats(rounds);
+  const avgScore = formatAverage(golfStats.avgScore);
 
   if (loading) {
     return (
@@ -249,10 +215,10 @@ export default function Profile() {
 
               <div className="space-y-7">
                 {[
-                  ["Fairways Hit (avg)", `${avgFairways}`],
-                  ["Greens In Regulation (avg)", `${avgGir}`],
-                  ["Scramble Rate (avg)", `${avgScramble}%`],
-                  ["Putting Average (avg)", avgPutts],
+                  ["Fairways Hit (avg)", formatPercent(golfStats.avgFairwayPercent)],
+                  ["Greens In Regulation (avg)", formatPercent(golfStats.avgGirPercent)],
+                  ["Scramble Rate (avg)", formatPercent(golfStats.avgScramblePercent)],
+                  ["Putts Per Round", formatAverage(golfStats.avgPutts)],
                 ].map(([label, value], index) => (
                   <div key={index}>
                     <div className="flex justify-between mb-3">

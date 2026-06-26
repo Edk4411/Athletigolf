@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import { formatAverage, formatPercent, getGolfStats } from "@/lib/golfStats";
 import type { Round, Workout } from "@/lib/types";
 
 export default function Dashboard() {
@@ -43,61 +44,7 @@ export default function Dashboard() {
 
   const latestWorkout = workouts[0] ?? null;
   const lastRound = rounds[0] ?? null;
-
-  const avgScore =
-    rounds.length > 0
-      ? (rounds.reduce((sum, r) => sum + (r.score || 0), 0) / rounds.length).toFixed(1)
-      : null;
-
-  const avgFirPct =
-    rounds.length > 0
-      ? Math.round(
-          rounds.reduce((sum, r) => {
-            const possible = rounds.length;
-            return sum + (r.fairways_hit || 0) / possible;
-          }, 0) * 100
-        )
-      : null;
-
-  const avgGirPct =
-    rounds.length > 0
-      ? Math.round(
-          (rounds.reduce((sum, r) => sum + (r.greens_in_regulation || 0), 0) /
-            rounds.length /
-            18) *
-            100
-        )
-      : null;
-
-  const avgPutts =
-    rounds.length > 0
-      ? (rounds.reduce((sum, r) => sum + (r.putts || 0), 0) / rounds.length).toFixed(1)
-      : null;
-
-  const avgPenaltyShots =
-    rounds.length > 0
-      ? (rounds.reduce((sum, r) => sum + (r.penalty_shots ?? 0), 0) / rounds.length).toFixed(1)
-      : null;
-
-  const avgChipShots =
-    rounds.length > 0
-      ? (rounds.reduce((sum, r) => sum + (r.chip_shots ?? 0), 0) / rounds.length).toFixed(1)
-      : null;
-
-  const avgGreensideBunkerShots =
-    rounds.length > 0
-      ? (rounds.reduce((sum, r) => sum + (r.greenside_bunker_shots ?? 0), 0) / rounds.length).toFixed(1)
-      : null;
-
-  const totalPenaltyShots = rounds.reduce((sum, r) => sum + (r.penalty_shots ?? 0), 0);
-
-  const avgScramble =
-    rounds.filter((r) => r.scramble_percentage !== null).length > 0
-      ? Math.round(
-          rounds.reduce((sum, r) => sum + (r.scramble_percentage || 0), 0) /
-            rounds.filter((r) => r.scramble_percentage !== null).length
-        )
-      : null;
+  const golfStats = getGolfStats(rounds);
 
   const overviewCards = [
     {
@@ -255,7 +202,7 @@ export default function Dashboard() {
             </h2>
             <p className="text-white/70 leading-relaxed mb-8">
               {rounds.length > 0
-                ? `You've played ${rounds.length} round${rounds.length !== 1 ? "s" : ""} with an average score of ${avgScore}. Keep logging to unlock deeper performance insights.`
+                ? `You've played ${rounds.length} round${rounds.length !== 1 ? "s" : ""} with an average score of ${formatAverage(golfStats.avgScore)}. Keep logging to unlock deeper performance insights.`
                 : "Log your first round and workout to start receiving personalised focus recommendations."}
             </p>
             <div className="bg-white/10 rounded-3xl p-5">
@@ -296,14 +243,14 @@ export default function Dashboard() {
             ) : rounds.length > 0 ? (
               <div className="space-y-6">
                 {[
-                  ["Fairways Hit (avg)", avgFirPct !== null ? `${avgFirPct}%` : "-"],
-                  ["Greens in Regulation (avg)", avgGirPct !== null ? `${avgGirPct}%` : "-"],
-                  ["Scramble Rate (avg)", avgScramble !== null ? `${avgScramble}%` : "-"],
-                  ["Putting Average", avgPutts !== null ? avgPutts : "-"],
-                  ["Penalty Shots (avg)", avgPenaltyShots !== null ? avgPenaltyShots : "-"],
-                  ["Chip Shots (avg)", avgChipShots !== null ? avgChipShots : "-"],
-                  ["Bunker Shots (avg)", avgGreensideBunkerShots !== null ? avgGreensideBunkerShots : "-"],
-                  ["Total Penalty Shots", totalPenaltyShots.toString()],
+                  ["Fairways Hit (avg)", formatPercent(golfStats.avgFairwayPercent)],
+                  ["Greens in Regulation (avg)", formatPercent(golfStats.avgGirPercent)],
+                  ["Scramble Rate (avg)", formatPercent(golfStats.avgScramblePercent)],
+                  ["Putts Per Round", formatAverage(golfStats.avgPutts)],
+                  ["Penalty Shots (avg)", formatAverage(golfStats.avgPenaltyShots)],
+                  ["Chip Shots (avg)", formatAverage(golfStats.avgChipShots)],
+                  ["Bunker Shots (avg)", formatAverage(golfStats.avgGreensideBunkerShots)],
+                  ["Total Penalty Shots", golfStats.totalPenaltyShots.toString()],
                 ].map(([label, value], index) => (
                   <div key={index}>
                     <div className="flex justify-between mb-2">

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { GripVertical, Plus, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { Button, Card, PageHeader } from "@/components/ui";
 import type { SplitDay } from "@/lib/types";
 
 type SplitDayState = {
@@ -28,6 +30,7 @@ export default function CreateSplit() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editFocus, setEditFocus] = useState("");
   const [editExercises, setEditExercises] = useState<string[]>([]);
+  const [draggedExercise, setDraggedExercise] = useState<number | null>(null);
 
   useEffect(() => {
     loadSplit();
@@ -84,6 +87,7 @@ export default function CreateSplit() {
     setEditingIndex(null);
     setEditFocus("");
     setEditExercises([]);
+    setDraggedExercise(null);
   };
 
   const updateExercise = (index: number, value: string) => {
@@ -98,6 +102,18 @@ export default function CreateSplit() {
 
   const removeExercise = (index: number) => {
     setEditExercises((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const moveExercise = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+
+    setEditExercises((prev) => {
+      const updated = [...prev];
+      const [moved] = updated.splice(fromIndex, 1);
+      updated.splice(toIndex, 0, moved);
+      return updated;
+    });
+    setDraggedExercise(toIndex);
   };
 
   const saveChanges = () => {
@@ -130,20 +146,12 @@ export default function CreateSplit() {
   return (
     <div className="min-h-screen bg-cream p-8 md:p-12">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-12">
-          <p className="mb-4 text-xs uppercase tracking-[0.25em] text-[#7A1F1F]/70">
-            Fitness
-          </p>
-
-          <h1 className="mb-4 text-5xl font-semibold text-[#7A1F1F]">
-            Create Your Split
-          </h1>
-
-          <p className="text-lg text-black/60">
-            Build your weekly training timetable so AthletiGolf can track your
-            gym progression.
-          </p>
-        </div>
+        <PageHeader
+          eyebrow="Fitness"
+          title="Create Your Split"
+          description="Build your weekly training timetable so AthletiGolf can track your gym progression."
+          tone="text-[#7A1F1F]"
+        />
 
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 items-stretch">
           {split.map((day, index) => (
@@ -180,28 +188,28 @@ export default function CreateSplit() {
         </div>
 
         <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="rounded-[2rem] border border-[#7A1F1F]/10 bg-white p-6 shadow-sm flex-1">
+          <Card className="flex-1 border-[#7A1F1F]/10">
             <p className="mb-2 text-sm text-[#7A1F1F]/70">Tip</p>
             <h2 className="mb-2 text-2xl font-semibold">
               Make your split match your week
             </h2>
             <p className="text-black/60">
-              Put your actual training days in here, then later this can link
-              directly to Submit Workout.
+              Drag exercises inside each day to set the order they appear when
+              you submit a workout.
             </p>
-          </div>
+          </Card>
 
           <div className="flex flex-col gap-3">
             {savedMessage && (
               <p className="text-sm font-medium text-[#1F4D3A]">{savedMessage}</p>
             )}
-            <button
+            <Button
               onClick={saveAll}
               disabled={saving}
-              className="rounded-2xl bg-[#7A1F1F] px-8 py-4 text-white font-semibold transition hover:scale-[1.02] disabled:opacity-50"
+              className="bg-[#7A1F1F] hover:bg-[#651919]"
             >
               {saving ? "Saving..." : "Save Split"}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -226,9 +234,10 @@ export default function CreateSplit() {
 
               <button
                 onClick={closeEditor}
-                className="rounded-xl px-3 py-2 text-2xl text-black/50 transition hover:bg-black/5 hover:text-black"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl text-black/50 transition hover:bg-black/5 hover:text-black"
+                aria-label="Close editor"
               >
-                X
+                <X className="h-5 w-5" />
               </button>
             </div>
 
@@ -248,49 +257,76 @@ export default function CreateSplit() {
               <label className="mb-3 block text-sm text-black/50">
                 Exercises
               </label>
+              <p className="mb-3 text-sm text-black/45">
+                Drag the handle to reorder exercises before saving the day.
+              </p>
 
               <div className="max-h-[320px] space-y-3 overflow-y-auto pr-1">
                 {editExercises.map((exercise, index) => (
-                  <div key={index} className="flex gap-3">
+                  <div
+                    key={index}
+                    draggable
+                    onDragStart={() => setDraggedExercise(index)}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      if (draggedExercise !== null) {
+                        moveExercise(draggedExercise, index);
+                      }
+                    }}
+                    onDragEnd={() => setDraggedExercise(null)}
+                    className={`flex gap-3 rounded-2xl border border-black/10 bg-white p-2 transition ${
+                      draggedExercise === index ? "scale-[0.99] opacity-70" : ""
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      className="flex cursor-grab items-center rounded-xl px-2 text-black/35 active:cursor-grabbing"
+                      aria-label="Drag to reorder exercise"
+                    >
+                      <GripVertical className="h-5 w-5" />
+                    </button>
                     <input
                       value={exercise}
                       onChange={(e) => updateExercise(index, e.target.value)}
                       placeholder="Exercise name"
-                      className="flex-1 rounded-2xl border border-black/10 px-5 py-3 outline-none focus:border-[#7A1F1F]"
+                      className="flex-1 rounded-xl border border-transparent px-3 py-2 outline-none focus:border-[#7A1F1F]"
                     />
 
                     <button
                       onClick={() => removeExercise(index)}
-                      className="rounded-2xl border border-black/10 px-4 text-black/50 transition hover:border-red-500 hover:text-red-500"
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-black/10 text-black/50 transition hover:border-red-500 hover:text-red-500"
+                      aria-label="Remove exercise"
                     >
-                      Remove
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 ))}
               </div>
 
-              <button
+              <Button
                 onClick={addExercise}
-                className="mt-4 rounded-2xl border border-[#7A1F1F]/20 px-5 py-3 text-[#7A1F1F] transition hover:bg-[#7A1F1F]/5"
+                variant="secondary"
+                className="mt-4 border-[#7A1F1F]/20 text-[#7A1F1F] hover:bg-[#7A1F1F]/5"
               >
-                + Add Exercise
-              </button>
+                <Plus className="h-4 w-4" />
+                Add Exercise
+              </Button>
             </div>
 
             <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button
+              <Button
                 onClick={closeEditor}
-                className="rounded-2xl border border-black/10 px-6 py-3 transition hover:bg-black/5"
+                variant="secondary"
               >
                 Cancel
-              </button>
+              </Button>
 
-              <button
+              <Button
                 onClick={saveChanges}
-                className="rounded-2xl bg-[#7A1F1F] px-6 py-3 text-white transition hover:scale-[1.02]"
+                className="bg-[#7A1F1F] hover:bg-[#651919]"
               >
                 Save Changes
-              </button>
+              </Button>
             </div>
           </div>
         </div>

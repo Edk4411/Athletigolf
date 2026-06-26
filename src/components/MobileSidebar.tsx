@@ -1,10 +1,60 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
+import {
+  BarChart3,
+  ChevronDown,
+  CreditCard,
+  Dumbbell,
+  Flag,
+  History,
+  Instagram,
+  LayoutDashboard,
+  Mail,
+  Menu,
+  NotebookPen,
+  PlusCircle,
+  Settings,
+  User,
+  X,
+} from "lucide-react";
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  accent?: "gold";
+};
+
+const mainLinks: NavItem[] = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/profile", label: "Profile", icon: User },
+  { href: "/analytics", label: "Analytics", icon: BarChart3, accent: "gold" },
+  { href: "/memberships", label: "Memberships", icon: CreditCard },
+];
+
+const gymLinks: NavItem[] = [
+  { href: "/workouts", label: "Create Split", icon: Dumbbell },
+  { href: "/workouts/submit", label: "Submit Workout", icon: PlusCircle },
+  { href: "/gym/history", label: "Workout History", icon: History },
+];
+
+const golfLinks: NavItem[] = [
+  { href: "/golf/submit", label: "Submit Round", icon: PlusCircle },
+  { href: "/golf", label: "Round History", icon: Flag },
+  { href: "/golf/practice", label: "Log Practice", icon: NotebookPen },
+  { href: "/golf/practice-history", label: "Practice History", icon: History },
+];
+
+const supportLinks: NavItem[] = [
+  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/contact", label: "Contact", icon: Mail },
+  { href: "/follow", label: "Follow", icon: Instagram },
+];
 
 export default function MobileSidebar() {
   const [open, setOpen] = useState(false);
-  const [gymOpen, setGymOpen] = useState(false);
-  const [golfOpen, setGolfOpen] = useState(false);
+  const [gymOpen, setGymOpen] = useState(true);
+  const [golfOpen, setGolfOpen] = useState(true);
 
   const closeMenu = () => setOpen(false);
 
@@ -12,89 +62,52 @@ export default function MobileSidebar() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed right-5 top-5 z-50 rounded-xl bg-slate-950 px-4 py-3 text-white shadow-lg"
+        className="fixed right-5 top-5 z-50 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg transition hover:bg-slate-800"
+        aria-label="Open navigation"
       >
-        Menu
+        <Menu className="h-5 w-5" />
       </button>
 
       {open && (
         <div className="fixed inset-0 z-50 flex">
-          <div onClick={closeMenu} className="absolute inset-0 bg-black/50" />
+          <button
+            onClick={closeMenu}
+            className="absolute inset-0 bg-black/50"
+            aria-label="Close navigation"
+          />
 
-          <aside className="relative ml-auto h-full w-80 max-w-[85vw] bg-slate-950 p-6 shadow-2xl">
-            <div className="mb-8 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-white">AthletiGolf</h2>
+          <aside className="relative ml-auto flex h-full w-88 max-w-[90vw] flex-col bg-slate-950 p-5 text-white shadow-2xl">
+            <div className="mb-6 flex items-center justify-between rounded-3xl border border-white/10 bg-white/5 p-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-[#D4AF37]">
+                  AthletiGolf
+                </p>
+                <h2 className="mt-1 text-xl font-semibold">Performance Hub</h2>
+              </div>
               <button
                 onClick={closeMenu}
-                className="rounded-lg px-3 py-2 text-2xl text-white/70 transition hover:text-white"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl text-white/70 transition hover:bg-white/10 hover:text-white"
+                aria-label="Close navigation"
               >
-                X
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <nav className="flex h-[calc(100%-80px)] flex-col justify-between">
-              <div className="space-y-1 text-lg">
-                <MenuLink href="/dashboard" onClick={closeMenu}>
-                  Dashboard
-                </MenuLink>
-
-                <MenuLink href="/profile" onClick={closeMenu}>
-                  Profile
-                </MenuLink>
+            <nav className="flex min-h-0 flex-1 flex-col justify-between overflow-y-auto">
+              <div className="space-y-4">
+                <NavGroup items={mainLinks} onClick={closeMenu} />
 
                 <Dropdown title="Gym" open={gymOpen} setOpen={setGymOpen}>
-                  <MenuLink href="/workouts" onClick={closeMenu}>
-                    Create Split
-                  </MenuLink>
-
-                  <MenuLink href="/workouts/submit" onClick={closeMenu}>
-                    Submit Workout
-                  </MenuLink>
-
-                  <MenuLink href="/gym/history" onClick={closeMenu}>
-                    Workout History
-                  </MenuLink>
+                  <NavGroup items={gymLinks} onClick={closeMenu} compact />
                 </Dropdown>
 
                 <Dropdown title="Golf" open={golfOpen} setOpen={setGolfOpen}>
-                  <MenuLink href="/golf/submit" onClick={closeMenu}>
-                    Submit Round
-                  </MenuLink>
-
-                  <MenuLink href="/golf" onClick={closeMenu}>
-                    Round History
-                  </MenuLink>
-
-                  <MenuLink href="/golf/practice" onClick={closeMenu}>
-                    Log Practice
-                  </MenuLink>
-
-                  <MenuLink href="/golf/practice-history" onClick={closeMenu}>
-                    Practice History
-                  </MenuLink>
+                  <NavGroup items={golfLinks} onClick={closeMenu} compact />
                 </Dropdown>
-
-                <GoldMenuLink href="/analytics" onClick={closeMenu}>
-                  Analytics
-                </GoldMenuLink>
-
-                <MenuLink href="/memberships" onClick={closeMenu}>
-                  Memberships
-                </MenuLink>
               </div>
 
-              <div className="space-y-1 border-t border-white/10 pt-4 text-sm">
-                <MenuLink href="/settings" onClick={closeMenu}>
-                  Settings
-                </MenuLink>
-
-                <MenuLink href="/contact" onClick={closeMenu}>
-                  Contact Us
-                </MenuLink>
-
-                <MenuLink href="/follow" onClick={closeMenu}>
-                  Follow Us
-                </MenuLink>
+              <div className="mt-6 border-t border-white/10 pt-4">
+                <NavGroup items={supportLinks} onClick={closeMenu} compact />
               </div>
             </nav>
           </aside>
@@ -104,57 +117,55 @@ export default function MobileSidebar() {
   );
 }
 
-function MenuLink({
-  href,
-  children,
+function NavGroup({
+  items,
   onClick,
+  compact = false,
 }: {
-  href: string;
-  children: React.ReactNode;
+  items: NavItem[];
   onClick: () => void;
+  compact?: boolean;
 }) {
-  const [location] = useLocation();
-  const isActive = location === href;
-
   return (
-    <Link href={href}>
-      <a
-        onClick={onClick}
-        className={`block rounded-xl px-4 py-3 transition ${
-          isActive
-            ? "bg-white/10 text-white"
-            : "text-white/80 hover:bg-white/10 hover:text-white"
-        }`}
-      >
-        {children}
-      </a>
-    </Link>
+    <div className={compact ? "space-y-1" : "space-y-2"}>
+      {items.map((item) => (
+        <MenuLink key={item.href} item={item} onClick={onClick} compact={compact} />
+      ))}
+    </div>
   );
 }
 
-function GoldMenuLink({
-  href,
-  children,
+function MenuLink({
+  item,
   onClick,
+  compact,
 }: {
-  href: string;
-  children: React.ReactNode;
+  item: NavItem;
   onClick: () => void;
+  compact?: boolean;
 }) {
   const [location] = useLocation();
-  const isActive = location === href;
+  const isActive = location === item.href;
+  const Icon = item.icon;
+  const activeClass =
+    item.accent === "gold"
+      ? "bg-[#D4AF37]/15 text-[#D4AF37]"
+      : "bg-white/10 text-white";
+  const idleClass =
+    item.accent === "gold"
+      ? "text-[#D4AF37] hover:bg-[#D4AF37]/10"
+      : "text-white/75 hover:bg-white/10 hover:text-white";
 
   return (
-    <Link href={href}>
+    <Link href={item.href}>
       <a
         onClick={onClick}
-        className={`block rounded-xl px-4 py-3 font-semibold transition ${
-          isActive
-            ? "bg-[#D4AF37]/15 text-[#D4AF37]"
-            : "text-[#D4AF37] hover:bg-[#D4AF37]/10"
-        }`}
+        className={`flex items-center gap-3 rounded-2xl px-4 transition ${
+          compact ? "py-2.5 text-sm" : "py-3"
+        } ${isActive ? activeClass : idleClass}`}
       >
-        {children}
+        <Icon className="h-5 w-5 shrink-0" />
+        <span>{item.label}</span>
       </a>
     </Link>
   );
@@ -172,20 +183,16 @@ function Dropdown({
   children: React.ReactNode;
 }) {
   return (
-    <div>
+    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-2">
       <button
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-white/80 transition hover:bg-white/10 hover:text-white"
+        className="flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left font-semibold text-white/85 transition hover:bg-white/10 hover:text-white"
       >
         <span>{title}</span>
-        <span>{open ? "-" : "+"}</span>
+        <ChevronDown className={`h-4 w-4 transition ${open ? "rotate-180" : ""}`} />
       </button>
 
-      {open && (
-        <div className="ml-4 mt-1 space-y-1 border-l border-white/10 pl-3 text-base text-white/60">
-          {children}
-        </div>
-      )}
+      {open && <div className="mt-1 space-y-1">{children}</div>}
     </div>
   );
 }
