@@ -101,7 +101,9 @@ export default function SubmitSession() {
     const { error } = await supabase.from("workouts").insert({
       date: new Date().toLocaleDateString("en-GB"),
       workout_name: selectedDay,
-      exercises: exercises.filter((e) => e.name.trim() !== ""),
+      exercises: exercises
+        .filter((e) => e.name.trim() !== "")
+        .map(structureExerciseLog),
       notes: null,
     });
     setSaving(false);
@@ -251,6 +253,48 @@ export default function SubmitSession() {
       </section>
     </main>
   );
+}
+
+function structureExerciseLog(exercise: ExerciseLog) {
+  const weightValue = parseTrainingNumber(exercise.weight);
+  const setsValue = parseTrainingNumber(exercise.sets);
+  const repsValue = parseTrainingNumber(exercise.reps);
+  const volume =
+    weightValue !== null && setsValue !== null && repsValue !== null
+      ? weightValue * setsValue * repsValue
+      : null;
+
+  return {
+    ...exercise,
+    name: exercise.name.trim(),
+    weight: exercise.weight.trim(),
+    sets: exercise.sets.trim(),
+    reps: exercise.reps.trim(),
+    notes: exercise.notes.trim(),
+    weight_value: weightValue,
+    sets_value: setsValue,
+    reps_value: repsValue,
+    volume,
+    muscle_group: inferMuscleGroup(exercise.name),
+  };
+}
+
+function parseTrainingNumber(value: string) {
+  const match = value.match(/[\d.]+/);
+  if (!match) return null;
+  const parsed = Number(match[0]);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function inferMuscleGroup(name: string) {
+  const lower = name.toLowerCase();
+  if (/(bench|press|chest|push)/.test(lower)) return "Chest / Push";
+  if (/(row|pulldown|pull|lat|rear delt)/.test(lower)) return "Back / Pull";
+  if (/(squat|leg|rdl|hamstring|calf|lower)/.test(lower)) return "Legs";
+  if (/(curl|tricep|arm)/.test(lower)) return "Arms";
+  if (/(shoulder|lateral|delt)/.test(lower)) return "Shoulders";
+  if (/(core|abs|plank)/.test(lower)) return "Core";
+  return null;
 }
 
 function ConsoleMetric({ label, value }: { label: string; value: React.ReactNode }) {

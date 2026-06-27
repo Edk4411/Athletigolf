@@ -16,6 +16,8 @@ export function getGolfStats(rounds: Round[]) {
   const girRounds = rounds.filter((round) => hasValue(round.greens_in_regulation));
   const puttingRounds = rounds.filter((round) => hasValue(round.putts));
   const scrambleRounds = rounds.filter((round) => hasValue(round.scramble_percentage));
+  const distanceRounds = rounds.filter((round) => hasValue(round.average_driving_distance));
+  const longestDriveRounds = rounds.filter((round) => hasValue(round.longest_drive));
 
   const fairwaysHit = fairwayRounds.reduce(
     (sum, round) => sum + (round.fairways_hit ?? 0),
@@ -61,6 +63,13 @@ export function getGolfStats(rounds: Round[]) {
     avgScramblePercent: average(
       scrambleRounds.map((round) => round.scramble_percentage as number)
     ),
+    avgDrivingDistance: average(
+      distanceRounds.map((round) => round.average_driving_distance as number)
+    ),
+    longestDrive:
+      longestDriveRounds.length > 0
+        ? Math.max(...longestDriveRounds.map((round) => round.longest_drive as number))
+        : null,
   };
 }
 

@@ -13,7 +13,6 @@ import {
   Menu,
   NotebookPen,
   PlusCircle,
-  Search,
   Settings,
   ShieldCheck,
   User,
@@ -114,10 +113,6 @@ export default function MobileSidebar() {
           </div>
 
           <div className="hidden items-center gap-3 md:flex">
-            <div className="hidden items-center gap-2 rounded-lg border border-line bg-panel px-3 py-2 text-sm text-muted xl:flex">
-              <Search className="h-4 w-4" />
-              <span>AthletiGolf OS</span>
-            </div>
             <Link href="/workouts/submit">
               <a><Button variant="pulse">Training</Button></a>
             </Link>
@@ -190,7 +185,7 @@ function NavContent({
             <ShieldCheck className="h-4 w-4 text-pulse" />
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-pulse">AthletiGolf</p>
           </div>
-          <h2 className="mt-2 text-xl font-semibold">Performance OS</h2>
+          <h2 className="mt-2 text-xl font-semibold">Performance Platform</h2>
         </div>
         {closeButton}
       </div>

@@ -81,7 +81,7 @@ export default function Memberships() {
     <main className="min-h-screen bg-cream px-4 py-5 md:px-8 md:py-7">
       <div className="mx-auto max-w-7xl">
         <PageHeader
-          eyebrow="Membership OS"
+          eyebrow="Memberships"
           title="Choose your performance layer"
           description="Start with live tracking, then unlock deeper reports as AthletiGolf grows into a full training intelligence platform."
           tone="text-pulse"

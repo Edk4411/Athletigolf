@@ -23,6 +23,9 @@ export type Round = {
   greenside_bunker_shots?: number | null;
   holes_played?: number | null;
   tee_colour?: string | null;
+  average_driving_distance?: number | null;
+  longest_drive?: number | null;
+  tee_shot_quality?: string | null;
   scramble_percentage: number | null;
   is_competition: boolean;
   notes: string | null;
@@ -53,6 +56,11 @@ export type ExerciseLog = {
   sets: string;
   reps: string;
   notes: string;
+  weight_value?: number | null;
+  sets_value?: number | null;
+  reps_value?: number | null;
+  volume?: number | null;
+  muscle_group?: string | null;
 };
 
 export type Workout = {

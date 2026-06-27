@@ -32,6 +32,10 @@ const createHoles = (count: number): Hole[] =>
   }));
 
 const parseStat = (value: string) => Number(value || 0);
+const parseOptionalNumber = (value: string) => {
+  const trimmed = value.trim();
+  return trimmed === "" ? null : Number(trimmed);
+};
 
 export default function RoundTracker() {
   const { user } = useAuth();
@@ -40,6 +44,9 @@ export default function RoundTracker() {
   const [course, setCourse] = useState("");
   const [competition, setCompetition] = useState(false);
   const [teeColour, setTeeColour] = useState("");
+  const [averageDrivingDistance, setAverageDrivingDistance] = useState("");
+  const [longestDrive, setLongestDrive] = useState("");
+  const [teeShotQuality, setTeeShotQuality] = useState("");
   const [date, setDate] = useState("");
   const [notes, setNotes] = useState("");
   const [holes, setHoles] = useState<Hole[]>(createHoles(18));
@@ -146,6 +153,9 @@ export default function RoundTracker() {
         greenside_bunker_shots: stats.greensideBunkerShots,
         holes_played: holesPlayed,
         tee_colour: teeColour || null,
+        average_driving_distance: parseOptionalNumber(averageDrivingDistance),
+        longest_drive: parseOptionalNumber(longestDrive),
+        tee_shot_quality: teeShotQuality || null,
         scramble_percentage: stats.scramblePercent,
         is_competition: competition,
         notes: notes || null,
@@ -188,6 +198,9 @@ export default function RoundTracker() {
     setCourse("");
     setCompetition(false);
     setTeeColour("");
+    setAverageDrivingDistance("");
+    setLongestDrive("");
+    setTeeShotQuality("");
     setDate("");
     setNotes("");
     setHolesPlayed(18);
@@ -262,6 +275,24 @@ export default function RoundTracker() {
               <Field label="Course name" value={course} onChange={setCourse} />
               <Field label="Tees played" value={teeColour} onChange={setTeeColour} />
               <Field label="Date" value={date} onChange={setDate} type="date" />
+              <Field
+                label="Average driving distance"
+                value={averageDrivingDistance}
+                onChange={setAverageDrivingDistance}
+                type="number"
+              />
+              <Field
+                label="Longest drive"
+                value={longestDrive}
+                onChange={setLongestDrive}
+                type="number"
+              />
+              <SelectField
+                label="Tee shot quality"
+                value={teeShotQuality}
+                onChange={setTeeShotQuality}
+                options={["", "excellent", "good", "mixed", "poor"]}
+              />
               <label className="flex items-center gap-3 rounded-lg border border-line px-5 py-4">
                 <input
                   type="checkbox"

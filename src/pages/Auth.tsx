@@ -41,7 +41,7 @@ export default function AuthPage() {
           <div className="relative">
             <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-pulse">
               <ShieldCheck className="h-4 w-4" />
-              AthletiGolf OS
+              AthletiGolf
             </div>
             <h1 className="max-w-xl text-5xl font-semibold leading-tight">
               Your golf and athletic performance in one place.

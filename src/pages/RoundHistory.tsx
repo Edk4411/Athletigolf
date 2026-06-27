@@ -23,6 +23,9 @@ export default function RoundHistory() {
     fairways_possible: "",
     holes_played: "18",
     tee_colour: "",
+    average_driving_distance: "",
+    longest_drive: "",
+    tee_shot_quality: "",
     penalty_shots: "",
     chip_shots: "",
     greenside_bunker_shots: "",
@@ -81,6 +84,9 @@ export default function RoundHistory() {
       fairways_possible: round.fairways_possible?.toString() || "",
       holes_played: round.holes_played?.toString() || "18",
       tee_colour: round.tee_colour || "",
+      average_driving_distance: round.average_driving_distance?.toString() || "",
+      longest_drive: round.longest_drive?.toString() || "",
+      tee_shot_quality: round.tee_shot_quality || "",
       penalty_shots: round.penalty_shots?.toString() || "",
       chip_shots: round.chip_shots?.toString() || "",
       greenside_bunker_shots: round.greenside_bunker_shots?.toString() || "",
@@ -109,6 +115,9 @@ export default function RoundHistory() {
         putts: parseNumber(editForm.putts),
         holes_played: parseNumber(editForm.holes_played),
         tee_colour: editForm.tee_colour || null,
+        average_driving_distance: parseNumber(editForm.average_driving_distance),
+        longest_drive: parseNumber(editForm.longest_drive),
+        tee_shot_quality: editForm.tee_shot_quality || null,
         penalty_shots: parseNumber(editForm.penalty_shots),
         chip_shots: parseNumber(editForm.chip_shots),
         greenside_bunker_shots: parseNumber(editForm.greenside_bunker_shots),
@@ -241,6 +250,8 @@ export default function RoundHistory() {
                         `${round.fairways_hit ?? "-"}/${round.fairways_possible ?? "-"}`,
                       ],
                       ["Scramble", round.scramble_percentage === null ? "-" : `${round.scramble_percentage}%`],
+                      ["Avg Drive", round.average_driving_distance ? `${round.average_driving_distance} yd` : "-"],
+                      ["Longest", round.longest_drive ? `${round.longest_drive} yd` : "-"],
                       ["Putts", round.putts?.toString() || "-"],
                       ["Penalties", (round.penalty_shots ?? 0).toString()],
                       ["Chip Shots", (round.chip_shots ?? 0).toString()],
@@ -370,6 +381,25 @@ export default function RoundHistory() {
                 onChange={(value) => setEditForm((prev) => ({ ...prev, tee_colour: value }))}
               />
               <Field
+                label="Average Driving Distance"
+                type="number"
+                value={editForm.average_driving_distance}
+                onChange={(value) =>
+                  setEditForm((prev) => ({ ...prev, average_driving_distance: value }))
+                }
+              />
+              <Field
+                label="Longest Drive"
+                type="number"
+                value={editForm.longest_drive}
+                onChange={(value) => setEditForm((prev) => ({ ...prev, longest_drive: value }))}
+              />
+              <Field
+                label="Tee Shot Quality"
+                value={editForm.tee_shot_quality}
+                onChange={(value) => setEditForm((prev) => ({ ...prev, tee_shot_quality: value }))}
+              />
+              <Field
                 label="Penalty Shots"
                 type="number"
                 value={editForm.penalty_shots}
@@ -486,6 +516,8 @@ function RoundDetailsModal({
             ["Fairways", `${round.fairways_hit ?? "-"}/${round.fairways_possible ?? "-"}`],
             ["GIR", `${round.greens_in_regulation ?? "-"}/${round.holes_played ?? 18}`],
             ["Scramble", round.scramble_percentage === null ? "-" : `${round.scramble_percentage}%`],
+            ["Avg Drive", round.average_driving_distance ? `${round.average_driving_distance} yd` : "-"],
+            ["Longest", round.longest_drive ? `${round.longest_drive} yd` : "-"],
             ["Putts", round.putts?.toString() || "-"],
             ["Penalties", (round.penalty_shots ?? 0).toString()],
             ["Chip Shots", (round.chip_shots ?? 0).toString()],

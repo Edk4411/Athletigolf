@@ -60,6 +60,11 @@ export default function Dashboard() {
   const lastRound = rounds[0] ?? null;
   const golfStats = getGolfStats(rounds);
   const shortGameStats = getShortGameStats(roundHoles);
+  const trainingVolume = workouts.reduce(
+    (sum, workout) =>
+      sum + (workout.exercises || []).reduce((exerciseSum, exercise) => exerciseSum + (exercise.volume ?? 0), 0),
+    0
+  );
   const penaltyControl = lowerIsBetterControl(golfStats.avgPenaltyShots, 0, 4);
   const puttingControl = lowerIsBetterControl(golfStats.avgPutts, 30, 42);
   const highlight = getWeeklyHighlight(rounds, roundHoles, workouts, weekAgo);
@@ -88,7 +93,7 @@ export default function Dashboard() {
           <div className="grid gap-6 p-5 lg:grid-cols-[1fr_220px] lg:p-7">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-pulse">
-                AthletiGolf OS
+                AthletiGolf Performance
               </p>
               <h1 className="mt-4 max-w-2xl text-3xl font-semibold leading-tight tracking-tight md:text-5xl">
                 {firstName}, here&apos;s the week.
@@ -137,7 +142,7 @@ export default function Dashboard() {
         <Kpi label="Avg Score" value={formatAverage(golfStats.avgScore)} sub={`${rounds.length} rounds`} tone="golf" />
         <Kpi label="FIR" value={formatPercent(golfStats.avgFairwayPercent)} sub="driving shape" tone="golf" />
         <Kpi label="GIR" value={formatPercent(golfStats.avgGirPercent)} sub="approach control" tone="pulse" />
-        <Kpi label="Scramble" value={formatPercent(golfStats.avgScramblePercent)} sub="missed GIR recovery" tone="pulse" />
+        <Kpi label="Avg Drive" value={formatDistance(golfStats.avgDrivingDistance)} sub="distance tracked" tone="golf" />
         <Kpi label="Up & Down" value={formatPercent(shortGameStats.upAndDownPercent)} sub={`${shortGameStats.upAndDowns}/${shortGameStats.chipChances} chip chances`} tone="golf" />
       </section>
 
@@ -147,6 +152,7 @@ export default function Dashboard() {
           {rounds.length ? (
             <div className="space-y-4">
               <Meter label="Fairways" value={formatPercent(golfStats.avgFairwayPercent)} color="bg-golf" />
+              <Meter label="Average Drive" value={formatDistance(golfStats.avgDrivingDistance)} color="bg-golf" />
               <Meter label="GIR" value={formatPercent(golfStats.avgGirPercent)} color="bg-pulse" />
               <Meter label="Scramble Rate" value={formatPercent(golfStats.avgScramblePercent)} color="bg-gold" />
               <Meter label="Up & Down Rate" value={formatPercent(shortGameStats.upAndDownPercent)} color="bg-golf" />
@@ -179,7 +185,7 @@ export default function Dashboard() {
             {[
               ["This week", workoutsThisWeek, 4],
               ["All sessions", workouts.length, Math.max(workouts.length, 1)],
-              ["Exercises", workouts.reduce((sum, workout) => sum + (workout.exercises?.length || 0), 0), 40],
+              ["Volume", Math.round(trainingVolume), Math.max(Math.round(trainingVolume), 1)],
             ].map(([label, value, target]) => (
               <LoadRow key={label as string} label={label as string} value={value as number} target={target as number} />
             ))}
@@ -281,7 +287,8 @@ function Kpi({ label, value, sub, tone }: { label: string; value: React.ReactNod
 }
 
 function Meter({ label, value, color }: { label: string; value: string; color: string }) {
-  const width = value.includes("%") ? value : `${Math.min(Number(value) * 8 || 20, 100)}%`;
+  const numericValue = Number.parseFloat(value);
+  const width = value.includes("%") ? value : `${Math.min(numericValue * 0.4 || 20, 100)}%`;
   return (
     <div>
       <div className="mb-2 flex items-center justify-between gap-3">
@@ -423,6 +430,14 @@ function getWeeklyHighlight(
   }
 
   if (roundsThisWeek.length > 0) {
+    const distanceRound = roundsThisWeek.find((round) => round.longest_drive || round.average_driving_distance);
+    if (distanceRound?.longest_drive) {
+      return {
+        title: `Longest drive tracked: ${distanceRound.longest_drive} yd`,
+        detail: "Distance is now part of the golf data layer.",
+      };
+    }
+
     return {
       title: `${roundsThisWeek.length} round${roundsThisWeek.length === 1 ? "" : "s"} logged this week`,
       detail: "Fresh round data gives the dashboard a much better signal.",
@@ -473,6 +488,9 @@ function findWeeklyTrainingPr(workouts: Workout[], weekAgo: Date) {
 }
 
 function parseWeight(exercise: ExerciseLog) {
+  if (exercise.weight_value !== null && exercise.weight_value !== undefined) {
+    return exercise.weight_value;
+  }
   const match = exercise.weight?.match(/[\d.]+/);
   if (!match) return null;
   const value = Number(match[0]);
@@ -481,4 +499,8 @@ function parseWeight(exercise: ExerciseLog) {
 
 function formatWeightDelta(value: number) {
   return `${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)}kg`;
+}
+
+function formatDistance(value: number | null) {
+  return value === null ? "-" : `${Math.round(value)} yd`;
 }

@@ -55,6 +55,11 @@ export default function Analytics() {
     return workouts.filter((w) => w.created_at && new Date(w.created_at) >= weekAgo).length;
   })();
   const exerciseCount = workouts.reduce((sum, workout) => sum + (workout.exercises?.length || 0), 0);
+  const trainingVolume = workouts.reduce(
+    (sum, workout) =>
+      sum + (workout.exercises || []).reduce((exerciseSum, exercise) => exerciseSum + (exercise.volume ?? 0), 0),
+    0
+  );
 
   const biggestOpportunity =
     rounds.length === 0
@@ -103,6 +108,7 @@ export default function Analytics() {
         <ReportKpi label="GIR" value={formatPercent(golfStats.avgGirPercent)} sub="approach marker" tone="pulse" />
         <ReportKpi label="Scramble" value={formatPercent(golfStats.avgScramblePercent)} sub="missed GIR recovery" tone="pulse" />
         <ReportKpi label="Up & Down" value={formatPercent(shortGameStats.upAndDownPercent)} sub={`${shortGameStats.upAndDowns}/${shortGameStats.chipChances} chip chances`} tone="golf" />
+        <ReportKpi label="Avg Drive" value={formatDistance(golfStats.avgDrivingDistance)} sub={`best ${formatDistance(golfStats.longestDrive)}`} tone="golf" />
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
@@ -139,6 +145,8 @@ export default function Analytics() {
               <SectionTitle eyebrow="Golf" title="Scoring markers" />
               <div className="space-y-4">
                 <Metric label="Fairways Hit" value={formatPercent(golfStats.avgFairwayPercent)} color="bg-golf" />
+                <Metric label="Average Drive" value={formatDistance(golfStats.avgDrivingDistance)} color="bg-golf" />
+                <Metric label="Longest Drive" value={formatDistance(golfStats.longestDrive)} color="bg-pulse" />
                 <Metric label="Greens In Regulation" value={formatPercent(golfStats.avgGirPercent)} color="bg-pulse" />
                 <Metric label="Scramble Rate" value={formatPercent(golfStats.avgScramblePercent)} color="bg-gold" />
                 <Metric label="Up & Down Rate" value={formatPercent(shortGameStats.upAndDownPercent)} color="bg-golf" />
@@ -164,6 +172,7 @@ export default function Analytics() {
                 <Metric label="Total Sessions" value={`${workouts.length}`} color="bg-lab" />
                 <Metric label="This Week" value={`${workoutsThisWeek}`} color="bg-pulse" />
                 <Metric label="Exercises Logged" value={`${exerciseCount}`} color="bg-lab" />
+                <Metric label="Tracked Volume" value={`${Math.round(trainingVolume)} kg`} color="bg-pulse" />
                 <Metric label="Status" value={workouts.length ? "Active" : "-"} color="bg-dark" />
               </div>
             </Surface>
@@ -193,6 +202,7 @@ export default function Analytics() {
             <SectionTitle eyebrow="Data Health" title="Signal strength" />
             <div className="space-y-3">
               <Health label="Rounds" value={rounds.length} target={5} tone="golf" />
+              <Health label="Distance rounds" value={rounds.filter((round) => round.average_driving_distance).length} target={3} tone="golf" />
               <Health label="Training sessions" value={workouts.length} target={8} tone="lab" />
               <Health label="This week" value={workoutsThisWeek} target={3} tone="pulse" />
             </div>
@@ -226,7 +236,8 @@ function ReportKpi({
 }
 
 function Metric({ label, value, color }: { label: string; value: string; color: string }) {
-  const width = value.includes("%") ? value : `${Math.min(Number(value) * 10 || 18, 100)}%`;
+  const numericValue = Number.parseFloat(value);
+  const width = value.includes("%") ? value : `${Math.min(numericValue * 0.4 || 18, 100)}%`;
   return (
     <div>
       <div className="mb-2 flex items-center justify-between gap-4">
@@ -309,4 +320,8 @@ function Health({
       </div>
     </div>
   );
+}
+
+function formatDistance(value: number | null) {
+  return value === null ? "-" : `${Math.round(value)} yd`;
 }
