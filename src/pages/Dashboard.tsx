@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import {
   Activity,
   ArrowUpRight,
+  Brain,
   Dumbbell,
   Flag,
   NotebookPen,
@@ -22,6 +23,12 @@ import {
   getShortGameStats,
   lowerIsBetterControl,
 } from "@/lib/golfStats";
+import {
+  getPerformanceInsights,
+  getRelationshipInsights,
+  type PerformanceInsight,
+  type RelationshipInsight,
+} from "@/lib/insights";
 import type { ExerciseLog, Round, RoundHole, Workout } from "@/lib/types";
 
 export default function Dashboard() {
@@ -68,6 +75,8 @@ export default function Dashboard() {
   const penaltyControl = lowerIsBetterControl(golfStats.avgPenaltyShots, 0, 4);
   const puttingControl = lowerIsBetterControl(golfStats.avgPutts, 30, 42);
   const highlight = getWeeklyHighlight(rounds, roundHoles, workouts, weekAgo);
+  const performanceInsights = getPerformanceInsights(rounds, roundHoles, workouts);
+  const relationshipInsights = getRelationshipInsights(rounds, workouts);
 
   const activity = [
     ...rounds.slice(0, 3).map((round) => ({
@@ -145,6 +154,37 @@ export default function Dashboard() {
         <Kpi label="Avg Drive" value={formatDistance(golfStats.avgDrivingDistance)} sub="distance tracked" tone="golf" />
         <Kpi label="Up & Down" value={formatPercent(shortGameStats.upAndDownPercent)} sub={`${shortGameStats.upAndDowns}/${shortGameStats.chipChances} chip chances`} tone="golf" />
         <Kpi label="Sand Save" value={formatPercent(shortGameStats.sandSavePercent)} sub={`${shortGameStats.sandSaves}/${shortGameStats.sandSaveChances} bunker chances`} tone="golf" />
+      </section>
+
+      <section className="mb-5 grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+        <Surface>
+          <SectionTitle
+            eyebrow="Insight Engine"
+            title="Performance signals"
+            action={<Brain className="h-5 w-5 text-pulse" />}
+          />
+          <div className="grid gap-3 md:grid-cols-2">
+            {performanceInsights.slice(0, 4).map((insight) => (
+              <InsightCard key={insight.title} insight={insight} />
+            ))}
+          </div>
+        </Surface>
+
+        <Surface className="bg-dark text-white">
+          <div className="mb-5">
+            <p className="mb-1 text-xs font-bold uppercase tracking-[0.18em] text-pulse">
+              Golf x Training
+            </p>
+            <h2 className="text-xl font-semibold tracking-tight text-white">
+              Relationship watch
+            </h2>
+          </div>
+          <div className="space-y-3">
+            {relationshipInsights.map((insight) => (
+              <RelationshipCard key={insight.title} insight={insight} />
+            ))}
+          </div>
+        </Surface>
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[1fr_1fr_0.8fr]">
@@ -255,6 +295,44 @@ export default function Dashboard() {
       </section>
     </main>
   );
+}
+
+function InsightCard({ insight }: { insight: PerformanceInsight }) {
+  const toneClass = getInsightToneClass(insight.tone);
+  return (
+    <div className={`rounded-xl border p-4 ${toneClass}`}>
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <h3 className="font-semibold leading-snug text-dark">{insight.title}</h3>
+        {insight.metric && (
+          <span className="shrink-0 rounded-full bg-white/70 px-3 py-1 text-xs font-bold text-dark">
+            {insight.metric}
+          </span>
+        )}
+      </div>
+      <p className="text-sm leading-relaxed text-muted">{insight.detail}</p>
+    </div>
+  );
+}
+
+function RelationshipCard({ insight }: { insight: RelationshipInsight }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/8 p-4">
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <h3 className="font-semibold leading-snug text-white">{insight.title}</h3>
+        <span className="rounded-full bg-pulse/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-pulse">
+          {insight.confidence}
+        </span>
+      </div>
+      <p className="text-sm leading-relaxed text-white/64">{insight.detail}</p>
+    </div>
+  );
+}
+
+function getInsightToneClass(tone: PerformanceInsight["tone"]) {
+  if (tone === "golf") return "border-golf/20 bg-golf/8";
+  if (tone === "lab") return "border-lab/20 bg-lab/8";
+  if (tone === "warning") return "border-gold/30 bg-gold/12";
+  return "border-pulse/20 bg-pulse/8";
 }
 
 function MiniMetric({ label, value }: { label: string; value: React.ReactNode }) {

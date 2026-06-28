@@ -66,6 +66,10 @@ export default function RoundTracker() {
 
   const updateHole = <K extends keyof Hole>(index: number, field: K, value: Hole[K]) => {
     const updatedHole = { ...holes[index], [field]: value };
+    if (field === "par" && value === 3) {
+      updatedHole.fairway = "na";
+      updatedHole.teeShotLocation = "";
+    }
     if (field === "fairway" && (value === "hit" || value === "na")) {
       updatedHole.teeShotLocation = "";
     }
@@ -198,7 +202,7 @@ export default function RoundTracker() {
         penalty_shots: stats.penaltyShots,
         chip_shots: stats.chipShots,
         greenside_bunker_shots: stats.greensideBunkerShots,
-        holes_played: holesPlayed,
+        holes_played: stats.holesCompleted,
         tee_colour: teeColour || null,
         average_driving_distance: parseOptionalNumber(averageDrivingDistance),
         longest_drive: parseOptionalNumber(longestDrive),
@@ -216,21 +220,23 @@ export default function RoundTracker() {
       return;
     }
 
-    const holeRows = holes.map((hole, index) => ({
-      round_id: round.id,
-      user_id: user.id,
-      hole_number: index + 1,
-      par: hole.par,
-      score: hole.score === "" ? null : Number(hole.score),
-      fairway_result: hole.par === 3 ? "na" : hole.fairway,
-      tee_shot_location: hole.par === 3 ? null : hole.teeShotLocation || null,
-      gir: hole.gir,
-      putts: parseStat(hole.putts),
-      penalty_shots: parseStat(hole.penaltyShots),
-      chip_shots: parseStat(hole.chipShots),
-      greenside_bunker_shots: parseStat(hole.greensideBunkerShots),
-      recovery_shot_type: hole.recoveryShotType || null,
-    }));
+    const holeRows = holes
+      .map((hole, index) => ({
+        round_id: round.id,
+        user_id: user.id,
+        hole_number: index + 1,
+        par: hole.par,
+        score: hole.score === "" ? null : Number(hole.score),
+        fairway_result: hole.par === 3 ? "na" : hole.fairway,
+        tee_shot_location: hole.par === 3 ? null : hole.teeShotLocation || null,
+        gir: hole.gir,
+        putts: parseStat(hole.putts),
+        penalty_shots: parseStat(hole.penaltyShots),
+        chip_shots: parseStat(hole.chipShots),
+        greenside_bunker_shots: parseStat(hole.greensideBunkerShots),
+        recovery_shot_type: hole.recoveryShotType || null,
+      }))
+      .filter((hole) => hole.score !== null);
 
     const { error: holesError } = await supabase.from("round_holes").insert(holeRows);
     setSaving(false);
@@ -432,7 +438,6 @@ export default function RoundTracker() {
                     onChange={(value) => {
                       const nextPar = Number(value);
                       updateHole(currentHoleIndex, "par", nextPar);
-                      if (nextPar === 3) updateHole(currentHoleIndex, "fairway", "na");
                     }}
                     options={["3", "4", "5"]}
                   />
@@ -553,8 +558,8 @@ export default function RoundTracker() {
                   Review Before Saving
                 </h2>
                 <p className="text-black/60">
-                  Check the summary and hole details below. If everything looks right,
-                  save the round.
+                  Check the summary and hole details below. Skipped holes will stay out
+                  of the saved stats.
                 </p>
               </Card>
             )}
@@ -582,7 +587,15 @@ export default function RoundTracker() {
                         <tr key={index} className="border-t border-line">
                           <td className="p-4 font-semibold">{index + 1}</td>
                           <td className="p-4">{hole.par}</td>
-                          <td className="p-4">{hole.score || "-"}</td>
+                          <td className="p-4">
+                            {hole.score ? (
+                              hole.score
+                            ) : (
+                              <span className="rounded-full bg-steel/10 px-3 py-1 text-xs font-semibold text-muted">
+                                Skipped
+                              </span>
+                            )}
+                          </td>
                           <td className="p-4 capitalize">{formatOption(hole.fairway)}</td>
                           <td className="p-4 capitalize">
                             {hole.teeShotLocation ? formatOption(hole.teeShotLocation) : "-"}

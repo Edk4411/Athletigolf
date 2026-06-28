@@ -27,8 +27,8 @@ export function getGolfStats(rounds: Round[]) {
     if (hasValue(round.fairways_possible) && round.fairways_possible > 0) {
       return sum + round.fairways_possible;
     }
-    const holesPlayed = round.holes_played === 9 ? 9 : 18;
-    return sum + (holesPlayed === 9 ? 7 : FAIRWAY_HOLES_PER_ROUND);
+    const holesPlayed = round.holes_played ?? 18;
+    return sum + estimateFairwayHoles(holesPlayed);
   }, 0);
 
   const greensHit = girRounds.reduce(
@@ -36,7 +36,7 @@ export function getGolfStats(rounds: Round[]) {
     0
   );
   const greensPossible = girRounds.reduce(
-    (sum, round) => sum + (round.holes_played === 9 ? 9 : 18),
+    (sum, round) => sum + (round.holes_played ?? 18),
     0
   );
 
@@ -107,6 +107,13 @@ function isSandRecoveryHole(hole: RoundHole) {
   if (bunkers <= 0) return false;
   if (chips <= 0) return true;
   return hole.recovery_shot_type === "sand";
+}
+
+function estimateFairwayHoles(holesPlayed: number) {
+  if (holesPlayed <= 0) return 0;
+  if (holesPlayed === 9) return 7;
+  if (holesPlayed === 18) return FAIRWAY_HOLES_PER_ROUND;
+  return Math.max(0, Math.round((holesPlayed / 18) * FAIRWAY_HOLES_PER_ROUND));
 }
 
 export const formatAverage = (value: number | null, digits = 1) =>

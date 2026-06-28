@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { ArrowUpRight, BarChart3, Dumbbell, Flag, Target } from "lucide-react";
+import { ArrowUpRight, BarChart3, Brain, Dumbbell, Flag, Target } from "lucide-react";
 import { Button, EmptyState, SectionTitle, Surface } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import {
@@ -11,6 +11,12 @@ import {
   getShortGameStats,
   lowerIsBetterControl,
 } from "@/lib/golfStats";
+import {
+  getPerformanceInsights,
+  getRelationshipInsights,
+  type PerformanceInsight,
+  type RelationshipInsight,
+} from "@/lib/insights";
 import type { Round, RoundHole, Workout } from "@/lib/types";
 
 export default function Analytics() {
@@ -60,6 +66,8 @@ export default function Analytics() {
       sum + (workout.exercises || []).reduce((exerciseSum, exercise) => exerciseSum + (exercise.volume ?? 0), 0),
     0
   );
+  const performanceInsights = getPerformanceInsights(rounds, roundHoles, workouts);
+  const relationshipInsights = getRelationshipInsights(rounds, workouts);
 
   const biggestOpportunity =
     rounds.length === 0
@@ -110,6 +118,37 @@ export default function Analytics() {
         <ReportKpi label="Up & Down" value={formatPercent(shortGameStats.upAndDownPercent)} sub={`${shortGameStats.upAndDowns}/${shortGameStats.chipChances} chip chances`} tone="golf" />
         <ReportKpi label="Sand Save" value={formatPercent(shortGameStats.sandSavePercent)} sub={`${shortGameStats.sandSaves}/${shortGameStats.sandSaveChances} bunker chances`} tone="golf" />
         <ReportKpi label="Avg Drive" value={formatDistance(golfStats.avgDrivingDistance)} sub={`best ${formatDistance(golfStats.longestDrive)}`} tone="golf" />
+      </section>
+
+      <section className="mb-5 grid gap-5 xl:grid-cols-[1fr_0.9fr]">
+        <Surface>
+          <SectionTitle
+            eyebrow="Insight Engine"
+            title="What changed and what matters"
+            action={<Brain className="h-5 w-5 text-pulse" />}
+          />
+          <div className="grid gap-3 md:grid-cols-2">
+            {performanceInsights.map((insight) => (
+              <InsightCard key={insight.title} insight={insight} />
+            ))}
+          </div>
+        </Surface>
+
+        <Surface className="bg-dark text-white">
+          <div className="mb-5">
+            <p className="mb-1 text-xs font-bold uppercase tracking-[0.18em] text-pulse">
+              Golf x Training
+            </p>
+            <h2 className="text-xl font-semibold tracking-tight text-white">
+              Relationship report
+            </h2>
+          </div>
+          <div className="space-y-3">
+            {relationshipInsights.map((insight) => (
+              <RelationshipCard key={insight.title} insight={insight} />
+            ))}
+          </div>
+        </Surface>
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
@@ -213,6 +252,43 @@ export default function Analytics() {
       </section>
     </main>
   );
+}
+
+function InsightCard({ insight }: { insight: PerformanceInsight }) {
+  return (
+    <div className={`rounded-xl border p-4 ${getInsightToneClass(insight.tone)}`}>
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <h3 className="font-semibold leading-snug text-dark">{insight.title}</h3>
+        {insight.metric && (
+          <span className="shrink-0 rounded-full bg-white/70 px-3 py-1 text-xs font-bold text-dark">
+            {insight.metric}
+          </span>
+        )}
+      </div>
+      <p className="text-sm leading-relaxed text-muted">{insight.detail}</p>
+    </div>
+  );
+}
+
+function RelationshipCard({ insight }: { insight: RelationshipInsight }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/8 p-4">
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <h3 className="font-semibold leading-snug text-white">{insight.title}</h3>
+        <span className="rounded-full bg-pulse/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-pulse">
+          {insight.confidence}
+        </span>
+      </div>
+      <p className="text-sm leading-relaxed text-white/64">{insight.detail}</p>
+    </div>
+  );
+}
+
+function getInsightToneClass(tone: PerformanceInsight["tone"]) {
+  if (tone === "golf") return "border-golf/20 bg-golf/8";
+  if (tone === "lab") return "border-lab/20 bg-lab/8";
+  if (tone === "warning") return "border-gold/30 bg-gold/12";
+  return "border-pulse/20 bg-pulse/8";
 }
 
 function ReportKpi({
