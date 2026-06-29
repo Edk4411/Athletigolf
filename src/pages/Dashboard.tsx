@@ -29,13 +29,14 @@ import {
   type PerformanceInsight,
   type RelationshipInsight,
 } from "@/lib/insights";
-import type { ExerciseLog, Round, RoundHole, Workout } from "@/lib/types";
+import type { ExerciseLog, PracticeSession, Round, RoundHole, Workout } from "@/lib/types";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [rounds, setRounds] = useState<Round[]>([]);
   const [roundHoles, setRoundHoles] = useState<RoundHole[]>([]);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [practices, setPractices] = useState<PracticeSession[]>([]);
   const [loading, setLoading] = useState(true);
 
   const firstName =
@@ -45,14 +46,16 @@ export default function Dashboard() {
 
   useEffect(() => {
     const load = async () => {
-      const [{ data: r }, { data: h }, { data: w }] = await Promise.all([
+      const [{ data: r }, { data: h }, { data: w }, { data: p }] = await Promise.all([
         supabase.from("rounds").select("*").order("created_at", { ascending: false }),
         supabase.from("round_holes").select("*").order("created_at", { ascending: false }),
         supabase.from("workouts").select("*").order("created_at", { ascending: false }),
+        supabase.from("practice_sessions").select("*").order("created_at", { ascending: false }),
       ]);
       setRounds((r as Round[]) || []);
       setRoundHoles((h as RoundHole[]) || []);
       setWorkouts((w as Workout[]) || []);
+      setPractices((p as PracticeSession[]) || []);
       setLoading(false);
     };
     load();
@@ -75,7 +78,7 @@ export default function Dashboard() {
   const penaltyControl = lowerIsBetterControl(golfStats.avgPenaltyShots, 0, 4);
   const puttingControl = lowerIsBetterControl(golfStats.avgPutts, 30, 42);
   const highlight = getWeeklyHighlight(rounds, roundHoles, workouts, weekAgo);
-  const performanceInsights = getPerformanceInsights(rounds, roundHoles, workouts);
+  const performanceInsights = getPerformanceInsights(rounds, roundHoles, workouts, practices);
   const relationshipInsights = getRelationshipInsights(rounds, workouts);
 
   const activity = [

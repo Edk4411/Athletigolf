@@ -1,4 +1,4 @@
-import type { ExerciseLog, Round, RoundHole, Workout } from "@/lib/types";
+import type { ExerciseLog, PracticeSession, Round, RoundHole, Workout } from "@/lib/types";
 import { getGolfStats, getShortGameStats } from "@/lib/golfStats";
 
 export type InsightTone = "golf" | "lab" | "pulse" | "warning";
@@ -23,7 +23,8 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 export function getPerformanceInsights(
   rounds: Round[],
   holes: RoundHole[],
-  workouts: Workout[]
+  workouts: Workout[],
+  practices: PracticeSession[] = []
 ): PerformanceInsight[] {
   const golfStats = getGolfStats(rounds);
   const shortGameStats = getShortGameStats(holes);
@@ -115,6 +116,39 @@ export function getPerformanceInsights(
   const weeklyWorkouts = workouts.filter(
     (workout) => new Date(workout.created_at).getTime() >= Date.now() - 7 * MS_PER_DAY
   );
+  const weeklyPractices = practices.filter(
+    (practice) => new Date(practice.created_at).getTime() >= Date.now() - 7 * MS_PER_DAY
+  );
+  const drillPractices = practices.filter((practice) => practice.drill_name);
+
+  if (weeklyPractices.length >= 2) {
+    insights.push({
+      title: "Practice rhythm is building",
+      detail: `${weeklyPractices.length} focused practice sessions this week gives the golf side a stronger improvement signal.`,
+      tone: "golf",
+      priority: 78,
+      metric: `${weeklyPractices.length} sessions`,
+    });
+  }
+
+  const bestDrill = findBestDrill(drillPractices);
+  if (bestDrill) {
+    insights.push({
+      title: `${bestDrill.drill_name} is now measurable`,
+      detail: `Best logged drill rate is ${bestDrill.rate}%. Keep repeating this to connect practice quality with round outcomes.`,
+      tone: "pulse",
+      priority: 77,
+      metric: `${bestDrill.rate}%`,
+    });
+  } else if (practices.length > 0) {
+    insights.push({
+      title: "Add drill scores to practice",
+      detail: "Practice sessions are being logged, but drill attempts and successes will make recommendations much sharper.",
+      tone: "warning",
+      priority: 62,
+    });
+  }
+
   if (weeklyWorkouts.length >= 3) {
     insights.push({
       title: "Training consistency is building",
@@ -229,6 +263,24 @@ function findBestRecentLift(workouts: Workout[]) {
     .sort((a, b) => b.weight - a.weight);
 
   return lifts[0] ?? null;
+}
+
+function findBestDrill(practices: PracticeSession[]) {
+  const scored = practices
+    .map((practice) => {
+      if (!practice.drill_name || !practice.drill_attempts || practice.drill_attempts <= 0) {
+        return null;
+      }
+      const successes = practice.drill_successes ?? 0;
+      return {
+        drill_name: practice.drill_name,
+        rate: Math.round((successes / practice.drill_attempts) * 100),
+      };
+    })
+    .filter((practice): practice is { drill_name: string; rate: number } => practice !== null)
+    .sort((a, b) => b.rate - a.rate);
+
+  return scored[0] ?? null;
 }
 
 function average(values: number[]) {

@@ -17,12 +17,13 @@ import {
   type PerformanceInsight,
   type RelationshipInsight,
 } from "@/lib/insights";
-import type { Round, RoundHole, Workout } from "@/lib/types";
+import type { PracticeSession, Round, RoundHole, Workout } from "@/lib/types";
 
 export default function Analytics() {
   const [rounds, setRounds] = useState<Round[]>([]);
   const [roundHoles, setRoundHoles] = useState<RoundHole[]>([]);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [practices, setPractices] = useState<PracticeSession[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -47,6 +48,12 @@ export default function Analytics() {
       .select("*")
       .order("created_at", { ascending: false });
     setWorkouts((workoutsData as Workout[]) || []);
+
+    const { data: practiceData } = await supabase
+      .from("practice_sessions")
+      .select("*")
+      .order("created_at", { ascending: false });
+    setPractices((practiceData as PracticeSession[]) || []);
     setLoading(false);
   };
 
@@ -66,7 +73,7 @@ export default function Analytics() {
       sum + (workout.exercises || []).reduce((exerciseSum, exercise) => exerciseSum + (exercise.volume ?? 0), 0),
     0
   );
-  const performanceInsights = getPerformanceInsights(rounds, roundHoles, workouts);
+  const performanceInsights = getPerformanceInsights(rounds, roundHoles, workouts, practices);
   const relationshipInsights = getRelationshipInsights(rounds, workouts);
 
   const biggestOpportunity =

@@ -89,6 +89,29 @@ export type Workout = {
   created_at: string;
 };
 
+export type PracticeSession = {
+  id: string;
+  user_id: string;
+  practice_type: string;
+  duration_minutes: number;
+  focus_area: string | null;
+  rating: number | null;
+  drills?: PracticeDrill[] | null;
+  drill_name?: string | null;
+  drill_attempts?: number | null;
+  drill_successes?: number | null;
+  drill_distance?: string | null;
+  notes: string | null;
+  created_at: string;
+};
+
+export type PracticeDrill = {
+  name: string;
+  distance?: string | null;
+  attempts?: number | null;
+  successes?: number | null;
+};
+
 export type SplitDay = {
   id: string;
   user_id: string;

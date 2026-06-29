@@ -105,9 +105,66 @@ html[data-theme="dark"] .text-slate-950 {
 }
 
 html[data-theme="dark"] .text-black\/60,
+html[data-theme="dark"] .text-black\/70,
+html[data-theme="dark"] .text-black\/55,
 html[data-theme="dark"] .text-black\/50,
-html[data-theme="dark"] .text-black\/40 {
+html[data-theme="dark"] .text-black\/40,
+html[data-theme="dark"] .text-black\/35 {
   color: rgba(232, 238, 248, 0.64);
+}
+
+html[data-theme="dark"] .text-\[\#1F4D3A\],
+html[data-theme="dark"] .text-\[\#1F4D3A\]\/70 {
+  color: #6fd0ac;
+}
+
+html[data-theme="dark"] .text-\[\#4157d8\] {
+  color: #8fa0ff;
+}
+
+html[data-theme="dark"] .text-\[\#D4AF37\] {
+  color: #d6aa58;
+}
+
+html[data-theme="dark"] .bg-\[\#1F4D3A\] {
+  background-color: #2f9b78;
+}
+
+html[data-theme="dark"] .bg-\[\#1F4D3A\]\/5 {
+  background-color: rgba(47, 155, 120, 0.12);
+}
+
+html[data-theme="dark"] .border-\[\#1F4D3A\]\/10 {
+  border-color: rgba(111, 208, 172, 0.24);
+}
+
+html[data-theme="dark"] .hover\:bg-\[\#17392b\]:hover {
+  background-color: #23765d;
+}
+
+html[data-theme="dark"] .focus\:border-\[\#1F4D3A\]:focus {
+  border-color: #6fd0ac;
+}
+
+html[data-theme="dark"] .focus\:border-black:focus,
+html[data-theme="dark"] .focus\:border-black\/30:focus {
+  border-color: rgba(232, 238, 248, 0.42);
+}
+
+html[data-theme="dark"] .hover\:bg-black\/5:hover {
+  background-color: rgba(232, 238, 248, 0.08);
+}
+
+html[data-theme="dark"] .hover\:text-black:hover {
+  color: #e8eef8;
+}
+
+html[data-theme="dark"] .bg-black\/10 {
+  background-color: rgba(232, 238, 248, 0.12);
+}
+
+html[data-theme="dark"] .bg-black\/20 {
+  background-color: rgba(232, 238, 248, 0.18);
 }
 
 html[data-theme="dark"] .border-line {
