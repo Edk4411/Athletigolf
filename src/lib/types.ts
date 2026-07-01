@@ -203,6 +203,34 @@ export type WellnessLog = {
   updated_at?: string | null;
 };
 
+export type NutritionEntry = {
+  id: string;
+  user_id: string;
+  log_date: string;
+  meal_type: "breakfast" | "lunch" | "dinner" | "snack";
+  food_name: string;
+  serving: string | null;
+  calories: number | null;
+  protein_grams: number | null;
+  carbs_grams: number | null;
+  fats_grams: number | null;
+  created_at: string;
+  updated_at?: string | null;
+};
+
+export type SavedFood = {
+  id: string;
+  user_id: string;
+  food_name: string;
+  serving: string | null;
+  calories: number | null;
+  protein_grams: number | null;
+  carbs_grams: number | null;
+  fats_grams: number | null;
+  created_at: string;
+  updated_at?: string | null;
+};
+
 export type FriendConnection = {
   id: string;
   requester_id: string;

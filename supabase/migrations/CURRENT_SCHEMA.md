@@ -253,6 +253,60 @@ Security:
 - Row Level Security enabled.
 - Users can only access rows where `auth.uid() = user_id`.
 
+### `nutrition_entries`
+
+Purpose: individual food entries grouped by meal for daily nutrition tracking.
+
+Required columns:
+
+- `id uuid primary key`
+- `user_id uuid default auth.uid()`
+- `log_date date`
+- `meal_type text default 'snack'`
+- `food_name text`
+- `serving text`
+- `calories integer default 0`
+- `protein_grams integer default 0`
+- `carbs_grams integer default 0`
+- `fats_grams integer default 0`
+- `created_at timestamptz`
+- `updated_at timestamptz`
+
+Recommended index:
+
+- `(user_id, log_date)`
+
+Security:
+
+- Row Level Security enabled.
+- Users can only access rows where `auth.uid() = user_id`.
+
+### `saved_foods`
+
+Purpose: reusable personal food presets for fast nutrition logging.
+
+Required columns:
+
+- `id uuid primary key`
+- `user_id uuid default auth.uid()`
+- `food_name text`
+- `serving text`
+- `calories integer default 0`
+- `protein_grams integer default 0`
+- `carbs_grams integer default 0`
+- `fats_grams integer default 0`
+- `created_at timestamptz`
+- `updated_at timestamptz`
+
+Recommended index:
+
+- `(user_id, food_name)`
+
+Security:
+
+- Row Level Security enabled.
+- Users can only access rows where `auth.uid() = user_id`.
+
 ### `friend_connections`
 
 Purpose: friend requests and accepted friend relationships.

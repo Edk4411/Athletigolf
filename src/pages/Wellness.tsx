@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, CalendarDays, Droplets, Flame, Moon, Plus, Scale, Utensils, Zap } from "lucide-react";
+import { Activity, CalendarDays, Droplets, Flame, Moon, Plus, Scale, Trash2, Utensils, Zap } from "lucide-react";
 import { Button, EmptyState, FieldLabel, PageHeader, SelectInput, Surface, TextArea, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
-import type { OnboardingData, WellnessLog } from "@/lib/types";
+import type { NutritionEntry, OnboardingData, SavedFood, WellnessLog } from "@/lib/types";
 import { defaultWellnessTargets, getWellnessTargets, type WellnessTargets } from "@/lib/wellnessTargets";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -20,11 +20,33 @@ const blankForm = {
   notes: "",
 };
 
+const blankFoodForm = {
+  meal_type: "breakfast" as NutritionEntry["meal_type"],
+  food_name: "",
+  serving: "",
+  calories: "",
+  protein_grams: "",
+  carbs_grams: "",
+  fats_grams: "",
+};
+
+const mealTypes: Array<{ value: NutritionEntry["meal_type"]; label: string }> = [
+  { value: "breakfast", label: "Breakfast" },
+  { value: "lunch", label: "Lunch" },
+  { value: "dinner", label: "Dinner" },
+  { value: "snack", label: "Snacks" },
+];
+
 export default function Wellness() {
   const [logs, setLogs] = useState<WellnessLog[]>([]);
+  const [nutritionEntries, setNutritionEntries] = useState<NutritionEntry[]>([]);
+  const [savedFoods, setSavedFoods] = useState<SavedFood[]>([]);
   const [targets, setTargets] = useState<WellnessTargets>(defaultWellnessTargets);
   const [selectedLog, setSelectedLog] = useState<WellnessLog | null>(null);
   const [form, setForm] = useState(blankForm);
+  const [foodForm, setFoodForm] = useState(blankFoodForm);
+  const [selectedSavedFood, setSelectedSavedFood] = useState("");
+  const [saveAsPreset, setSaveAsPreset] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -35,19 +57,30 @@ export default function Wellness() {
 
   async function loadLogs() {
     setLoading(true);
-    const [{ data }, { data: profile }] = await Promise.all([
+    const [{ data }, { data: profile }, { data: entries }, { data: foods }] = await Promise.all([
       supabase
         .from("daily_wellness_logs")
         .select("*")
         .order("log_date", { ascending: false })
         .limit(30),
       supabase.from("profiles").select("onboarding_data").maybeSingle(),
+      supabase
+        .from("nutrition_entries")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(120),
+      supabase
+        .from("saved_foods")
+        .select("*")
+        .order("food_name", { ascending: true }),
     ]);
 
     const loadedLogs = (data as WellnessLog[]) || [];
     const onboarding = (profile?.onboarding_data as OnboardingData | null) || null;
     setTargets(getWellnessTargets(onboarding));
     setLogs(loadedLogs);
+    setNutritionEntries((entries as NutritionEntry[]) || []);
+    setSavedFoods((foods as SavedFood[]) || []);
     const todayLog = loadedLogs.find((log) => log.log_date === todayIso()) || null;
     setSelectedLog(todayLog);
     setForm(todayLog ? formFromLog(todayLog) : blankForm);
@@ -111,11 +144,108 @@ export default function Wellness() {
     await loadLogs();
   }
 
+  async function saveFoodEntry(event: React.FormEvent) {
+    event.preventDefault();
+    if (!foodForm.food_name.trim()) return;
+
+    setSaving(true);
+    setError("");
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setError("You need to be signed in to save nutrition entries.");
+      setSaving(false);
+      return;
+    }
+
+    const payload = {
+      user_id: user.id,
+      log_date: form.log_date || todayIso(),
+      meal_type: foodForm.meal_type,
+      food_name: foodForm.food_name.trim(),
+      serving: foodForm.serving.trim() || null,
+      calories: toInteger(foodForm.calories) || 0,
+      protein_grams: toInteger(foodForm.protein_grams) || 0,
+      carbs_grams: toInteger(foodForm.carbs_grams) || 0,
+      fats_grams: toInteger(foodForm.fats_grams) || 0,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error: entryError } = await supabase.from("nutrition_entries").insert(payload);
+
+    if (entryError) {
+      setError(entryError.message);
+      setSaving(false);
+      return;
+    }
+
+    if (saveAsPreset) {
+      await supabase.from("saved_foods").insert({
+        user_id: user.id,
+        food_name: payload.food_name,
+        serving: payload.serving,
+        calories: payload.calories,
+        protein_grams: payload.protein_grams,
+        carbs_grams: payload.carbs_grams,
+        fats_grams: payload.fats_grams,
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    setFoodForm((prev) => ({ ...blankFoodForm, meal_type: prev.meal_type }));
+    setSelectedSavedFood("");
+    setSaveAsPreset(false);
+    setSaving(false);
+    await loadLogs();
+  }
+
+  async function deleteFoodEntry(id: string) {
+    setSaving(true);
+    setError("");
+    const { error: deleteError } = await supabase.from("nutrition_entries").delete().eq("id", id);
+    setSaving(false);
+
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+
+    await loadLogs();
+  }
+
+  function applySavedFood(id: string) {
+    setSelectedSavedFood(id);
+    const food = savedFoods.find((item) => item.id === id);
+    if (!food) return;
+
+    setFoodForm((prev) => ({
+      ...prev,
+      food_name: food.food_name,
+      serving: food.serving || "",
+      calories: toFormValue(food.calories),
+      protein_grams: toFormValue(food.protein_grams),
+      carbs_grams: toFormValue(food.carbs_grams),
+      fats_grams: toFormValue(food.fats_grams),
+    }));
+  }
+
   const todayLog = logs.find((log) => log.log_date === todayIso()) || selectedLog;
+  const activeNutritionDate = form.log_date || todayIso();
+  const activeEntries = useMemo(
+    () => nutritionEntries.filter((entry) => entry.log_date === activeNutritionDate),
+    [nutritionEntries, activeNutritionDate]
+  );
+  const nutritionTotals = useMemo(() => getNutritionTotals(activeEntries), [activeEntries]);
+  const displayNutrition = {
+    calories: nutritionTotals.calories || todayLog?.calories || null,
+    protein: nutritionTotals.protein || todayLog?.protein_grams || null,
+    carbs: nutritionTotals.carbs || todayLog?.carbs_grams || null,
+    fats: nutritionTotals.fats || todayLog?.fats_grams || null,
+  };
   const weekLogs = useMemo(() => logs.slice(0, 7), [logs]);
   const weekly = useMemo(() => getWeeklySummary(weekLogs), [weekLogs]);
   const todayScore = useMemo(() => getDailyCompletion(todayLog, targets), [todayLog, targets]);
-  const insights = useMemo(() => buildWellnessInsights(weekLogs, targets), [weekLogs, targets]);
+  const insights = useMemo(() => buildWellnessInsights(weekLogs, targets, nutritionTotals), [weekLogs, targets, nutritionTotals]);
 
   if (loading) {
     return (
@@ -159,8 +289,8 @@ export default function Wellness() {
           </div>
           <div className="mt-6 grid gap-3 sm:grid-cols-4">
             <DarkMetric label="Water" value={`${Math.round(getProgress(todayLog?.water_litres, targets.waterLitres))}%`} />
-            <DarkMetric label="Protein" value={`${Math.round(getProgress(todayLog?.protein_grams, targets.proteinGrams))}%`} />
-            <DarkMetric label="Calories" value={`${Math.round(getProgress(todayLog?.calories, targets.calories))}%`} />
+            <DarkMetric label="Protein" value={`${Math.round(getProgress(displayNutrition.protein, targets.proteinGrams))}%`} />
+            <DarkMetric label="Calories" value={`${Math.round(getProgress(displayNutrition.calories, targets.calories))}%`} />
             <DarkMetric label="Sleep" value={`${Math.round(getProgress(todayLog?.sleep_hours, targets.sleepHours))}%`} />
           </div>
         </Surface>
@@ -168,8 +298,8 @@ export default function Wellness() {
         <Surface>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <WellnessTile icon={Droplets} label="Water" value={formatLitres(todayLog?.water_litres)} target={`${targets.waterLitres} L`} progress={getProgress(todayLog?.water_litres, targets.waterLitres)} tone="pulse" />
-            <WellnessTile icon={Utensils} label="Protein" value={formatGrams(todayLog?.protein_grams)} target={`${targets.proteinGrams} g`} progress={getProgress(todayLog?.protein_grams, targets.proteinGrams)} tone="golf" />
-            <WellnessTile icon={Flame} label="Calories" value={formatNumber(todayLog?.calories)} target={`${targets.calories}`} progress={getProgress(todayLog?.calories, targets.calories)} tone="gold" />
+            <WellnessTile icon={Utensils} label="Protein" value={formatGrams(displayNutrition.protein)} target={`${targets.proteinGrams} g`} progress={getProgress(displayNutrition.protein, targets.proteinGrams)} tone="golf" />
+            <WellnessTile icon={Flame} label="Calories" value={formatNumber(displayNutrition.calories)} target={`${targets.calories}`} progress={getProgress(displayNutrition.calories, targets.calories)} tone="gold" />
             <WellnessTile icon={Moon} label="Sleep" value={formatHours(todayLog?.sleep_hours)} target={`${targets.sleepHours} h`} progress={getProgress(todayLog?.sleep_hours, targets.sleepHours)} tone="lab" />
           </div>
         </Surface>
@@ -229,13 +359,68 @@ export default function Wellness() {
           <Surface>
             <div className="mb-5 flex items-center gap-3">
               <Utensils className="h-5 w-5 text-golf" />
+              <h2 className="text-xl font-semibold text-dark">Meals</h2>
+            </div>
+
+            <form onSubmit={saveFoodEntry} className="mb-5 grid gap-3">
+              {savedFoods.length > 0 && (
+                <div>
+                  <FieldLabel>Use saved food</FieldLabel>
+                  <SelectInput value={selectedSavedFood} onChange={(event) => applySavedFood(event.target.value)}>
+                    <option value="">Choose saved food</option>
+                    {savedFoods.map((food) => (
+                      <option key={food.id} value={food.id}>{food.food_name}</option>
+                    ))}
+                  </SelectInput>
+                </div>
+              )}
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <FieldLabel>Meal</FieldLabel>
+                  <SelectInput value={foodForm.meal_type} onChange={(event) => setFoodForm((prev) => ({ ...prev, meal_type: event.target.value as NutritionEntry["meal_type"] }))}>
+                    {mealTypes.map((meal) => (
+                      <option key={meal.value} value={meal.value}>{meal.label}</option>
+                    ))}
+                  </SelectInput>
+                </div>
+                <FoodField label="Food" value={foodForm.food_name} onChange={(value) => setFoodForm((prev) => ({ ...prev, food_name: value }))} placeholder="Chicken wrap" />
+                <FoodField label="Serving" value={foodForm.serving} onChange={(value) => setFoodForm((prev) => ({ ...prev, serving: value }))} placeholder="1 wrap / 250g" />
+                <FoodField label="Calories" type="number" value={foodForm.calories} onChange={(value) => setFoodForm((prev) => ({ ...prev, calories: value }))} placeholder="520" />
+                <FoodField label="Protein (g)" type="number" value={foodForm.protein_grams} onChange={(value) => setFoodForm((prev) => ({ ...prev, protein_grams: value }))} placeholder="38" />
+                <FoodField label="Carbs (g)" type="number" value={foodForm.carbs_grams} onChange={(value) => setFoodForm((prev) => ({ ...prev, carbs_grams: value }))} placeholder="55" />
+                <FoodField label="Fats (g)" type="number" value={foodForm.fats_grams} onChange={(value) => setFoodForm((prev) => ({ ...prev, fats_grams: value }))} placeholder="14" />
+              </div>
+              <label className="flex items-center gap-3 text-sm font-medium text-muted">
+                <input type="checkbox" checked={saveAsPreset} onChange={(event) => setSaveAsPreset(event.target.checked)} />
+                Save this food for next time
+              </label>
+              <Button type="submit" variant="golf" disabled={saving || !foodForm.food_name.trim()}>
+                Add Food
+              </Button>
+            </form>
+
+            <div className="space-y-4">
+              {mealTypes.map((meal) => (
+                <MealGroup
+                  key={meal.value}
+                  meal={meal}
+                  entries={activeEntries.filter((entry) => entry.meal_type === meal.value)}
+                  onDelete={deleteFoodEntry}
+                />
+              ))}
+            </div>
+          </Surface>
+
+          <Surface>
+            <div className="mb-5 flex items-center gap-3">
+              <Utensils className="h-5 w-5 text-golf" />
               <h2 className="text-xl font-semibold text-dark">Macro progress</h2>
             </div>
             <div className="space-y-4">
-              <MacroProgress label="Calories" value={todayLog?.calories} target={targets.calories} unit="" tone="gold" />
-              <MacroProgress label="Protein" value={todayLog?.protein_grams} target={targets.proteinGrams} unit="g" tone="golf" />
-              <MacroProgress label="Carbs" value={todayLog?.carbs_grams} target={Math.round(targets.calories * 0.48 / 4)} unit="g" tone="pulse" />
-              <MacroProgress label="Fats" value={todayLog?.fats_grams} target={Math.round(targets.calories * 0.25 / 9)} unit="g" tone="lab" />
+              <MacroProgress label="Calories" value={displayNutrition.calories} target={targets.calories} unit="" tone="gold" />
+              <MacroProgress label="Protein" value={displayNutrition.protein} target={targets.proteinGrams} unit="g" tone="golf" />
+              <MacroProgress label="Carbs" value={displayNutrition.carbs} target={Math.round(targets.calories * 0.48 / 4)} unit="g" tone="pulse" />
+              <MacroProgress label="Fats" value={displayNutrition.fats} target={Math.round(targets.calories * 0.25 / 9)} unit="g" tone="lab" />
             </div>
           </Surface>
 
@@ -390,6 +575,83 @@ function Field({
   );
 }
 
+function FoodField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <div>
+      <FieldLabel>{label}</FieldLabel>
+      <TextInput type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
+    </div>
+  );
+}
+
+function MealGroup({
+  meal,
+  entries,
+  onDelete,
+}: {
+  meal: { value: NutritionEntry["meal_type"]; label: string };
+  entries: NutritionEntry[];
+  onDelete: (id: string) => void;
+}) {
+  const totals = getNutritionTotals(entries);
+  return (
+    <div className="rounded-xl border border-line bg-white/70 p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-dark">{meal.label}</h3>
+          <p className="mt-1 text-sm text-muted">
+            {totals.calories} kcal / {totals.protein}g protein
+          </p>
+        </div>
+        <span className="rounded-full bg-steel/10 px-3 py-1 text-xs font-semibold text-muted">
+          {entries.length} item{entries.length === 1 ? "" : "s"}
+        </span>
+      </div>
+      {entries.length ? (
+        <div className="space-y-2">
+          {entries.map((entry) => (
+            <div key={entry.id} className="grid gap-3 rounded-lg border border-line bg-panel p-3 sm:grid-cols-[1fr_auto] sm:items-center">
+              <div>
+                <p className="font-semibold text-dark">{entry.food_name}</p>
+                <p className="mt-1 text-sm text-muted">
+                  {entry.serving || "Serving not set"} - {entry.calories || 0} kcal / {entry.protein_grams || 0}g protein
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                  C {entry.carbs_grams || 0}g / F {entry.fats_grams || 0}g
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onDelete(entry.id)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-danger/10 hover:text-danger"
+                aria-label={`Delete ${entry.food_name}`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="rounded-lg border border-dashed border-line bg-white/45 p-3 text-sm text-muted">
+          No {meal.label.toLowerCase()} logged yet.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function QuickAddButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
@@ -486,6 +748,18 @@ function getWeeklySummary(logs: WellnessLog[]) {
   };
 }
 
+function getNutritionTotals(entries: NutritionEntry[]) {
+  return entries.reduce(
+    (totals, entry) => ({
+      calories: totals.calories + (entry.calories || 0),
+      protein: totals.protein + (entry.protein_grams || 0),
+      carbs: totals.carbs + (entry.carbs_grams || 0),
+      fats: totals.fats + (entry.fats_grams || 0),
+    }),
+    { calories: 0, protein: 0, carbs: 0, fats: 0 }
+  );
+}
+
 function getDailyCompletion(log: WellnessLog | null | undefined, targets: WellnessTargets) {
   if (!log) return 0;
   const values = [
@@ -497,7 +771,11 @@ function getDailyCompletion(log: WellnessLog | null | undefined, targets: Wellne
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
 }
 
-function buildWellnessInsights(logs: WellnessLog[], targets: WellnessTargets) {
+function buildWellnessInsights(
+  logs: WellnessLog[],
+  targets: WellnessTargets,
+  nutritionTotals: ReturnType<typeof getNutritionTotals>
+) {
   const weekly = getWeeklySummary(logs);
   const loggedDays = logs.length;
   const lowHydrationWithLowEnergy = logs.some(
@@ -534,9 +812,30 @@ function buildWellnessInsights(logs: WellnessLog[], targets: WellnessTargets) {
         : "Once low-energy days appear, AthletiGolf will compare them against hydration and recovery signals.",
       tone: lowHydrationWithLowEnergy ? "border-gold/25 bg-gold/10" : "border-pulse/20 bg-pulse/8",
     },
+    {
+      label: "Nutrition",
+      title:
+        nutritionTotals.calories === 0
+          ? "Add meals to unlock nutrition"
+          : nutritionTotals.protein < targets.proteinGrams * 0.8
+          ? "Protein is behind target"
+          : nutritionTotals.calories < targets.calories * 0.75
+          ? "Calories look light"
+          : "Fuel is on track",
+      detail:
+        nutritionTotals.calories === 0
+          ? "Meal entries make the nutrition side much more useful than one daily total."
+          : `${nutritionTotals.calories} kcal and ${nutritionTotals.protein}g protein logged today.`,
+      tone:
+        nutritionTotals.calories === 0
+          ? "border-gold/25 bg-gold/10"
+          : nutritionTotals.protein < targets.proteinGrams * 0.8
+          ? "border-gold/25 bg-gold/10"
+          : "border-golf/20 bg-golf/8",
+    },
   ];
 
-  return insights.slice(0, 4);
+  return insights.slice(0, 5);
 }
 
 function toNumber(value: string) {
