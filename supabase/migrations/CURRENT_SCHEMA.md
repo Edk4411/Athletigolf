@@ -302,7 +302,8 @@ Recommended index:
 Security:
 
 - Row Level Security enabled.
-- Users can only manage their own live activity rows in v1.
+- Users can manage their own live activity rows.
+- Users can select friends-visible active rows from accepted friends.
 
 ## Bolt Answer
 

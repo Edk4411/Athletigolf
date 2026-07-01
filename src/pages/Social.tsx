@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Dumbbell, Flag, MapPin, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { Activity, Check, Copy, Dumbbell, Flag, MapPin, ShieldCheck, UserPlus, Users, X } from "lucide-react";
 import { Button, EmptyState, FieldLabel, PageHeader, SelectInput, Surface, TextArea, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { FriendConnection, LiveActivity } from "@/lib/types";
@@ -16,6 +16,7 @@ const activityOptions: Array<{ value: ActivityType; label: string }> = [
 export default function Social() {
   const [activities, setActivities] = useState<LiveActivity[]>([]);
   const [connections, setConnections] = useState<FriendConnection[]>([]);
+  const [userId, setUserId] = useState("");
   const [activityType, setActivityType] = useState<ActivityType>("gym");
   const [locationName, setLocationName] = useState("");
   const [detail, setDetail] = useState("");
@@ -31,7 +32,8 @@ export default function Social() {
 
   async function loadSocial() {
     setLoading(true);
-    const [{ data: active }, { data: friends }] = await Promise.all([
+    const [{ data: authData }, { data: active }, { data: friends }] = await Promise.all([
+      supabase.auth.getUser(),
       supabase
         .from("live_activities")
         .select("*")
@@ -43,6 +45,7 @@ export default function Social() {
         .order("created_at", { ascending: false }),
     ]);
 
+    setUserId(authData.user?.id || "");
     setActivities((active as LiveActivity[]) || []);
     setConnections((friends as FriendConnection[]) || []);
     setLoading(false);
@@ -104,11 +107,18 @@ export default function Social() {
 
   async function sendFriendRequest(event: React.FormEvent) {
     event.preventDefault();
+    const receiverId = friendId.trim();
+    if (!receiverId) return;
+    if (receiverId === userId) {
+      setError("You cannot add yourself as a friend.");
+      return;
+    }
+
     setSaving(true);
     setError("");
 
     const { error: insertError } = await supabase.from("friend_connections").insert({
-      receiver_id: friendId.trim(),
+      receiver_id: receiverId,
       status: "pending",
     });
 
@@ -140,7 +150,32 @@ export default function Social() {
     await loadSocial();
   }
 
-  const activeActivity = activities[0] || null;
+  async function removeConnection(id: string) {
+    setSaving(true);
+    setError("");
+    const { error: deleteError } = await supabase
+      .from("friend_connections")
+      .delete()
+      .eq("id", id);
+    setSaving(false);
+
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+
+    await loadSocial();
+  }
+
+  const activeActivity = activities.find((activity) => activity.user_id === userId) || null;
+  const friendActivities = activities.filter((activity) => activity.user_id !== userId);
+  const incomingRequests = connections.filter(
+    (connection) => connection.receiver_id === userId && connection.status === "pending"
+  );
+  const outgoingRequests = connections.filter(
+    (connection) => connection.requester_id === userId && connection.status === "pending"
+  );
+  const acceptedConnections = connections.filter((connection) => connection.status === "accepted");
   const acceptedCount = useMemo(
     () => connections.filter((connection) => connection.status === "accepted").length,
     [connections]
@@ -163,7 +198,7 @@ export default function Social() {
       <PageHeader
         eyebrow="Social"
         title="Live activity"
-        description="Start with private, controlled check-ins. Friends, gym work-ins and on-course following can build from this foundation."
+        description="Check in, add friends, and see who is training, practicing or on course."
         tone="text-pulse"
       />
 
@@ -238,14 +273,18 @@ export default function Social() {
 
           <Surface>
             <div className="mb-5 flex items-center gap-3">
-              <ShieldCheck className="h-5 w-5 text-pulse" />
-              <h2 className="text-xl font-semibold text-dark">Privacy baseline</h2>
+              <Users className="h-5 w-5 text-pulse" />
+              <h2 className="text-xl font-semibold text-dark">Friends live feed</h2>
             </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <PrivacyCard title="No public feed" detail="V1 avoids public visibility until friend rules are fully tested." />
-              <PrivacyCard title="Friends only option" detail="Check-ins already store friends/private visibility for the next social layer." />
-              <PrivacyCard title="You control status" detail="Ending a check-in removes it from the active view." />
-            </div>
+            {friendActivities.length ? (
+              <div className="space-y-3">
+                {friendActivities.map((activity) => (
+                  <ActivityRow key={activity.id} activity={activity} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState title="No friends live right now" description="Accepted friends with friends-visible check-ins will appear here." />
+            )}
           </Surface>
         </div>
       </section>
@@ -256,10 +295,21 @@ export default function Social() {
             <UserPlus className="h-5 w-5 text-pulse" />
             <h2 className="text-xl font-semibold text-dark">Add friend</h2>
           </div>
+          <div className="mb-5 rounded-xl border border-pulse/20 bg-pulse/8 p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Your friend code</p>
+            <div className="mt-2 flex items-center gap-2">
+              <code className="min-w-0 flex-1 truncate rounded-lg bg-white/70 px-3 py-2 text-xs font-semibold text-dark">
+                {userId || "Loading..."}
+              </code>
+              <Button type="button" variant="secondary" onClick={() => navigator.clipboard?.writeText(userId)} disabled={!userId}>
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
           <form onSubmit={sendFriendRequest} className="grid gap-4">
-            <Field label="Friend user ID" value={friendId} onChange={setFriendId} placeholder="Paste Supabase user ID for now" />
+            <Field label="Friend code" value={friendId} onChange={setFriendId} placeholder="Paste their AthletiGolf friend code" />
             <p className="text-sm leading-relaxed text-muted">
-              This is a developer-friendly first version. Later this becomes username search or phone contacts.
+              Friend codes keep this private while the app is still young. Username search can come later.
             </p>
             <Button type="submit" variant="pulse" disabled={saving || !friendId.trim()}>
               Send Request
@@ -270,31 +320,66 @@ export default function Social() {
         <Surface>
           <div className="mb-5 flex items-center gap-3">
             <Users className="h-5 w-5 text-pulse" />
-            <h2 className="text-xl font-semibold text-dark">Friend requests</h2>
+            <h2 className="text-xl font-semibold text-dark">Friends and requests</h2>
           </div>
           {connections.length ? (
-            <div className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white/70">
-              {connections.map((connection) => (
-                <div key={connection.id} className="grid gap-3 p-4 md:grid-cols-[1fr_120px_220px] md:items-center">
-                  <div>
-                    <h3 className="font-semibold text-dark">{connection.receiver_id}</h3>
-                    <p className="mt-1 text-sm text-muted">Requested by {connection.requester_id}</p>
-                  </div>
-                  <span className={getConnectionClass(connection.status)}>{connection.status}</span>
+            <div className="space-y-5">
+              <ConnectionSection
+                title="Incoming requests"
+                empty="No incoming requests."
+                connections={incomingRequests}
+                userId={userId}
+                action={(connection) => (
                   <div className="flex gap-2">
                     <Button type="button" variant="secondary" onClick={() => updateConnection(connection.id, "accepted")} disabled={saving}>
-                      Accept
+                      <Check className="h-4 w-4" />Accept
                     </Button>
-                    <Button type="button" variant="ghost" onClick={() => updateConnection(connection.id, "blocked")} disabled={saving}>
-                      Block
+                    <Button type="button" variant="ghost" onClick={() => removeConnection(connection.id)} disabled={saving}>
+                      <X className="h-4 w-4" />Decline
                     </Button>
                   </div>
-                </div>
-              ))}
+                )}
+              />
+              <ConnectionSection
+                title="Outgoing requests"
+                empty="No outgoing requests."
+                connections={outgoingRequests}
+                userId={userId}
+                action={(connection) => (
+                  <Button type="button" variant="ghost" onClick={() => removeConnection(connection.id)} disabled={saving}>
+                    Cancel
+                  </Button>
+                )}
+              />
+              <ConnectionSection
+                title="Friends"
+                empty="No accepted friends yet."
+                connections={acceptedConnections}
+                userId={userId}
+                action={(connection) => (
+                  <Button type="button" variant="ghost" onClick={() => removeConnection(connection.id)} disabled={saving}>
+                    Remove
+                  </Button>
+                )}
+              />
             </div>
           ) : (
             <EmptyState title="No friend requests yet" description="The friend graph is ready, but you have not added anyone yet." />
           )}
+        </Surface>
+      </section>
+
+      <section className="mt-5">
+        <Surface>
+          <div className="mb-5 flex items-center gap-3">
+            <ShieldCheck className="h-5 w-5 text-pulse" />
+            <h2 className="text-xl font-semibold text-dark">Privacy controls</h2>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <PrivacyCard title="Friends-only live feed" detail="Only accepted friends can see friends-visible check-ins once the migration is applied." />
+            <PrivacyCard title="Private mode stays private" detail="Private check-ins remain visible only to you." />
+            <PrivacyCard title="You control status" detail="Ending a check-in removes it from active views." />
+          </div>
         </Surface>
       </section>
     </main>
@@ -337,6 +422,64 @@ function PrivacyCard({ title, detail }: { title: string; detail: string }) {
     <div className="rounded-xl border border-line bg-white/70 p-4">
       <h3 className="font-semibold text-dark">{title}</h3>
       <p className="mt-2 text-sm leading-relaxed text-muted">{detail}</p>
+    </div>
+  );
+}
+
+function ActivityRow({ activity }: { activity: LiveActivity }) {
+  return (
+    <div className="rounded-xl border border-line bg-white/70 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-dark">{getActivityLabel(activity.activity_type)}</p>
+          <p className="mt-1 text-sm text-muted">
+            {activity.location_name || "No location"} {activity.detail ? `- ${activity.detail}` : ""}
+          </p>
+          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            Friend {activity.user_id.slice(0, 8)}
+          </p>
+        </div>
+        <span className="rounded-full bg-pulse/10 px-3 py-1 text-xs font-bold text-pulse">Live</span>
+      </div>
+    </div>
+  );
+}
+
+function ConnectionSection({
+  title,
+  empty,
+  connections,
+  userId,
+  action,
+}: {
+  title: string;
+  empty: string;
+  connections: FriendConnection[];
+  userId: string;
+  action: (connection: FriendConnection) => React.ReactNode;
+}) {
+  return (
+    <div>
+      <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.16em] text-muted">{title}</h3>
+      {connections.length ? (
+        <div className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white/70">
+          {connections.map((connection) => {
+            const otherId = connection.requester_id === userId ? connection.receiver_id : connection.requester_id;
+            return (
+              <div key={connection.id} className="grid gap-3 p-4 md:grid-cols-[1fr_120px_auto] md:items-center">
+                <div>
+                  <h4 className="font-semibold text-dark">Friend {otherId.slice(0, 8)}</h4>
+                  <p className="mt-1 truncate text-sm text-muted">{otherId}</p>
+                </div>
+                <span className={getConnectionClass(connection.status)}>{connection.status}</span>
+                {action(connection)}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="rounded-xl border border-dashed border-line bg-white/45 p-4 text-sm text-muted">{empty}</p>
+      )}
     </div>
   );
 }
