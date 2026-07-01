@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   BarChart3,
+  Brain,
+  CalendarDays,
   ChevronDown,
   CreditCard,
   Dumbbell,
@@ -43,6 +45,8 @@ const trainingLinks: NavItem[] = [
 const golfLinks: NavItem[] = [
   { href: "/golf/submit", label: "Round Scorecard", icon: PlusCircle, tone: "golf" },
   { href: "/golf", label: "Round History", icon: Flag, tone: "golf" },
+  { href: "/golf/competitions", label: "Competitions", icon: CalendarDays, tone: "golf" },
+  { href: "/golf/practice-plan", label: "Practice Plan", icon: Brain, tone: "golf" },
   { href: "/golf/practice", label: "Log Practice", icon: NotebookPen, tone: "golf" },
   { href: "/golf/practice-history", label: "Practice History", icon: History, tone: "golf" },
 ];
@@ -64,6 +68,8 @@ const titles: Record<string, { title: string; section: string }> = {
   "/gym/history": { title: "Training Logbook", section: "Performance Lab" },
   "/golf": { title: "Round History", section: "Golf" },
   "/golf/submit": { title: "Round Scorecard", section: "Golf" },
+  "/golf/competitions": { title: "Competition Planner", section: "Golf Calendar" },
+  "/golf/practice-plan": { title: "Practice Plan", section: "AthletiAI" },
   "/golf/practice": { title: "Practice Log", section: "Golf" },
   "/golf/practice-history": { title: "Practice History", section: "Golf" },
   "/settings": { title: "Settings", section: "System" },

@@ -190,6 +190,38 @@ Security:
 - Row Level Security enabled.
 - Users can only access rows where `auth.uid() = user_id`.
 
+### `competitions`
+
+Purpose: upcoming and completed golf competitions, prep focus, and post-event review.
+
+Required columns:
+
+- `id uuid primary key`
+- `user_id uuid default auth.uid()`
+- `name text`
+- `course text`
+- `competition_date date`
+- `start_time text`
+- `priority text default 'medium'`
+- `target_score integer`
+- `focus_area text`
+- `notes text`
+- `status text default 'upcoming'`
+- `result_score integer`
+- `reflection_strength text`
+- `reflection_weakness text`
+- `created_at timestamptz`
+- `updated_at timestamptz`
+
+Recommended index:
+
+- `(user_id, competition_date)`
+
+Security:
+
+- Row Level Security enabled.
+- Users can only access rows where `auth.uid() = user_id`.
+
 ## Bolt Answer
 
 If Bolt asks what database work it needs, say:

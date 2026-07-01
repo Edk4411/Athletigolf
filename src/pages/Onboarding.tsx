@@ -9,6 +9,7 @@ import type { OnboardingData } from "@/lib/types";
 const weekDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 const defaultData: OnboardingData = {
+  mainSport: "both",
   fullName: "",
   mainGoal: "",
   golf: {
@@ -227,6 +228,12 @@ export default function Onboarding() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <Field label="Name" value={data.fullName} onChange={(value) => update("fullName", value)} placeholder="Edward King" />
                   <Field label="Main goal" value={data.mainGoal} onChange={(value) => update("mainGoal", value)} placeholder="Break 75 and gain clubhead speed" />
+                  <ChoiceGroup
+                    label="Primary use"
+                    value={data.mainSport || "both"}
+                    options={["both", "golf", "training", "other"]}
+                    onChange={(value) => update("mainSport", value as OnboardingData["mainSport"])}
+                  />
                 </div>
               </SetupStep>
             )}
@@ -475,6 +482,26 @@ function ChoiceGroup({
 }
 
 function buildRecommendation(data: OnboardingData) {
+  if (data.mainSport === "training") {
+    return [
+      {
+        label: "Training Focus",
+        title: `${data.training.daysAvailable} / ${data.training.goal}`,
+        detail: `${data.training.sessionLength} sessions using ${data.training.equipment.toLowerCase()}. The product will still work even if you never log golf.`,
+      },
+      {
+        label: "Data Signal",
+        title: "Strength progression first",
+        detail: "Log load, sets and reps consistently so the app can spot PRs, stalls and muscle balance.",
+      },
+      {
+        label: "Future Sports",
+        title: data.mainGoal || "Performance profile",
+        detail: "Your setup is stored as a flexible profile, so future sport modules can build on the same athlete record.",
+      },
+    ];
+  }
+
   return [
     {
       label: "Golf Focus",

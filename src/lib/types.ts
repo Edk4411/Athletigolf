@@ -13,6 +13,7 @@ export type Profile = {
 };
 
 export type OnboardingData = {
+  mainSport?: "golf" | "training" | "both" | "other";
   fullName: string;
   mainGoal: string;
   golf: {
@@ -146,4 +147,23 @@ export type SplitDay = {
   exercises: string[];
   archived_at?: string | null;
   created_at: string;
+};
+
+export type Competition = {
+  id: string;
+  user_id: string;
+  name: string;
+  course: string | null;
+  competition_date: string;
+  start_time?: string | null;
+  priority: "low" | "medium" | "high";
+  target_score: number | null;
+  focus_area: string | null;
+  notes: string | null;
+  status: "upcoming" | "completed" | "cancelled";
+  result_score?: number | null;
+  reflection_strength?: string | null;
+  reflection_weakness?: string | null;
+  created_at: string;
+  updated_at?: string | null;
 };

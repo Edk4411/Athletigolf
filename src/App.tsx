@@ -10,6 +10,7 @@ import Onboarding from "@/pages/Onboarding";
 import Profile from "@/pages/Profile";
 import Analytics from "@/pages/Analytics";
 import RoundHistory from "@/pages/RoundHistory";
+import Competitions from "@/pages/Competitions";
 import ArchivedSplits from "@/pages/ArchivedSplits";
 import CreateSplit from "@/pages/CreateSplit";
 import SubmitSession from "@/pages/SubmitSession";
@@ -20,6 +21,7 @@ import ComingSoon from "@/pages/ComingSoon";
 import { applyTextAutoFormatToField } from "@/lib/textFormatting";
 import { applyTheme, getStoredTheme } from "@/lib/theme";
 import PracticeSession from "./pages/PracticeSession";
+import PracticePlan from "./pages/PracticePlan";
 import PracticeHistory from "./pages/PracticeHistory";
 import PreviousWorkouts from "./pages/PreviousWorkouts";
 import Memberships from "./pages/Memberships";
@@ -135,6 +137,12 @@ function AppShell() {
           </ProtectedRoute>
         </Route>
 
+        <Route path="/golf/competitions">
+          <ProtectedRoute>
+            <Competitions />
+          </ProtectedRoute>
+        </Route>
+
         <Route path="/golf/submit">
           <ProtectedRoute>
             <RoundTracker />
@@ -174,6 +182,12 @@ function AppShell() {
         <Route path="/golf/practice">
           <ProtectedRoute>
             <PracticeSession />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/golf/practice-plan">
+          <ProtectedRoute>
+            <PracticePlan />
           </ProtectedRoute>
         </Route>
 

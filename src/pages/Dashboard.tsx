@@ -4,6 +4,7 @@ import {
   Activity,
   ArrowUpRight,
   Brain,
+  CalendarDays,
   Dumbbell,
   Flag,
   NotebookPen,
@@ -34,7 +35,7 @@ import {
   type PerformanceInsight,
   type RelationshipInsight,
 } from "@/lib/insights";
-import type { ExerciseLog, PracticeSession, Round, RoundHole, Workout } from "@/lib/types";
+import type { Competition, ExerciseLog, OnboardingData, PracticeSession, Round, RoundHole, Workout } from "@/lib/types";
 
 export default function Dashboard() {
   const [, navigate] = useLocation();
@@ -43,6 +44,8 @@ export default function Dashboard() {
   const [roundHoles, setRoundHoles] = useState<RoundHole[]>([]);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [practices, setPractices] = useState<PracticeSession[]>([]);
+  const [competitions, setCompetitions] = useState<Competition[]>([]);
+  const [sportMode, setSportMode] = useState<OnboardingData["mainSport"]>("both");
   const [loading, setLoading] = useState(true);
 
   const firstName =
@@ -52,16 +55,20 @@ export default function Dashboard() {
 
   useEffect(() => {
     const load = async () => {
-      const [{ data: r }, { data: h }, { data: w }, { data: p }] = await Promise.all([
+      const [{ data: r }, { data: h }, { data: w }, { data: p }, { data: c }, { data: profile }] = await Promise.all([
         supabase.from("rounds").select("*").order("created_at", { ascending: false }),
         supabase.from("round_holes").select("*").order("created_at", { ascending: false }),
         supabase.from("workouts").select("*").order("created_at", { ascending: false }),
         supabase.from("practice_sessions").select("*").order("created_at", { ascending: false }),
+        supabase.from("competitions").select("*").eq("status", "upcoming").order("competition_date", { ascending: true }),
+        supabase.from("profiles").select("onboarding_data").maybeSingle(),
       ]);
       setRounds((r as Round[]) || []);
       setRoundHoles((h as RoundHole[]) || []);
       setWorkouts((w as Workout[]) || []);
       setPractices((p as PracticeSession[]) || []);
+      setCompetitions((c as Competition[]) || []);
+      setSportMode(((profile?.onboarding_data as OnboardingData | null)?.mainSport) || "both");
       setLoading(false);
     };
     load();
@@ -74,6 +81,8 @@ export default function Dashboard() {
   const roundsThisMonth = rounds.filter((r) => new Date(r.created_at) >= monthStart).length;
   const latestWorkout = workouts[0] ?? null;
   const lastRound = rounds[0] ?? null;
+  const nextCompetition = competitions[0] ?? null;
+  const trainingOnly = sportMode === "training";
   const golfStats = getGolfStats(rounds);
   const shortGameStats = getShortGameStats(roundHoles);
   const trainingVolume = workouts.reduce(
@@ -123,7 +132,9 @@ export default function Dashboard() {
                 {firstName}, here&apos;s the week.
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/64 md:text-base">
-                Golf form, training load and next actions in one tighter command view.
+                {trainingOnly
+                  ? "Training load, progression and next actions in one tighter command view."
+                  : "Golf form, training load and next actions in one tighter command view."}
               </p>
               <div className="mt-6 flex flex-wrap gap-2">
                 <Button variant="golf" onClick={() => navigate("/golf/submit")}><Flag className="h-4 w-4" />Round</Button>
@@ -157,6 +168,26 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+          {nextCompetition && (
+            <button
+              type="button"
+              onClick={() => navigate("/golf/competitions")}
+              className="mt-3 flex w-full items-start gap-3 rounded-xl border border-golf/20 bg-golf/8 p-4 text-left transition hover:border-golf/40"
+            >
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-golf/15 text-golf">
+                <CalendarDays className="h-5 w-5" />
+              </span>
+              <span>
+                <span className="block text-xs font-bold uppercase tracking-[0.16em] text-golf">Upcoming competition</span>
+                <span className="mt-1 block font-semibold text-dark">
+                  {nextCompetition.name} - {getDaysUntil(nextCompetition.competition_date)}
+                </span>
+                <span className="mt-1 block text-sm text-muted">
+                  Focus: {nextCompetition.focus_area || practicePlan.focusArea}
+                </span>
+              </span>
+            </button>
+          )}
         </Surface>
       </section>
 
@@ -310,11 +341,14 @@ export default function Dashboard() {
           </div>
           <p className="leading-relaxed text-white/68">
             {rounds.length && workouts.length
-              ? performanceInsights[0]?.action || practicePlan.detail
+              ? nextCompetition
+                ? `Competition prep: prioritise ${nextCompetition.focus_area || practicePlan.focusArea.toLowerCase()} before ${nextCompetition.name}.`
+                : performanceInsights[0]?.action || practicePlan.detail
               : "Start with one round and one training session so AthletiGolf can connect both sides of performance."}
           </p>
           <div className="mt-6 grid gap-2">
             <Button variant="pulse" onClick={() => navigate("/golf/practice")} className="w-full">Log Practice</Button>
+            <Button variant="golf" onClick={() => navigate("/golf/practice-plan")} className="w-full">Generate Practice Plan</Button>
             <Button variant="secondary" onClick={() => navigate("/analytics")} className="w-full border-white/15 bg-white/10 text-white hover:bg-white/15">Open Report</Button>
           </div>
         </Surface>
@@ -739,4 +773,16 @@ function formatWeightDelta(value: number) {
 
 function formatDistance(value: number | null) {
   return value === null ? "-" : `${Math.round(value)} yd`;
+}
+
+function getDaysUntil(value: string) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(value);
+  target.setHours(0, 0, 0, 0);
+  const days = Math.round((target.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+  if (days < 0) return "date passed";
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  return `${days} days away`;
 }

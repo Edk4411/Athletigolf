@@ -24,6 +24,7 @@ export default function PreviousWorkouts() {
   const [editExercises, setEditExercises] = useState<ExerciseLog[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [weightUnit, setWeightUnit] = useState("kg");
 
   useEffect(() => {
     loadWorkouts();
@@ -31,11 +32,15 @@ export default function PreviousWorkouts() {
 
   const loadWorkouts = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("workouts")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const [{ data }, { data: profile }] = await Promise.all([
+      supabase
+        .from("workouts")
+        .select("*")
+        .order("created_at", { ascending: false }),
+      supabase.from("profiles").select("weight_unit").maybeSingle(),
+    ]);
     setWorkouts((data as Workout[]) || []);
+    setWeightUnit(profile?.weight_unit === "lbs" ? "lbs" : "kg");
     setLoading(false);
   };
 
@@ -267,7 +272,7 @@ export default function PreviousWorkouts() {
                       onChange={(value) => updateExercise(index, "name", value)}
                     />
                     <Field
-                      label="Weight"
+                      label={`Weight (${weightUnit})`}
                       value={exercise.weight}
                       onChange={(value) => updateExercise(index, "weight", value)}
                     />

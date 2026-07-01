@@ -27,14 +27,20 @@ export default function SubmitSession() {
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [weightUnit, setWeightUnit] = useState("kg");
 
   useEffect(() => {
     const loadSplit = async () => {
-      const { data, error } = await supabase
-        .from("split_days")
-        .select("*")
-        .is("archived_at", null)
-        .order("created_at", { ascending: true });
+      const [{ data, error }, { data: profile }] = await Promise.all([
+        supabase
+          .from("split_days")
+          .select("*")
+          .is("archived_at", null)
+          .order("created_at", { ascending: true }),
+        supabase.from("profiles").select("weight_unit").maybeSingle(),
+      ]);
+
+      setWeightUnit(profile?.weight_unit === "lbs" ? "lbs" : "kg");
 
       if (!error && data && data.length > 0) {
         const savedOptions = (data as SplitDay[])
@@ -213,7 +219,7 @@ export default function SubmitSession() {
                         {findExercise(exercise.name)?.primaryMuscle} · {findExercise(exercise.name)?.equipment}
                       </p>
                     )}
-                    <LogField label="Load" value={exercise.weight} onChange={(value) => updateExercise(index, "weight", value)} placeholder="75kg" />
+                    <LogField label={`Load (${weightUnit})`} value={exercise.weight} onChange={(value) => updateExercise(index, "weight", value)} placeholder="75" />
                     <LogField label="Sets" value={exercise.sets} onChange={(value) => updateExercise(index, "sets", value)} placeholder="3" />
                     <LogField label="Reps" value={exercise.reps} onChange={(value) => updateExercise(index, "reps", value)} placeholder="8" />
                     <LogField label="Notes" value={exercise.notes} onChange={(value) => updateExercise(index, "notes", value)} placeholder="RPE, tempo..." />
