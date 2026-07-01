@@ -119,24 +119,24 @@ export default function Settings() {
   if (loading) {
     return (
       <div className="min-h-screen bg-cream p-8 md:p-12">
-        <p className="text-black/60">Loading settings...</p>
+        <p className="text-muted">Loading settings...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-cream p-8 md:p-12">
+    <div className="min-h-screen bg-cream p-8 text-ink md:p-12">
       <div className="mx-auto max-w-6xl">
 
         {/* PAGE HEADER */}
         <div className="mb-12 max-w-3xl">
-          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.25em] text-black/40">
+          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.25em] text-muted">
             Settings
           </p>
-          <h1 className="mb-4 text-5xl font-semibold">
+          <h1 className="mb-4 text-5xl font-semibold text-dark">
             Manage your AthletiGolf account
           </h1>
-          <p className="text-lg leading-relaxed text-black/60">
+          <p className="text-lg leading-relaxed text-muted">
             Control your account, preferences and app experience from one place.
           </p>
         </div>
@@ -144,17 +144,17 @@ export default function Settings() {
         <section className="grid gap-6">
 
           {/* PROFILE */}
-          <div className="rounded-xl border border-line bg-white p-6 shadow-sm">
-            <h2 className="mb-2 text-2xl font-semibold">Profile</h2>
-            <p className="mb-6 text-black/60">
+          <div className="rounded-xl border border-line bg-panel p-6 shadow-sm">
+            <h2 className="mb-2 text-2xl font-semibold text-dark">Profile</h2>
+            <p className="mb-6 text-muted">
               Update your name, handicap, goals and personal details.
             </p>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="flex flex-col gap-1">
-                <label className="text-sm text-black/50">Full name</label>
+                <label className="text-sm text-muted">Full name</label>
                 <input
-                  className="rounded-2xl border border-line p-4 outline-none focus:border-black/30 transition"
+                  className="rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
                   placeholder="e.g. Jamie Wilson"
                   value={profile.full_name}
                   onChange={(e) => set("full_name", e.target.value)}
@@ -162,9 +162,9 @@ export default function Settings() {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-sm text-black/50">Golf handicap</label>
+                <label className="text-sm text-muted">Golf handicap</label>
                 <input
-                  className="rounded-2xl border border-line p-4 outline-none focus:border-black/30 transition"
+                  className="rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
                   placeholder="e.g. 12.4"
                   type="number"
                   step="0.1"
@@ -174,9 +174,9 @@ export default function Settings() {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-sm text-black/50">Height</label>
+                <label className="text-sm text-muted">Height</label>
                 <input
-                  className="rounded-2xl border border-line p-4 outline-none focus:border-black/30 transition"
+                  className="rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
                   placeholder="e.g. 180cm"
                   value={profile.height}
                   onChange={(e) => set("height", e.target.value)}
@@ -184,9 +184,9 @@ export default function Settings() {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-sm text-black/50">Weight</label>
+                <label className="text-sm text-muted">Weight</label>
                 <input
-                  className="rounded-2xl border border-line p-4 outline-none focus:border-black/30 transition"
+                  className="rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
                   placeholder="e.g. 80kg"
                   value={profile.weight}
                   onChange={(e) => set("weight", e.target.value)}
@@ -194,9 +194,9 @@ export default function Settings() {
               </div>
 
               <div className="flex flex-col gap-1 md:col-span-2">
-                <label className="text-sm text-black/50">Main goal</label>
+                <label className="text-sm text-muted">Main goal</label>
                 <input
-                  className="rounded-2xl border border-line p-4 outline-none focus:border-black/30 transition"
+                  className="rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
                   placeholder="e.g. Break 80, Improve strength, Lose 5kg"
                   value={profile.main_goal}
                   onChange={(e) => set("main_goal", e.target.value)}
@@ -206,17 +206,17 @@ export default function Settings() {
           </div>
 
           {/* UNITS */}
-          <div className="rounded-xl border border-line bg-white p-6 shadow-sm">
-            <h2 className="mb-2 text-2xl font-semibold">Units</h2>
-            <p className="mb-6 text-black/60">
+          <div className="rounded-xl border border-line bg-panel p-6 shadow-sm">
+            <h2 className="mb-2 text-2xl font-semibold text-dark">Units</h2>
+            <p className="mb-6 text-muted">
               Switch between yards/metres and kg/lbs.
             </p>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="flex flex-col gap-1">
-                <label className="text-sm text-black/50">Distance unit</label>
+                <label className="text-sm text-muted">Distance unit</label>
                 <select
-                  className="rounded-2xl border border-line p-4 outline-none focus:border-black/30 transition bg-white"
+                  className="rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
                   value={profile.distance_unit}
                   onChange={(e) => set("distance_unit", e.target.value)}
                 >
@@ -226,9 +226,9 @@ export default function Settings() {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-sm text-black/50">Weight unit</label>
+                <label className="text-sm text-muted">Weight unit</label>
                 <select
-                  className="rounded-2xl border border-line p-4 outline-none focus:border-black/30 transition bg-white"
+                  className="rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
                   value={profile.weight_unit}
                   onChange={(e) => set("weight_unit", e.target.value)}
                 >
@@ -240,9 +240,9 @@ export default function Settings() {
           </div>
 
           {/* THEME */}
-          <div className="rounded-xl border border-line bg-white p-6 shadow-sm">
-            <h2 className="mb-2 text-2xl font-semibold">Theme</h2>
-            <p className="mb-6 text-black/60">
+          <div className="rounded-xl border border-line bg-panel p-6 shadow-sm">
+            <h2 className="mb-2 text-2xl font-semibold text-dark">Theme</h2>
+            <p className="mb-6 text-muted">
               Customise the look of AthletiGolf.
             </p>
 
@@ -251,10 +251,10 @@ export default function Settings() {
                 <button
                   key={t.value}
                   onClick={() => set("theme", t.value as AppTheme)}
-                  className={`rounded-full px-5 py-3 text-sm font-medium transition border ${
+                  className={`rounded-lg border px-5 py-3 text-sm font-semibold transition ${
                     profile.theme === t.value
-                      ? "bg-black text-white border-black"
-                      : "bg-cream text-black/60 border-line hover:border-black/30"
+                      ? "border-dark bg-dark text-white"
+                      : "border-line bg-cream text-muted hover:border-pulse/40 hover:text-dark"
                   }`}
                 >
                   {t.label}
@@ -264,9 +264,9 @@ export default function Settings() {
           </div>
 
           {/* NOTIFICATIONS */}
-          <div className="rounded-xl border border-line bg-white p-6 shadow-sm">
-            <h2 className="mb-2 text-2xl font-semibold">Notifications</h2>
-            <p className="mb-6 text-black/60">
+          <div className="rounded-xl border border-line bg-panel p-6 shadow-sm">
+            <h2 className="mb-2 text-2xl font-semibold text-dark">Notifications</h2>
+            <p className="mb-6 text-muted">
               Choose whether to receive app reminders and updates.
             </p>
 
@@ -280,7 +280,7 @@ export default function Settings() {
                 />
                 <div
                   className={`h-7 w-12 rounded-full transition-colors duration-200 ${
-                    profile.notifications_enabled ? "bg-black" : "bg-black/20"
+                    profile.notifications_enabled ? "bg-pulse" : "bg-steel/20"
                   }`}
                 />
                 <div
@@ -289,7 +289,7 @@ export default function Settings() {
                   }`}
                 />
               </div>
-              <span className="font-medium">
+              <span className="font-medium text-dark">
                 {profile.notifications_enabled ? "Notifications on" : "Notifications off"}
               </span>
             </label>
@@ -312,14 +312,14 @@ export default function Settings() {
             <button
               onClick={saveSettings}
               disabled={saveState === "saving"}
-              className="rounded-2xl bg-white px-6 py-4 font-semibold text-slate-950 transition hover:bg-white/90 disabled:opacity-50 min-w-[152px]"
+              className="min-w-[152px] rounded-lg bg-white px-6 py-4 font-semibold text-slate-950 transition hover:bg-white/90 disabled:opacity-50"
             >
               {saveState === "saving" ? "Saving..." : "Save Settings"}
             </button>
 
             <button
               onClick={handleLogout}
-              className="rounded-2xl bg-white/10 px-6 py-4 font-semibold text-white transition hover:bg-white/15"
+              className="rounded-lg bg-white/10 px-6 py-4 font-semibold text-white transition hover:bg-white/15"
             >
               Log Out
             </button>

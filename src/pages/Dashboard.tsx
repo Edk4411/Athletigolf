@@ -310,7 +310,7 @@ export default function Dashboard() {
           </div>
           <p className="leading-relaxed text-white/68">
             {rounds.length && workouts.length
-              ? practicePlan.detail
+              ? performanceInsights[0]?.action || practicePlan.detail
               : "Start with one round and one training session so AthletiGolf can connect both sides of performance."}
           </p>
           <div className="mt-6 grid gap-2">
@@ -407,17 +407,36 @@ function DataHealthCard({ item }: { item: { label: string; detail: string; compl
 
 function InsightCard({ insight }: { insight: PerformanceInsight }) {
   const toneClass = getInsightToneClass(insight.tone);
+  const signal = getSignalLabel(insight.signal, insight.priority);
   return (
     <div className={`rounded-xl border p-4 ${toneClass}`}>
-      <div className="mb-3 flex items-start justify-between gap-3">
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
         <h3 className="font-semibold leading-snug text-dark">{insight.title}</h3>
-        {insight.metric && (
-          <span className="shrink-0 rounded-full bg-white/70 px-3 py-1 text-xs font-bold text-dark">
-            {insight.metric}
+        <div className="flex flex-wrap gap-2">
+          <span className="shrink-0 rounded-full bg-white/70 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-dark">
+            {signal}
           </span>
-        )}
+          {insight.metric && (
+            <span className="shrink-0 rounded-full bg-white/70 px-3 py-1 text-xs font-bold text-dark">
+              {insight.metric}
+            </span>
+          )}
+        </div>
       </div>
       <p className="text-sm leading-relaxed text-muted">{insight.detail}</p>
+      {insight.evidence && insight.evidence.length > 0 && (
+        <div className="mt-3 space-y-1 border-t border-line/70 pt-3">
+          {insight.evidence.slice(0, 2).map((item) => (
+            <p key={item} className="text-xs font-medium text-muted">Data: {item}</p>
+          ))}
+        </div>
+      )}
+      {insight.action && (
+        <p className="mt-3 text-sm font-semibold text-dark">Next: {insight.action}</p>
+      )}
+      {insight.needs && (
+        <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted">Needs {insight.needs}</p>
+      )}
     </div>
   );
 }
@@ -432,8 +451,39 @@ function RelationshipCard({ insight }: { insight: RelationshipInsight }) {
         </span>
       </div>
       <p className="text-sm leading-relaxed text-white/64">{insight.detail}</p>
+      {insight.metrics && insight.metrics.length > 0 && (
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+          {insight.metrics.map((metric) => (
+            <div key={metric.label} className="rounded-lg border border-white/10 bg-white/8 p-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/40">{metric.label}</p>
+              <p className="mt-1 text-sm font-semibold text-white">{metric.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+      {insight.evidence && insight.evidence.length > 0 && (
+        <p className="mt-3 text-xs leading-relaxed text-white/50">
+          Data: {insight.evidence.slice(0, 2).join(" / ")}
+        </p>
+      )}
+      {insight.action && (
+        <p className="mt-3 text-sm font-semibold text-pulse">Next: {insight.action}</p>
+      )}
+      {insight.needs && (
+        <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-white/45">Needs {insight.needs}</p>
+      )}
     </div>
   );
+}
+
+function getSignalLabel(signal: PerformanceInsight["signal"], priority: number) {
+  if (signal === "needs-data") return "Needs Data";
+  if (signal === "strong") return "Strong Signal";
+  if (signal === "building") return "Building Signal";
+  if (signal === "early") return "Early Signal";
+  if (priority >= 90) return "Strong Signal";
+  if (priority >= 75) return "Building Signal";
+  return "Early Signal";
 }
 
 function getInsightToneClass(tone: PerformanceInsight["tone"]) {

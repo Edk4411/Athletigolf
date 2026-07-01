@@ -3,6 +3,7 @@ import { getGolfStats, getShortGameStats } from "@/lib/golfStats";
 import { findExercise } from "@/lib/exerciseLibrary";
 
 export type InsightTone = "golf" | "lab" | "pulse" | "warning";
+export type SignalStrength = "needs-data" | "early" | "building" | "strong";
 
 export type PerformanceInsight = {
   title: string;
@@ -10,6 +11,10 @@ export type PerformanceInsight = {
   tone: InsightTone;
   priority: number;
   metric?: string;
+  signal?: SignalStrength;
+  evidence?: string[];
+  action?: string;
+  needs?: string;
 };
 
 export type RelationshipInsight = {
@@ -17,6 +22,10 @@ export type RelationshipInsight = {
   detail: string;
   tone: InsightTone;
   confidence: "early" | "building" | "strong";
+  metrics?: Array<{ label: string; value: string }>;
+  evidence?: string[];
+  action?: string;
+  needs?: string;
 };
 
 export type MuscleVolume = {
@@ -76,6 +85,10 @@ export function getPerformanceInsights(
       detail: "Log one complete or partial round so AthletiGolf can find the first scoring pattern.",
       tone: "golf",
       priority: 100,
+      signal: "needs-data",
+      evidence: ["0 rounds logged", "No scoring baseline yet"],
+      action: "Submit one round, even if it is only 9 holes.",
+      needs: "1 round",
     });
   }
 
@@ -93,6 +106,12 @@ export function getPerformanceInsights(
       tone: "golf",
       priority: 92,
       metric: `${Math.round(recentDistance)} yd`,
+      signal: "building",
+      evidence: [
+        `Recent block: ${Math.round(recentDistance)} yd`,
+        `Previous block: ${Math.round(previousDistance)} yd`,
+      ],
+      action: "Keep logging drive distance and compare it with recent strength work.",
     });
   } else if (recentDistance !== null) {
     insights.push({
@@ -101,6 +120,10 @@ export function getPerformanceInsights(
       tone: "golf",
       priority: 70,
       metric: `${Math.round(recentDistance)} yd`,
+      signal: "early",
+      evidence: [`Tracked average: ${Math.round(recentDistance)} yd`, `${recentRounds.length} recent rounds checked`],
+      action: "Add distance to the next two rounds so AthletiGolf can compare blocks.",
+      needs: "3 distance rounds",
     });
   } else {
     insights.push({
@@ -108,6 +131,10 @@ export function getPerformanceInsights(
       detail: "Average drive and longest drive are ready to track, but no distance rounds have been logged yet.",
       tone: "warning",
       priority: 65,
+      signal: "needs-data",
+      evidence: ["Distance fields are available", "0 distance rounds logged"],
+      action: "Add average drive and longest drive on your next scorecard.",
+      needs: "1 distance round",
     });
   }
 
@@ -118,6 +145,9 @@ export function getPerformanceInsights(
       tone: "warning",
       priority: 95,
       metric: `${golfStats.avgPenaltyShots?.toFixed(1)} / round`,
+      signal: rounds.length >= 5 ? "strong" : "building",
+      evidence: [`${golfStats.avgPenaltyShots?.toFixed(1)} penalties per round`, `${rounds.length} rounds logged`],
+      action: "Prioritise safer targets and tee-shot decisions before adding swing changes.",
     });
   }
 
@@ -128,6 +158,9 @@ export function getPerformanceInsights(
       tone: "pulse",
       priority: 88,
       metric: `${golfStats.avgGirPercent}% GIR`,
+      signal: rounds.length >= 5 ? "building" : "early",
+      evidence: [`${golfStats.avgGirPercent}% GIR`, `${rounds.length} rounds logged`],
+      action: "Build the next range session around wedge, short-iron and mid-iron target windows.",
     });
   }
 
@@ -138,6 +171,9 @@ export function getPerformanceInsights(
       tone: "golf",
       priority: 84,
       metric: `${shortGameStats.upAndDownPercent}%`,
+      signal: shortGameStats.chipChances >= 6 ? "building" : "early",
+      evidence: [`${shortGameStats.upAndDowns}/${shortGameStats.chipChances} chip chances converted`, "Chip recoveries only"],
+      action: "Track landing spot and one-putt conversion drills in practice.",
     });
   }
 
@@ -148,6 +184,9 @@ export function getPerformanceInsights(
       tone: "warning",
       priority: 82,
       metric: `${shortGameStats.sandSavePercent}%`,
+      signal: shortGameStats.sandSaveChances >= 5 ? "building" : "early",
+      evidence: [`${shortGameStats.sandSaves}/${shortGameStats.sandSaveChances} bunker chances converted`, "Sand saves separated from chip recoveries"],
+      action: "Run a bunker-save practice block and log attempts/successes.",
     });
   }
 
@@ -166,6 +205,9 @@ export function getPerformanceInsights(
       tone: "golf",
       priority: 78,
       metric: `${weeklyPractices.length} sessions`,
+      signal: "early",
+      evidence: [`${weeklyPractices.length} practice sessions in 7 days`, `${practices.length} total practice sessions`],
+      action: "Keep tagging focus areas and drills so practice can connect to round outcomes.",
     });
   }
 
@@ -177,6 +219,9 @@ export function getPerformanceInsights(
       tone: "pulse",
       priority: 77,
       metric: `${bestDrill.rate}%`,
+      signal: "early",
+      evidence: [`${bestDrill.rate}% best drill success rate`, `${allPracticeDrills.length} tracked drills`],
+      action: "Repeat this drill for a few sessions so AthletiGolf can spot progress.",
     });
   } else if (practices.length > 0) {
     insights.push({
@@ -184,6 +229,10 @@ export function getPerformanceInsights(
       detail: "Practice sessions are being logged, but drill attempts and successes will make recommendations much sharper.",
       tone: "warning",
       priority: 62,
+      signal: "needs-data",
+      evidence: [`${practices.length} practice sessions`, "0 scored drills"],
+      action: "Use the optional drill section when you do measurable practice.",
+      needs: "6 scored drills",
     });
   }
 
@@ -194,6 +243,9 @@ export function getPerformanceInsights(
       tone: "pulse",
       priority: 73,
       metric: `${allPracticeDrills.length} drills`,
+      signal: allPracticeDrills.length >= 6 ? "building" : "early",
+      evidence: [`${allPracticeDrills.length} drills logged`, "Practice quality is becoming measurable"],
+      action: "Keep logging attempts and successes for the same drills.",
     });
   }
 
@@ -207,6 +259,9 @@ export function getPerformanceInsights(
       tone: "lab",
       priority: 76,
       metric: `${weeklyWorkouts.length} sessions`,
+      signal: "early",
+      evidence: [`${weeklyWorkouts.length} training sessions in 7 days`, `${workouts.length} total sessions`],
+      action: "Keep logging load, sets and reps so training can be compared with golf changes.",
     });
   }
 
@@ -218,6 +273,9 @@ export function getPerformanceInsights(
       tone: "lab",
       priority: 74,
       metric: `${pr.weight} kg`,
+      signal: "early",
+      evidence: [`${pr.name}: ${pr.weight} kg`, "Best recent lift in the last 28 days"],
+      action: "Watch whether distance or scoring changes in the next round block.",
     });
   }
 
@@ -229,6 +287,9 @@ export function getPerformanceInsights(
       tone: "lab",
       priority: 71,
       metric: `${Math.round(training.topMuscle.volume)} kg`,
+      signal: training.totalVolume >= 5000 ? "building" : "early",
+      evidence: [`${Math.round(training.topMuscle.volume)} kg recent ${training.topMuscle.muscle} volume`, `${Math.round(training.totalVolume)} kg total tracked volume`],
+      action: "Balance this load against golf practice quality and recovery.",
     });
   }
 
@@ -239,6 +300,9 @@ export function getPerformanceInsights(
       tone: "warning",
       priority: 69,
       metric: `${training.stalledLift.current} kg`,
+      signal: "building",
+      evidence: [`Current best: ${training.stalledLift.current} kg`, `Previous best: ${training.stalledLift.previous} kg`],
+      action: "Try a variation, lighter technique block, or different rep range.",
     });
   }
 
@@ -266,6 +330,13 @@ export function getRelationshipInsights(rounds: Round[], workouts: Workout[]): R
         detail: "Log at least three rounds and three training sessions before AthletiGolf starts linking golf changes with training changes.",
         tone: "pulse",
         confidence: "early",
+        metrics: [
+          { label: "Rounds", value: `${rounds.length}/3` },
+          { label: "Training", value: `${workouts.length}/3` },
+        ],
+        evidence: ["Relationship checks compare recent blocks, not single sessions."],
+        action: "Log three rounds and three structured sessions to unlock relationship checks.",
+        needs: `${Math.max(0, 3 - rounds.length)} rounds / ${Math.max(0, 3 - workouts.length)} sessions`,
       },
     ];
   }
@@ -283,6 +354,17 @@ export function getRelationshipInsights(rounds: Round[], workouts: Workout[]): R
         : "Driving distance rose during the same period that tracked training volume increased. Useful link, not proof of cause yet.",
       tone: "lab",
       confidence: "building",
+      metrics: [
+        { label: "Drive trend", value: `+${Math.round(recentDistance - previousDistance)} yd` },
+        { label: "Training load", value: `${Math.round(recentVolume)} kg` },
+        { label: "Previous load", value: `${Math.round(previousVolume)} kg` },
+      ],
+      evidence: [
+        `Recent distance: ${Math.round(recentDistance)} yd`,
+        `Previous distance: ${Math.round(previousDistance)} yd`,
+        pr ? `${pr.name} recent best: ${pr.weight} kg` : "No recent PR found",
+      ],
+      action: "Keep logging both areas; this becomes more useful after another two round blocks.",
     });
   }
 
@@ -292,6 +374,12 @@ export function getRelationshipInsights(rounds: Round[], workouts: Workout[]): R
       detail: "Recent rounds are logged, but training volume is missing. Log sessions to compare strength work with scoring and distance.",
       tone: "warning",
       confidence: "early",
+      metrics: [
+        { label: "Rounds", value: `${rounds.length}` },
+        { label: "28d volume", value: "0 kg" },
+      ],
+      evidence: ["Recent rounds exist", "No structured training volume in the last 28 days"],
+      action: "Log a structured training session with load, sets and reps.",
     });
   }
 
@@ -301,6 +389,12 @@ export function getRelationshipInsights(rounds: Round[], workouts: Workout[]): R
       detail: "Rounds and training are both being logged. AthletiGolf will flag clearer links as the trend window grows.",
       tone: "pulse",
       confidence: "early",
+      metrics: [
+        { label: "Rounds", value: `${rounds.length}` },
+        { label: "Sessions", value: `${workouts.length}` },
+      ],
+      evidence: ["Golf and training data are both present", "No clear directional link yet"],
+      action: "Keep logging; the next comparison needs stable recent and previous blocks.",
     });
   }
 
@@ -525,6 +619,9 @@ function getPracticeRecommendation(
       tone: "warning",
       priority: 90,
       metric: `${golfStats.avgPenaltyShots?.toFixed(1)} pens`,
+      signal: "building",
+      evidence: [`${golfStats.avgPenaltyShots?.toFixed(1)} penalty shots per round`, "Lower is better"],
+      action: "Use an on-course tee-shot decision session before chasing more speed.",
     };
   }
   if ((golfStats.avgGirPercent ?? 100) < 55) {
@@ -534,6 +631,9 @@ function getPracticeRecommendation(
       tone: "pulse",
       priority: 86,
       metric: `${golfStats.avgGirPercent}% GIR`,
+      signal: "building",
+      evidence: [`${golfStats.avgGirPercent}% GIR`, "Approach play has the clearest scoring link"],
+      action: "Log an approach ladder practice with target greens and shot-shape work.",
     };
   }
   if (shortGameStats.sandSaveChances >= 2 && (shortGameStats.sandSavePercent ?? 100) < 45) {
@@ -543,6 +643,9 @@ function getPracticeRecommendation(
       tone: "warning",
       priority: 83,
       metric: `${shortGameStats.sandSavePercent}%`,
+      signal: shortGameStats.sandSaveChances >= 5 ? "building" : "early",
+      evidence: [`${shortGameStats.sandSaves}/${shortGameStats.sandSaveChances} bunker chances converted`, "Bunker recovery is tracked separately"],
+      action: "Run a bunker-save session and log attempts/successes.",
     };
   }
   if (shortGameStats.chipChances >= 3 && (shortGameStats.upAndDownPercent ?? 100) < 45) {
@@ -552,6 +655,9 @@ function getPracticeRecommendation(
       tone: "golf",
       priority: 81,
       metric: `${shortGameStats.upAndDownPercent}%`,
+      signal: shortGameStats.chipChances >= 5 ? "building" : "early",
+      evidence: [`${shortGameStats.upAndDowns}/${shortGameStats.chipChances} chip chances converted`, "Chip recoveries only"],
+      action: "Track one-putt conversion drills from normal chips.",
     };
   }
   if ((golfStats.avgPutts ?? 0) >= 36) {
@@ -561,6 +667,9 @@ function getPracticeRecommendation(
       tone: "golf",
       priority: 79,
       metric: `${golfStats.avgPutts?.toFixed(1)} putts`,
+      signal: "building",
+      evidence: [`${golfStats.avgPutts?.toFixed(1)} putts per round`, "Putting control uses a lower-is-better scale"],
+      action: "Run lag putting and start-line drills this week.",
     };
   }
   return null;

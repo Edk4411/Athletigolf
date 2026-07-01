@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { Activity, Dumbbell, Edit3, Flag, LogOut, Target, X } from "lucide-react";
+import { Button, FieldLabel, StatCard, Surface, TextInput } from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/lib/supabase";
 import { formatAverage, formatPercent, getGolfStats } from "@/lib/golfStats";
+import { getTrainingIntelligence } from "@/lib/insights";
+import { supabase } from "@/lib/supabase";
 import type { Profile, Round, Workout } from "@/lib/types";
 
 export default function Profile() {
@@ -12,6 +16,7 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const [editName, setEditName] = useState("");
   const [editAge, setEditAge] = useState("");
@@ -25,28 +30,20 @@ export default function Profile() {
 
   const loadData = async () => {
     setLoading(true);
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("*")
-      .maybeSingle();
+    const [{ data: profileData }, { data: roundsData }, { data: workoutsData }] = await Promise.all([
+      supabase.from("profiles").select("*").maybeSingle(),
+      supabase.from("rounds").select("*").order("created_at", { ascending: false }),
+      supabase.from("workouts").select("*").order("created_at", { ascending: false }),
+    ]);
+
     setProfile(profileData as Profile | null);
-
-    const { data: roundsData } = await supabase
-      .from("rounds")
-      .select("*")
-      .order("created_at", { ascending: false });
     setRounds((roundsData as Round[]) || []);
-
-    const { data: workoutsData } = await supabase
-      .from("workouts")
-      .select("*")
-      .order("created_at", { ascending: false });
     setWorkouts((workoutsData as Workout[]) || []);
-
     setLoading(false);
   };
 
   const openEditor = () => {
+    setSaveError("");
     setEditName(profile?.full_name || "");
     setEditAge(profile?.age?.toString() || "");
     setEditHeight(profile?.height || "");
@@ -57,310 +54,265 @@ export default function Profile() {
 
   const saveProfile = async () => {
     setSaving(true);
-    const { error } = await supabase
-      .from("profiles")
-      .upsert({
-        id: user?.id,
-        full_name: editName || null,
-        age: editAge ? Number(editAge) : null,
-        height: editHeight || null,
-        weight: editWeight || null,
-        golf_handicap: editHandicap ? Number(editHandicap) : null,
-      });
+    setSaveError("");
+    const { error } = await supabase.from("profiles").upsert({
+      id: user?.id,
+      full_name: editName || null,
+      age: editAge ? Number(editAge) : null,
+      height: editHeight || null,
+      weight: editWeight || null,
+      golf_handicap: editHandicap ? Number(editHandicap) : null,
+    });
     setSaving(false);
-    if (!error) {
-      setEditing(false);
-      loadData();
+
+    if (error) {
+      setSaveError(error.message);
+      return;
     }
+
+    setEditing(false);
+    await loadData();
   };
 
-  const name =
-    profile?.full_name ||
-    user?.user_metadata?.username ||
-    user?.email?.split("@")[0] ||
-    "Athlete";
+  const name = profile?.full_name || user?.user_metadata?.username || user?.email?.split("@")[0] || "Athlete";
   const initial = name.charAt(0).toUpperCase();
-
-  const roundsLogged = rounds.length;
-  const workoutsLogged = workouts.length;
   const memberSince = profile?.created_at
-    ? new Date(profile.created_at).toLocaleDateString("en-US", {
-        month: "long",
-        year: "numeric",
-      })
+    ? new Date(profile.created_at).toLocaleDateString("en-GB", { month: "long", year: "numeric" })
     : "New Member";
-
-  const handicap = profile?.golf_handicap ?? null;
-
   const golfStats = getGolfStats(rounds);
-  const avgScore = formatAverage(golfStats.avgScore);
+  const training = getTrainingIntelligence(workouts);
+  const totalTrainingVolume = Math.round(training.totalVolume);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
-        <div className="text-black/40 text-lg">Loading...</div>
+      <div className="flex min-h-screen items-center justify-center bg-cream">
+        <div className="text-lg text-muted">Loading athlete profile...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-cream p-8 md:p-12">
-      <div className="max-w-7xl mx-auto">
-        {/* HEADER */}
-        <div className="bg-dark text-white rounded-[2.5rem] p-10 mb-10 shadow-2xl">
-          <div className="flex flex-col lg:flex-row lg:items-center gap-8">
-            <div className="w-32 h-32 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-4xl font-semibold">
+    <main className="min-h-screen bg-cream px-4 py-5 text-ink md:px-8 md:py-7">
+      <div className="mx-auto max-w-7xl">
+        <section className="mb-5 overflow-hidden rounded-2xl border border-white/10 bg-dark text-white shadow-sm">
+          <div className="grid gap-6 p-6 lg:grid-cols-[auto_1fr_auto] lg:items-center">
+            <div className="flex h-24 w-24 items-center justify-center rounded-xl border border-white/10 bg-white/8 text-4xl font-semibold">
               {initial}
             </div>
-            <div className="flex-1">
-              <p className="uppercase tracking-[0.25em] text-xs text-white/50 mb-4">Athlete Profile</p>
-              <h1 className="text-5xl font-semibold mb-4">{name}</h1>
-              <div className="flex flex-wrap gap-3 mb-4">
-                <div className="bg-white/10 px-4 py-2 rounded-full text-sm">
-                  {roundsLogged} Rounds Logged
-                </div>
-                <div className="bg-white/10 px-4 py-2 rounded-full text-sm">
-                  {workoutsLogged} Workouts Logged
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-4">
-                <div className="bg-white/10 px-5 py-3 rounded-2xl text-sm">
-                  Handicap {handicap ?? "-"}
-                </div>
-                <div className="bg-white/10 px-5 py-3 rounded-2xl text-sm">
-                  Member Since {memberSince}
-                </div>
+
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-pulse">Athlete Profile</p>
+              <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-5xl">{name}</h1>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <ProfilePill>{rounds.length} rounds</ProfilePill>
+                <ProfilePill>{workouts.length} training sessions</ProfilePill>
+                <ProfilePill>Member since {memberSince}</ProfilePill>
+                <ProfilePill>Handicap {profile?.golf_handicap ?? "-"}</ProfilePill>
               </div>
             </div>
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={openEditor}
-                className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-2xl transition"
-              >
-                Edit Profile
-              </button>
-              <button
-                onClick={signOut}
-                className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-2xl transition"
-              >
-                Sign Out
-              </button>
+
+            <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+              <Button variant="secondary" onClick={openEditor} className="border-white/15 bg-white/10 text-white hover:bg-white/15">
+                <Edit3 className="h-4 w-4" />Edit Profile
+              </Button>
+              <Button variant="ghost" onClick={signOut} className="text-white/70 hover:bg-white/10 hover:text-white">
+                <LogOut className="h-4 w-4" />Sign Out
+              </Button>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* MAIN GRID */}
-        <div className="grid xl:grid-cols-3 gap-8">
-          {/* LEFT COLUMN */}
-          <div className="space-y-8">
-            {/* CONSISTENCY */}
-            <div className="bg-white rounded-xl p-8 shadow-sm border border-line hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-              <h2 className="text-3xl font-semibold mb-8">Consistency</h2>
-              <div className="space-y-6">
-                {[
-                  ["Rounds Logged", roundsLogged.toString()],
-                  ["Workouts Logged", workoutsLogged.toString()],
-                  ["Member Since", memberSince],
-                ].map(([label, value], index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <p className="text-black/60">{label}</p>
-                    <h3 className="text-xl font-semibold">{value}</h3>
-                  </div>
-                ))}
-              </div>
-            </div>
+        <section className="mb-5 grid gap-4 md:grid-cols-4">
+          <StatCard label="Avg Score" value={formatAverage(golfStats.avgScore)} />
+          <StatCard label="FIR" value={formatPercent(golfStats.avgFairwayPercent)} />
+          <StatCard label="GIR" value={formatPercent(golfStats.avgGirPercent)} />
+          <StatCard label="Training Volume" value={`${totalTrainingVolume} kg`} />
+        </section>
 
-            {/* PERSONAL DETAILS */}
-            <div className="bg-white rounded-xl p-8 shadow-sm border border-line hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-              <h2 className="text-3xl font-semibold mb-8">Personal Details</h2>
-              <div className="space-y-6">
-                {[
-                  ["Age", profile?.age?.toString() || "-"],
-                  ["Height", profile?.height || "-"],
-                  ["Weight", profile?.weight || "-"],
-                  ["Golf Handicap", profile?.golf_handicap?.toString() || "-"],
-                ].map(([label, value], index) => (
-                  <div key={index} className="bg-cream rounded-2xl px-6 py-5 flex items-center justify-between">
-                    <p className="font-medium">{label}</p>
-                    <h3 className="text-2xl font-semibold">{value}</h3>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* RIGHT SIDE */}
-          <div className="xl:col-span-2 space-y-8">
-            {/* GOLF PERFORMANCE */}
-            <div className="bg-white rounded-xl p-8 shadow-sm border border-line hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-              <div className="flex items-center justify-between mb-10">
+        <section className="grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">
+          <div className="space-y-5">
+            <Surface>
+              <div className="mb-5 flex items-center gap-3">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-pulse/10 text-pulse">
+                  <Activity className="h-5 w-5" />
+                </span>
                 <div>
-                  <p className="text-sm text-black/50 mb-2">Golf Performance</p>
-                  <h2 className="text-4xl font-semibold">Scoring Averages</h2>
-                </div>
-                <div className="bg-dark text-white px-6 py-4 rounded-2xl">
-                  <p className="text-sm text-white/60 mb-1">Current Handicap</p>
-                  <h3 className="text-2xl font-semibold">{handicap ?? "-"}</h3>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">Details</p>
+                  <h2 className="text-xl font-semibold text-dark">Athlete record</h2>
                 </div>
               </div>
-
-              <div className="grid md:grid-cols-3 gap-6 mb-10">
-                {[["Average Score", avgScore], ["Rounds Logged", roundsLogged.toString()], ["Workouts Logged", workoutsLogged.toString()]].map(([label, value], index) => (
-                  <div key={index} className="bg-cream rounded-xl p-8">
-                    <p className="text-black/50 mb-3">{label}</p>
-                    <h3 className="text-5xl font-semibold">{value}</h3>
-                  </div>
-                ))}
+              <div className="space-y-3">
+                <DetailRow label="Age" value={profile?.age?.toString() || "-"} />
+                <DetailRow label="Height" value={profile?.height || "-"} />
+                <DetailRow label="Weight" value={profile?.weight || "-"} />
+                <DetailRow label="Golf Handicap" value={profile?.golf_handicap?.toString() || "-"} />
               </div>
+            </Surface>
 
-              <div className="space-y-7">
-                {[
-                  ["Fairways Hit (avg)", formatPercent(golfStats.avgFairwayPercent)],
-                  ["Greens In Regulation (avg)", formatPercent(golfStats.avgGirPercent)],
-                  ["Scramble Rate (avg)", formatPercent(golfStats.avgScramblePercent)],
-                  ["Putts Per Round", formatAverage(golfStats.avgPutts)],
-                ].map(([label, value], index) => (
-                  <div key={index}>
-                    <div className="flex justify-between mb-3">
-                      <span className="font-medium">{label}</span>
-                      <span className="text-black/60">{value}</span>
-                    </div>
-                    <div className="h-4 bg-black/10 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-dark rounded-full"
-                        style={{
-                          width: value.includes("%")
-                            ? value
-                            : `${Math.min(Number(value) * 10, 100)}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* PERFORMANCE FOCUS */}
-            <div className="bg-dark text-white rounded-xl p-8 shadow-2xl">
-              <p className="uppercase tracking-[0.25em] text-xs text-white/50 mb-4">Performance Focus</p>
-              <h2 className="text-4xl font-semibold mb-6">
+            <Surface className="bg-dark text-white">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-pulse">Current Focus</p>
+              <h2 className="mt-2 text-2xl font-semibold">{getProfileFocus(rounds, workouts)}</h2>
+              <p className="mt-3 text-sm leading-relaxed text-white/65">
                 {rounds.length === 0
-                  ? "Start Tracking Your Rounds"
-                  : "Keep Building Consistency"}
-              </h2>
-              <p className="text-white/70 text-lg leading-relaxed mb-8">
-                {rounds.length === 0
-                  ? "Log your first round to start seeing personalised performance insights and trends."
-                  : `You've logged ${rounds.length} rounds with an average score of ${avgScore}. Keep logging rounds and workouts to unlock deeper insights.`}
+                  ? "Start with one round so AthletiGolf can build the first golf profile."
+                  : "Keep golf and training logs consistent so profile trends get sharper over time."}
               </p>
-              <div className="grid md:grid-cols-3 gap-5">
-                {["Mobility Work", "Mid-Iron Practice", "Short Game Reps"].map((item, index) => (
-                  <div key={index} className="bg-white/10 rounded-2xl px-5 py-6 text-center">
-                    <h3 className="text-lg font-medium">{item}</h3>
-                  </div>
-                ))}
-              </div>
-            </div>
+            </Surface>
           </div>
-        </div>
+
+          <div className="grid gap-5 lg:grid-cols-2">
+            <Surface>
+              <div className="mb-5 flex items-center gap-3">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-golf/10 text-golf">
+                  <Flag className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">Golf</p>
+                  <h2 className="text-xl font-semibold text-dark">Scoring profile</h2>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <ProfileMeter label="Rounds" value={`${rounds.length}`} width={`${Math.min(rounds.length * 10, 100)}%`} tone="bg-golf" />
+                <ProfileMeter label="Average Score" value={formatAverage(golfStats.avgScore)} width="70%" tone="bg-golf" />
+                <ProfileMeter label="Scramble Rate" value={formatPercent(golfStats.avgScramblePercent)} width={formatPercent(golfStats.avgScramblePercent)} tone="bg-gold" />
+                <ProfileMeter label="Avg Drive" value={golfStats.avgDrivingDistance === null ? "-" : `${Math.round(golfStats.avgDrivingDistance)} yd`} width="55%" tone="bg-pulse" />
+              </div>
+            </Surface>
+
+            <Surface>
+              <div className="mb-5 flex items-center gap-3">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-lab/10 text-lab">
+                  <Dumbbell className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">Training</p>
+                  <h2 className="text-xl font-semibold text-dark">Performance profile</h2>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <ProfileMeter label="Sessions" value={`${workouts.length}`} width={`${Math.min(workouts.length * 10, 100)}%`} tone="bg-lab" />
+                <ProfileMeter label="Recent Volume" value={`${totalTrainingVolume} kg`} width="65%" tone="bg-lab" />
+                <ProfileMeter label="Top Muscle" value={training.topMuscle?.muscle || "-"} width="55%" tone="bg-pulse" />
+                <ProfileMeter label="Recent PR" value={training.recentPr ? `${training.recentPr.name} ${training.recentPr.weight}kg` : "-"} width="45%" tone="bg-gold" />
+              </div>
+            </Surface>
+
+            <Surface className="lg:col-span-2">
+              <div className="mb-5 flex items-center gap-3">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gold/15 text-gold">
+                  <Target className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">Readiness</p>
+                  <h2 className="text-xl font-semibold text-dark">Profile completeness</h2>
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-3">
+                <Readiness label="Personal details" complete={!!profile?.height && !!profile?.weight && !!profile?.age} />
+                <Readiness label="Golf baseline" complete={rounds.length >= 3} />
+                <Readiness label="Training baseline" complete={workouts.length >= 3} />
+              </div>
+            </Surface>
+          </div>
+        </section>
       </div>
 
-      {/* EDIT MODAL */}
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-          <div
-            onClick={() => setEditing(false)}
-            className="absolute inset-0 bg-black/50"
-          />
-          <div className="relative z-10 w-full max-w-lg rounded-xl bg-white p-8 shadow-2xl">
-            <div className="mb-6 flex items-start justify-between">
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <button onClick={() => setEditing(false)} className="absolute inset-0 bg-black/50" aria-label="Close profile editor" />
+          <aside className="relative z-10 h-full w-full max-w-xl overflow-y-auto border-l border-line bg-panel p-6 shadow-2xl">
+            <div className="mb-6 flex items-start justify-between gap-4 border-b border-line pb-5">
               <div>
-                <p className="mb-2 text-sm uppercase tracking-[0.25em] text-black/40">
-                  Edit Profile
-                </p>
-                <h2 className="text-3xl font-semibold">Your Details</h2>
+                <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-pulse">Edit Profile</p>
+                <h2 className="text-3xl font-semibold tracking-tight text-dark">Your details</h2>
               </div>
-              <button
-                onClick={() => setEditing(false)}
-                className="rounded-xl px-3 py-2 text-2xl text-black/50 transition hover:bg-black/5 hover:text-black"
-              >
-                X
+              <button onClick={() => setEditing(false)} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-steel/10 hover:text-dark" aria-label="Close profile editor">
+                <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="space-y-4">
-              <div>
-                <label className="mb-2 block text-sm text-black/50">Full Name</label>
-                <input
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  placeholder="Enter your name"
-                  className="w-full rounded-2xl border border-line px-5 py-4 outline-none focus:border-black"
-                />
+              <Field label="Full Name" value={editName} onChange={setEditName} placeholder="Enter your name" />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Age" type="number" value={editAge} onChange={setEditAge} placeholder="25" />
+                <Field label="Golf Handicap" type="number" value={editHandicap} onChange={setEditHandicap} placeholder="12.4" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-2 block text-sm text-black/50">Age</label>
-                  <input
-                    type="number"
-                    value={editAge}
-                    onChange={(e) => setEditAge(e.target.value)}
-                    placeholder="e.g. 25"
-                    className="w-full rounded-2xl border border-line px-5 py-4 outline-none focus:border-black"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm text-black/50">Golf Handicap</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={editHandicap}
-                    onChange={(e) => setEditHandicap(e.target.value)}
-                    placeholder="e.g. 12.4"
-                    className="w-full rounded-2xl border border-line px-5 py-4 outline-none focus:border-black"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-2 block text-sm text-black/50">Height</label>
-                  <input
-                    value={editHeight}
-                    onChange={(e) => setEditHeight(e.target.value)}
-                    placeholder="e.g. 180cm"
-                    className="w-full rounded-2xl border border-line px-5 py-4 outline-none focus:border-black"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm text-black/50">Weight</label>
-                  <input
-                    value={editWeight}
-                    onChange={(e) => setEditWeight(e.target.value)}
-                    placeholder="e.g. 80kg"
-                    className="w-full rounded-2xl border border-line px-5 py-4 outline-none focus:border-black"
-                  />
-                </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Height" value={editHeight} onChange={setEditHeight} placeholder="180cm" />
+                <Field label="Weight" value={editWeight} onChange={setEditWeight} placeholder="80kg" />
               </div>
             </div>
 
+            {saveError && (
+              <div className="mt-5 rounded-xl border border-danger/25 bg-danger/10 p-4 text-sm font-semibold text-danger">
+                {saveError}
+              </div>
+            )}
+
             <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button
-                onClick={() => setEditing(false)}
-                className="rounded-2xl border border-line px-6 py-3 transition hover:bg-black/5"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={saveProfile}
-                disabled={saving}
-                className="rounded-2xl bg-dark px-6 py-3 text-white transition hover:scale-[1.02] disabled:opacity-50"
-              >
-                {saving ? "Saving..." : "Save Changes"}
-              </button>
+              <Button variant="secondary" onClick={() => setEditing(false)}>Cancel</Button>
+              <Button variant="pulse" onClick={saveProfile} disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Button>
             </div>
-          </div>
+          </aside>
         </div>
       )}
+    </main>
+  );
+}
+
+function ProfilePill({ children }: { children: ReactNode }) {
+  return (
+    <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1.5 text-sm font-semibold text-white/78">
+      {children}
+    </span>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-line bg-steel/5 px-4 py-3">
+      <p className="text-sm text-muted">{label}</p>
+      <p className="font-semibold text-dark">{value}</p>
     </div>
   );
+}
+
+function ProfileMeter({ label, value, width, tone }: { label: string; value: string; width: string; tone: string }) {
+  const safeWidth = value === "-" ? "0%" : width;
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-sm font-medium text-muted">{label}</p>
+        <p className="font-semibold text-dark">{value}</p>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-steel/10">
+        <div className={`h-full rounded-full ${tone}`} style={{ width: safeWidth }} />
+      </div>
+    </div>
+  );
+}
+
+function Readiness({ label, complete }: { label: string; complete: boolean }) {
+  return (
+    <div className={`rounded-xl border p-4 ${complete ? "border-golf/20 bg-golf/8" : "border-gold/25 bg-gold/10"}`}>
+      <p className="font-semibold text-dark">{label}</p>
+      <p className="mt-1 text-sm text-muted">{complete ? "Ready" : "Needs more data"}</p>
+    </div>
+  );
+}
+
+function Field({ label, value, onChange, type = "text", placeholder }: { label: string; value: string; onChange: (value: string) => void; type?: string; placeholder?: string }) {
+  return (
+    <div>
+      <FieldLabel>{label}</FieldLabel>
+      <TextInput type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
+    </div>
+  );
+}
+
+function getProfileFocus(rounds: Round[], workouts: Workout[]) {
+  if (rounds.length === 0) return "Log your first round";
+  if (workouts.length === 0) return "Add training context";
+  if (rounds.length < 3 || workouts.length < 3) return "Build the baseline";
+  return "Maintain the performance signal";
 }

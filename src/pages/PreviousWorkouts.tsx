@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Edit3, Plus, Trash2, X } from "lucide-react";
 import { Button, FieldLabel, PageHeader, StatCard, Surface, TextInput } from "@/components/ui";
+import { findExercise, inferExerciseMuscle } from "@/lib/exerciseLibrary";
 import { supabase } from "@/lib/supabase";
 import type { ExerciseLog, Workout } from "@/lib/types";
 
@@ -56,14 +57,7 @@ export default function PreviousWorkouts() {
     if (!editingWorkout) return;
 
     const exercises = editExercises
-      .map((exercise) => ({
-        ...exercise,
-        name: exercise.name.trim(),
-        weight: exercise.weight.trim(),
-        sets: exercise.sets.trim(),
-        reps: exercise.reps.trim(),
-        notes: exercise.notes.trim(),
-      }))
+      .map(structureExerciseLog)
       .filter((exercise) => exercise.name);
 
     setSaving(true);
@@ -329,6 +323,41 @@ export default function PreviousWorkouts() {
       )}
     </main>
   );
+}
+
+function structureExerciseLog(exercise: ExerciseLog) {
+  const weight = exercise.weight.trim();
+  const sets = exercise.sets.trim();
+  const reps = exercise.reps.trim();
+  const weightValue = parseTrainingNumber(weight);
+  const setsValue = parseTrainingNumber(sets);
+  const repsValue = parseTrainingNumber(reps);
+  const volume =
+    weightValue !== null && setsValue !== null && repsValue !== null
+      ? weightValue * setsValue * repsValue
+      : null;
+
+  return {
+    ...exercise,
+    name: exercise.name.trim(),
+    weight,
+    sets,
+    reps,
+    notes: exercise.notes.trim(),
+    weight_value: weightValue,
+    sets_value: setsValue,
+    reps_value: repsValue,
+    volume,
+    muscle_group: inferExerciseMuscle(exercise.name),
+    library_match: findExercise(exercise.name),
+  };
+}
+
+function parseTrainingNumber(value: string) {
+  const match = value.match(/[\d.]+/);
+  if (!match) return null;
+  const parsed = Number(match[0]);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function Field({

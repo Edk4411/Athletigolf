@@ -13,9 +13,6 @@ type SplitDayState = {
   exercises: string[];
 };
 
-const generatedSplitStorageKey = "athletigolf.generatedSplitDraft";
-const generatedSplitSourceKey = "athletigolf.generatedSplitSource";
-
 const blankSplit: SplitDayState[] = [
   { day: "Monday", focus: "", exercises: [] },
   { day: "Tuesday", focus: "", exercises: [] },
@@ -41,7 +38,6 @@ export default function CreateSplit() {
   const [split, setSplit] = useState<SplitDayState[]>(defaultSplit);
   const [hasActiveSplit, setHasActiveSplit] = useState(false);
   const [showCreateChoice, setShowCreateChoice] = useState(false);
-  const [draftSource, setDraftSource] = useState<"quiz" | "manual" | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedMessage, setSavedMessage] = useState("");
@@ -59,17 +55,6 @@ export default function CreateSplit() {
 
   const loadSplit = async () => {
     setLoading(true);
-    const draft = loadGeneratedDraft();
-    if (draft) {
-      setSplit(draft);
-      setHasActiveSplit(false);
-      setShowCreateChoice(false);
-      setDraftSource(loadGeneratedDraftSource());
-      setSavedMessage("Quiz split loaded as a draft. Edit anything you want, then save the board.");
-      setLoading(false);
-      return;
-    }
-
     const { data } = await supabase
       .from("split_days")
       .select("*")
@@ -80,12 +65,10 @@ export default function CreateSplit() {
       setSplit((data as SplitDay[]).map(toSplitDayState));
       setHasActiveSplit(true);
       setShowCreateChoice(false);
-      setDraftSource(null);
     } else {
       setSplit(blankSplit);
       setHasActiveSplit(false);
       setShowCreateChoice(true);
-      setDraftSource(null);
     }
     setLoading(false);
   };
@@ -110,7 +93,6 @@ export default function CreateSplit() {
       setSavedMessage("Split saved successfully");
       setHasActiveSplit(true);
       setShowCreateChoice(false);
-      setDraftSource(null);
       setTimeout(() => setSavedMessage(""), 3000);
       loadSplit();
     }
@@ -134,7 +116,6 @@ export default function CreateSplit() {
     setSplit(defaultSplit);
     setHasActiveSplit(false);
     setShowCreateChoice(true);
-    setDraftSource(null);
     setSavedMessage("Current split archived");
     await loadSplit();
   };
@@ -155,7 +136,6 @@ export default function CreateSplit() {
     setSplit(blankSplit);
     setHasActiveSplit(false);
     setShowCreateChoice(true);
-    setDraftSource(null);
     setSavedMessage("Current split removed");
     await loadSplit();
   };
@@ -163,7 +143,6 @@ export default function CreateSplit() {
   const startManualSplit = (starter: "blank" | "template") => {
     setSplit(starter === "blank" ? blankSplit : defaultSplit);
     setShowCreateChoice(false);
-    setDraftSource("manual");
     setSavedMessage(starter === "blank" ? "Blank board ready. Build the week your way." : "Template board ready. Edit it, then save.");
   };
 
@@ -171,22 +150,11 @@ export default function CreateSplit() {
     setSplit(blankSplit);
     setHasActiveSplit(false);
     setShowCreateChoice(true);
-    setDraftSource(null);
     setSavedMessage("");
   };
 
   const takeSplitQuiz = () => {
     navigate("/setup/gym?return=workouts");
-  };
-
-  const discardDraft = () => {
-    const confirmed = window.confirm("Discard this unsaved split draft?");
-    if (!confirmed) return;
-    setSplit(blankSplit);
-    setHasActiveSplit(false);
-    setShowCreateChoice(true);
-    setDraftSource(null);
-    setSavedMessage("");
   };
 
   const openEditor = (index: number) => {
@@ -249,7 +217,6 @@ export default function CreateSplit() {
   const selectedExerciseGuide = selectedExercise ? getExerciseGuide(selectedExercise) : null;
   const hasBoardContent = split.some((day) => day.focus.trim() || day.exercises.length > 0);
   const showBoard = hasBoardContent || !showCreateChoice;
-  const isDraft = showBoard && !hasActiveSplit;
 
   if (loading) {
     return (
@@ -311,7 +278,7 @@ export default function CreateSplit() {
               You are not following a split currently
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted">
-              Build one manually from a blank week, or take the quiz and AthletiGolf will draft a split you can edit before saving.
+              Build one manually from a blank week, or take the quiz and AthletiGolf will save a generated split you can edit afterwards.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <Button type="button" variant="primary" onClick={takeSplitQuiz}>
@@ -322,37 +289,6 @@ export default function CreateSplit() {
                 <Plus className="h-4 w-4" />
                 Create Blank Split
               </Button>
-            </div>
-          </Surface>
-        )}
-
-        {isDraft && (
-          <Surface className="mb-5 border-golf/25 bg-golf/10">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-golf">
-                  Unsaved Split Draft
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold text-dark">
-                  Review it, edit any day, then save it
-                </h2>
-                <p className="mt-2 text-sm text-muted">
-                  This draft is not used in Training Console yet. Press Save Split to make it your active training board.
-                </p>
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row lg:shrink-0">
-                <Button type="button" variant="pulse" onClick={saveAll} disabled={saving}>
-                  {saving ? "Saving..." : "Save Split"}
-                </Button>
-                {draftSource === "quiz" && (
-                  <Button type="button" variant="secondary" onClick={takeSplitQuiz} disabled={saving}>
-                    Retake Quiz
-                  </Button>
-                )}
-                <Button type="button" variant="ghost" onClick={discardDraft} disabled={saving}>
-                  Discard Draft
-                </Button>
-              </div>
             </div>
           </Surface>
         )}
@@ -412,7 +348,7 @@ export default function CreateSplit() {
               You are not following a split currently
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted">
-              Create one manually, use the template, or take the quiz to generate a draft you can edit before saving.
+              Create one manually, use the template, or take the quiz to save a generated split.
             </p>
           </Surface>
         ) : null}
@@ -680,29 +616,4 @@ function toSplitDayState(day: SplitDay): SplitDayState {
     focus: day.split_name || "",
     exercises: day.exercises || [],
   };
-}
-
-function loadGeneratedDraft() {
-  if (typeof window === "undefined") return null;
-  const rawDraft =
-    window.localStorage.getItem(generatedSplitStorageKey) ||
-    window.sessionStorage.getItem(generatedSplitStorageKey);
-  if (!rawDraft) return null;
-
-  window.localStorage.removeItem(generatedSplitStorageKey);
-  window.sessionStorage.removeItem(generatedSplitStorageKey);
-  try {
-    const parsed = JSON.parse(rawDraft) as SplitDayState[];
-    if (!Array.isArray(parsed) || parsed.length === 0) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function loadGeneratedDraftSource() {
-  if (typeof window === "undefined") return null;
-  const source = window.localStorage.getItem(generatedSplitSourceKey);
-  window.localStorage.removeItem(generatedSplitSourceKey);
-  return source === "quiz" ? "quiz" : null;
 }

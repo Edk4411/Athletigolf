@@ -2,10 +2,10 @@
 
 This folder contains the historical Supabase migrations for AthletiGolf.
 
-Some early practice-session migrations have duplicate-looking names and `.sql.sql`
-suffixes. Keep those files in place because they may already be part of deployed
-database history. Removing or renaming applied migrations can make local and
-remote Supabase environments disagree.
+Some migrations have duplicate-looking names and `.sql.sql` suffixes. Keep those
+files in place because they may already be part of deployed database history.
+Removing or renaming applied migrations can make local and remote Supabase
+environments disagree.
 
 Going forward:
 
@@ -20,3 +20,19 @@ Going forward:
 The `20260626120000_add_round_holes.sql` migration adds `fairways_possible`
 and the `round_holes` table so fairway percentage and short-game stats can be
 calculated from actual hole-by-hole data instead of a standard assumption.
+
+## Current Bolt/Supabase Checklist
+
+If Bolt asks what database changes it needs, check that these capabilities exist:
+
+- `rounds` has distance fields: `average_driving_distance`, `longest_drive`, and
+  `tee_shot_quality`.
+- `round_holes` exists and has `tee_shot_location` and `recovery_shot_type`.
+- `practice_sessions` has both legacy drill columns and the newer `drills jsonb`
+  column.
+- `split_days` has `archived_at`.
+
+The duplicate-looking repair migrations for practice drills and split archiving
+are intentionally additive and use `IF NOT EXISTS`, so applying either copy
+should be harmless. Do not paste both copies into Bolt manually if the columns
+already exist.

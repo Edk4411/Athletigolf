@@ -1,9 +1,67 @@
-import { useEffect, useState } from "react";
-import { Edit3, Eye, Trash2, X } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { useEffect, useMemo, useState } from "react";
+import { Edit3, Eye, Flag, Trash2, X } from "lucide-react";
+import { Button, EmptyState, FieldLabel, PageHeader, StatCard, Surface, TextArea, TextInput } from "@/components/ui";
 import { formatAverage, getGolfStats } from "@/lib/golfStats";
-import { Button, Card, PageHeader, StatCard } from "@/components/ui";
-import type { Round, RoundHole } from "@/lib/types";
+import { supabase } from "@/lib/supabase";
+import type { FairwayResult, Round, RoundHole, TeeShotLocation } from "@/lib/types";
+
+type RoundForm = {
+  course: string;
+  date: string;
+  score: string;
+  fairways_hit: string;
+  fairways_possible: string;
+  greens_in_regulation: string;
+  putts: string;
+  holes_played: string;
+  tee_colour: string;
+  average_driving_distance: string;
+  longest_drive: string;
+  tee_shot_quality: string;
+  penalty_shots: string;
+  chip_shots: string;
+  greenside_bunker_shots: string;
+  is_competition: boolean;
+  notes: string;
+};
+
+type HoleForm = {
+  id?: string;
+  hole_number: number;
+  par: string;
+  score: string;
+  fairway_result: FairwayResult;
+  tee_shot_location: "" | TeeShotLocation;
+  gir: boolean;
+  putts: string;
+  penalty_shots: string;
+  chip_shots: string;
+  greenside_bunker_shots: string;
+  recovery_shot_type: "" | "chip" | "sand";
+};
+
+const emptyForm: RoundForm = {
+  course: "",
+  date: "",
+  score: "",
+  fairways_hit: "",
+  fairways_possible: "",
+  greens_in_regulation: "",
+  putts: "",
+  holes_played: "18",
+  tee_colour: "",
+  average_driving_distance: "",
+  longest_drive: "",
+  tee_shot_quality: "",
+  penalty_shots: "",
+  chip_shots: "",
+  greenside_bunker_shots: "",
+  is_competition: false,
+  notes: "",
+};
+
+const fairwayOptions: FairwayResult[] = ["na", "hit", "left", "right", "miss"];
+const teeLocationOptions: Array<"" | TeeShotLocation> = ["", "rough", "fairway_bunker", "woods", "water", "out_of_bounds", "other_fairway", "other"];
 
 export default function RoundHistory() {
   const [rounds, setRounds] = useState<Round[]>([]);
@@ -13,25 +71,9 @@ export default function RoundHistory() {
   const [editingRound, setEditingRound] = useState<Round | null>(null);
   const [saving, setSaving] = useState(false);
   const [roundError, setRoundError] = useState("");
-  const [editForm, setEditForm] = useState({
-    course: "",
-    date: "",
-    score: "",
-    fairways_hit: "",
-    greens_in_regulation: "",
-    putts: "",
-    fairways_possible: "",
-    holes_played: "18",
-    tee_colour: "",
-    average_driving_distance: "",
-    longest_drive: "",
-    tee_shot_quality: "",
-    penalty_shots: "",
-    chip_shots: "",
-    greenside_bunker_shots: "",
-    is_competition: false,
-    notes: "",
-  });
+  const [editForm, setEditForm] = useState<RoundForm>(emptyForm);
+  const [editHoles, setEditHoles] = useState<HoleForm[]>([]);
+  const [selectedHoleIndex, setSelectedHoleIndex] = useState(0);
 
   useEffect(() => {
     loadRounds();
@@ -39,10 +81,7 @@ export default function RoundHistory() {
 
   const loadRounds = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("rounds")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data } = await supabase.from("rounds").select("*").order("created_at", { ascending: false });
     const loadedRounds = (data as Round[]) || [];
     setRounds(loadedRounds);
 
@@ -50,23 +89,18 @@ export default function RoundHistory() {
       const { data: holesData } = await supabase
         .from("round_holes")
         .select("*")
-        .in(
-          "round_id",
-          loadedRounds.map((round) => round.id)
-        )
+        .in("round_id", loadedRounds.map((round) => round.id))
         .order("hole_number", { ascending: true });
 
-      const grouped = ((holesData as RoundHole[]) || []).reduce<Record<string, RoundHole[]>>(
-        (acc, hole) => {
-          acc[hole.round_id] = [...(acc[hole.round_id] || []), hole];
-          return acc;
-        },
-        {}
-      );
+      const grouped = ((holesData as RoundHole[]) || []).reduce<Record<string, RoundHole[]>>((acc, hole) => {
+        acc[hole.round_id] = [...(acc[hole.round_id] || []), hole];
+        return acc;
+      }, {});
       setRoundHoles(grouped);
     } else {
       setRoundHoles({});
     }
+
     setLoading(false);
   };
 
@@ -74,73 +108,105 @@ export default function RoundHistory() {
     setRoundError("");
     setSelectedRound(null);
     setEditingRound(round);
-    setEditForm({
-      course: round.course || "",
-      date: round.date || "",
-      score: round.score?.toString() || "",
-      fairways_hit: round.fairways_hit?.toString() || "",
-      greens_in_regulation: round.greens_in_regulation?.toString() || "",
-      putts: round.putts?.toString() || "",
-      fairways_possible: round.fairways_possible?.toString() || "",
-      holes_played: round.holes_played?.toString() || "18",
-      tee_colour: round.tee_colour || "",
-      average_driving_distance: round.average_driving_distance?.toString() || "",
-      longest_drive: round.longest_drive?.toString() || "",
-      tee_shot_quality: round.tee_shot_quality || "",
-      penalty_shots: round.penalty_shots?.toString() || "",
-      chip_shots: round.chip_shots?.toString() || "",
-      greenside_bunker_shots: round.greenside_bunker_shots?.toString() || "",
-      is_competition: round.is_competition,
-      notes: round.notes || "",
-    });
+    setSelectedHoleIndex(0);
+    setEditForm(toRoundForm(round));
+    setEditHoles(toHoleForms(round, roundHoles[round.id] || []));
+  };
+
+  const updateHole = <K extends keyof HoleForm>(index: number, key: K, value: HoleForm[K]) => {
+    setEditHoles((prev) =>
+      prev.map((hole, holeIndex) => {
+        if (holeIndex !== index) return hole;
+        const next = { ...hole, [key]: value };
+        if (key === "par" && value === "3") {
+          next.fairway_result = "na";
+          next.tee_shot_location = "";
+        }
+        if (key === "fairway_result" && (value === "hit" || value === "na")) {
+          next.tee_shot_location = "";
+        }
+        return next;
+      })
+    );
   };
 
   const parseNumber = (value: string) => (value === "" ? null : Number(value));
 
   const saveRound = async () => {
     if (!editingRound) return;
-
     setSaving(true);
     setRoundError("");
+
+    const holeStats = calculateHoleStats(editHoles);
+    const hasHoleScores = holeStats.holesCompleted > 0;
 
     const { error } = await supabase
       .from("rounds")
       .update({
         course: editForm.course || null,
         date: editForm.date || null,
-        score: parseNumber(editForm.score),
-        fairways_hit: parseNumber(editForm.fairways_hit),
-        fairways_possible: parseNumber(editForm.fairways_possible),
-        greens_in_regulation: parseNumber(editForm.greens_in_regulation),
-        putts: parseNumber(editForm.putts),
-        holes_played: parseNumber(editForm.holes_played),
+        score: hasHoleScores ? holeStats.totalScore : parseNumber(editForm.score),
+        fairways_hit: hasHoleScores ? holeStats.fairwaysHit : parseNumber(editForm.fairways_hit),
+        fairways_possible: hasHoleScores ? holeStats.fairwaysPossible : parseNumber(editForm.fairways_possible),
+        greens_in_regulation: hasHoleScores ? holeStats.girs : parseNumber(editForm.greens_in_regulation),
+        putts: hasHoleScores ? holeStats.putts : parseNumber(editForm.putts),
+        holes_played: hasHoleScores ? holeStats.holesCompleted : parseNumber(editForm.holes_played),
         tee_colour: editForm.tee_colour || null,
         average_driving_distance: parseNumber(editForm.average_driving_distance),
         longest_drive: parseNumber(editForm.longest_drive),
         tee_shot_quality: editForm.tee_shot_quality || null,
-        penalty_shots: parseNumber(editForm.penalty_shots),
-        chip_shots: parseNumber(editForm.chip_shots),
-        greenside_bunker_shots: parseNumber(editForm.greenside_bunker_shots),
+        penalty_shots: hasHoleScores ? holeStats.penalties : parseNumber(editForm.penalty_shots),
+        chip_shots: hasHoleScores ? holeStats.chips : parseNumber(editForm.chip_shots),
+        greenside_bunker_shots: hasHoleScores ? holeStats.bunkers : parseNumber(editForm.greenside_bunker_shots),
+        scramble_percentage: hasHoleScores ? holeStats.scramblePercent : editingRound.scramble_percentage,
         is_competition: editForm.is_competition,
         notes: editForm.notes || null,
       })
       .eq("id", editingRound.id);
 
-    setSaving(false);
-
     if (error) {
+      setSaving(false);
       setRoundError(error.message);
       return;
     }
 
+    for (const hole of editHoles) {
+      const payload = {
+        round_id: editingRound.id,
+        user_id: editingRound.user_id,
+        hole_number: hole.hole_number,
+        par: Number(hole.par || 4),
+        score: parseNumber(hole.score),
+        fairway_result: hole.par === "3" ? "na" : hole.fairway_result,
+        tee_shot_location: hole.par === "3" || hole.fairway_result === "hit" || hole.fairway_result === "na" ? null : hole.tee_shot_location || null,
+        gir: hole.gir,
+        putts: parseNumber(hole.putts) ?? 0,
+        penalty_shots: parseNumber(hole.penalty_shots) ?? 0,
+        chip_shots: parseNumber(hole.chip_shots) ?? 0,
+        greenside_bunker_shots: parseNumber(hole.greenside_bunker_shots) ?? 0,
+        recovery_shot_type: hole.recovery_shot_type || null,
+      };
+
+      const result = hole.id
+        ? await supabase.from("round_holes").update(payload).eq("id", hole.id)
+        : hasAnyHoleData(hole)
+          ? await supabase.from("round_holes").insert(payload)
+          : { error: null };
+
+      if (result.error) {
+        setSaving(false);
+        setRoundError(result.error.message);
+        return;
+      }
+    }
+
+    setSaving(false);
     setEditingRound(null);
     await loadRounds();
   };
 
   const deleteRound = async (round: Round) => {
-    const confirmed = window.confirm(
-      `Delete ${round.course || "this round"}? This cannot be undone.`
-    );
+    const confirmed = window.confirm(`Delete ${round.course || "this round"}? This cannot be undone.`);
     if (!confirmed) return;
 
     setRoundError("");
@@ -156,139 +222,93 @@ export default function RoundHistory() {
     setRounds((prev) => prev.filter((item) => item.id !== round.id));
   };
 
-  const roundsLogged = rounds.length;
   const golfStats = getGolfStats(rounds);
-  const avgScore = formatAverage(golfStats.avgScore);
-  const bestRound = golfStats.bestScore;
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
-        <div className="text-black/40 text-lg">Loading...</div>
+      <div className="flex min-h-screen items-center justify-center bg-cream">
+        <div className="text-lg text-muted">Loading round history...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-cream p-8 md:p-12">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-12">
-          <PageHeader
-            eyebrow="Golf"
-            title="Round History"
-            description="Review previous rounds, inspect performance details and update your scoring record."
-            tone="text-[#1F4D3A]"
-          />
-          <section className="grid md:grid-cols-4 gap-6 mb-12 mt-10">
-            {[
-              ["Rounds Logged", roundsLogged.toString()],
-              ["Average Score", avgScore],
-              ["Best Round", bestRound === null ? "-" : bestRound.toString()],
-              ["Handicap", "-"],
-            ].map(([label, value], index) => (
-              <StatCard
-                key={index}
-                label={label}
-                value={value}
-                tone="bg-[#1F4D3A] text-white"
-              />
-            ))}
-          </section>
-        </div>
+    <main className="min-h-screen bg-cream px-4 py-5 text-ink md:px-8 md:py-7">
+      <div className="mx-auto max-w-7xl">
+        <PageHeader
+          eyebrow="Golf"
+          title="Round History"
+          description="Review scoring, inspect hole-by-hole details, and keep your golf record clean."
+          tone="text-golf"
+          actions={<Button variant="golf" onClick={() => (window.location.href = "/golf/submit")}><Flag className="h-4 w-4" />Submit Round</Button>}
+        />
+
+        <section className="mb-5 grid gap-4 md:grid-cols-4">
+          <StatCard label="Rounds Logged" value={rounds.length} />
+          <StatCard label="Average Score" value={formatAverage(golfStats.avgScore)} />
+          <StatCard label="Best Round" value={golfStats.bestScore === null ? "-" : golfStats.bestScore} />
+          <StatCard label="Avg Drive" value={golfStats.avgDrivingDistance === null ? "-" : `${Math.round(golfStats.avgDrivingDistance)} yd`} />
+        </section>
 
         {roundError && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-700">
+          <div className="mb-5 rounded-xl border border-danger/25 bg-danger/10 p-4 text-sm font-semibold text-danger">
             {roundError}
           </div>
         )}
 
         {rounds.length === 0 ? (
-          <div className="bg-white rounded-xl p-10 text-center shadow-sm border border-line">
-            <h2 className="text-3xl font-semibold mb-3">No rounds yet</h2>
-            <p className="text-black/60 mb-6">
-              Submit your first round to start building your round history.
-            </p>
-            <a
-              href="/golf/submit"
-              className="inline-block bg-[#1F4D3A] text-white px-6 py-3 rounded-full font-medium hover:bg-[#17392b] transition"
-            >
-              Submit Round
-            </a>
-          </div>
+          <EmptyState
+            title="No rounds yet"
+            description="Submit your first round to start building your golf logbook."
+            action={<Button variant="golf" onClick={() => (window.location.href = "/golf/submit")}>Submit Round</Button>}
+          />
         ) : (
-          <div className="grid gap-6">
-            {rounds.map((round, index) => (
-              <Card
-                key={round.id || index}
-                className="transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
-              >
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
-                  <div className="flex-1">
-                    <p className="text-sm text-black/50 mb-2">
-                      {round.date || "-"}
-                    </p>
+          <Surface className="overflow-hidden p-0">
+            <div className="hidden grid-cols-[1fr_92px_92px_92px_110px_110px_112px] gap-4 border-b border-line bg-steel/5 px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-muted lg:grid">
+              <span>Round</span>
+              <span>Score</span>
+              <span>FIR</span>
+              <span>GIR</span>
+              <span>Scramble</span>
+              <span>Penalties</span>
+              <span />
+            </div>
 
-                    <h2 className="text-3xl font-semibold mb-3">
-                      {round.course || "Unknown Course"}
-                    </h2>
-
-                    <div
-                      className={`inline-block px-4 py-2 rounded-full text-white text-sm ${
-                        round.is_competition ? "bg-orange-400" : "bg-blue-400"
-                      }`}
-                    >
-                      {round.is_competition ? "Competition Round" : "General Play"}
+            {rounds.map((round) => (
+              <article key={round.id} className="border-b border-line p-5 last:border-b-0 hover:bg-steel/5">
+                <div className="grid gap-4 lg:grid-cols-[1fr_92px_92px_92px_110px_110px_112px] lg:items-center">
+                  <div>
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <h2 className="text-xl font-semibold text-dark">{round.course || "Unknown Course"}</h2>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${round.is_competition ? "bg-gold/15 text-gold" : "bg-golf/10 text-golf"}`}>
+                        {round.is_competition ? "Competition" : "General"}
+                      </span>
                     </div>
+                    <p className="text-sm text-muted">
+                      {round.date || new Date(round.created_at).toLocaleDateString("en-GB")}
+                      {round.tee_colour ? ` / ${round.tee_colour} tees` : ""}
+                    </p>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[
-                      ["Score", round.score?.toString() || "-"],
-                      ["GIR", `${round.greens_in_regulation ?? "-"}/${round.holes_played ?? 18}`],
-                      [
-                        "FIR",
-                        `${round.fairways_hit ?? "-"}/${round.fairways_possible ?? "-"}`,
-                      ],
-                      ["Scramble", round.scramble_percentage === null ? "-" : `${round.scramble_percentage}%`],
-                      ["Avg Drive", round.average_driving_distance ? `${round.average_driving_distance} yd` : "-"],
-                      ["Longest", round.longest_drive ? `${round.longest_drive} yd` : "-"],
-                      ["Putts", round.putts?.toString() || "-"],
-                      ["Penalties", (round.penalty_shots ?? 0).toString()],
-                      ["Chip Shots", (round.chip_shots ?? 0).toString()],
-                      ["Bunkers", (round.greenside_bunker_shots ?? 0).toString()],
-                    ].map(([label, value], i) => (
-                      <div
-                        key={i}
-                        className="bg-cream rounded-2xl px-6 py-5 min-w-[120px] border border-[#1F4D3A]/10"
-                      >
-                        <p className="text-sm text-[#1F4D3A]/70 mb-2">{label}</p>
-                        <h3 className="text-2xl font-semibold">{value}</h3>
-                      </div>
-                    ))}
-                  </div>
+                  <Metric label="Score" value={round.score?.toString() || "-"} />
+                  <Metric label="FIR" value={`${round.fairways_hit ?? "-"}/${round.fairways_possible ?? "-"}`} />
+                  <Metric label="GIR" value={`${round.greens_in_regulation ?? "-"}/${round.holes_played ?? 18}`} />
+                  <Metric label="Scramble" value={round.scramble_percentage === null ? "-" : `${round.scramble_percentage}%`} />
+                  <Metric label="Pens" value={(round.penalty_shots ?? 0).toString()} danger={(round.penalty_shots ?? 0) > 0} />
 
-                  <div className="flex flex-col gap-3">
-                    <Button
-                      onClick={() => setSelectedRound(round)}
-                      className="bg-[#1F4D3A] hover:bg-[#17392b]"
-                    >
-                      <Eye className="h-4 w-4" />
-                      Details
-                    </Button>
-                    <Button variant="secondary" onClick={() => openEdit(round)}>
-                      <Edit3 className="h-4 w-4" />
-                      Edit
-                    </Button>
+                  <div className="flex gap-2 lg:justify-end">
+                    <Button variant="secondary" onClick={() => setSelectedRound(round)}><Eye className="h-4 w-4" />Details</Button>
+                    <Button variant="ghost" onClick={() => openEdit(round)} aria-label="Edit round"><Edit3 className="h-4 w-4" /></Button>
                   </div>
                 </div>
-              </Card>
+              </article>
             ))}
-          </div>
+          </Surface>
         )}
       </div>
 
       {selectedRound && (
-        <RoundDetailsModal
+        <RoundDetailsDrawer
           round={selectedRound}
           holes={roundHoles[selectedRound.id] || []}
           onClose={() => setSelectedRound(null)}
@@ -298,179 +318,34 @@ export default function RoundHistory() {
       )}
 
       {editingRound && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-          <button
-            onClick={() => setEditingRound(null)}
-            className="absolute inset-0 bg-black/50"
-            aria-label="Close round editor"
-          />
-          <div className="relative z-10 max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-8 shadow-2xl">
-            <div className="mb-6 flex items-start justify-between gap-4">
-              <div>
-                <p className="mb-2 text-sm uppercase tracking-[0.25em] text-[#1F4D3A]/70">
-                  Edit Round
-                </p>
-                <h2 className="text-4xl font-semibold text-[#1F4D3A]">
-                  {editingRound.course || "Golf Round"}
-                </h2>
-              </div>
-              <button
-                onClick={() => setEditingRound(null)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl text-black/50 transition hover:bg-black/5 hover:text-black"
-                aria-label="Close round editor"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field
-                label="Course"
-                value={editForm.course}
-                onChange={(value) => setEditForm((prev) => ({ ...prev, course: value }))}
-              />
-              <Field
-                label="Date"
-                type="date"
-                value={editForm.date}
-                onChange={(value) => setEditForm((prev) => ({ ...prev, date: value }))}
-              />
-              <Field
-                label="Score"
-                type="number"
-                value={editForm.score}
-                onChange={(value) => setEditForm((prev) => ({ ...prev, score: value }))}
-              />
-              <Field
-                label="Putts"
-                type="number"
-                value={editForm.putts}
-                onChange={(value) => setEditForm((prev) => ({ ...prev, putts: value }))}
-              />
-              <Field
-                label="Fairways Hit"
-                type="number"
-                value={editForm.fairways_hit}
-                onChange={(value) => setEditForm((prev) => ({ ...prev, fairways_hit: value }))}
-              />
-              <Field
-                label="Fairways Possible"
-                type="number"
-                value={editForm.fairways_possible}
-                onChange={(value) =>
-                  setEditForm((prev) => ({ ...prev, fairways_possible: value }))
-                }
-              />
-              <Field
-                label="Greens in Regulation"
-                type="number"
-                value={editForm.greens_in_regulation}
-                onChange={(value) =>
-                  setEditForm((prev) => ({ ...prev, greens_in_regulation: value }))
-                }
-              />
-              <Field
-                label="Holes Played"
-                type="number"
-                value={editForm.holes_played}
-                onChange={(value) => setEditForm((prev) => ({ ...prev, holes_played: value }))}
-              />
-              <Field
-                label="Tees Played"
-                value={editForm.tee_colour}
-                onChange={(value) => setEditForm((prev) => ({ ...prev, tee_colour: value }))}
-              />
-              <Field
-                label="Average Driving Distance"
-                type="number"
-                value={editForm.average_driving_distance}
-                onChange={(value) =>
-                  setEditForm((prev) => ({ ...prev, average_driving_distance: value }))
-                }
-              />
-              <Field
-                label="Longest Drive"
-                type="number"
-                value={editForm.longest_drive}
-                onChange={(value) => setEditForm((prev) => ({ ...prev, longest_drive: value }))}
-              />
-              <Field
-                label="Tee Shot Quality"
-                value={editForm.tee_shot_quality}
-                onChange={(value) => setEditForm((prev) => ({ ...prev, tee_shot_quality: value }))}
-              />
-              <Field
-                label="Penalty Shots"
-                type="number"
-                value={editForm.penalty_shots}
-                onChange={(value) => setEditForm((prev) => ({ ...prev, penalty_shots: value }))}
-              />
-              <Field
-                label="Chip Shots"
-                type="number"
-                value={editForm.chip_shots}
-                onChange={(value) => setEditForm((prev) => ({ ...prev, chip_shots: value }))}
-              />
-              <Field
-                label="Greenside Bunker Shots"
-                type="number"
-                value={editForm.greenside_bunker_shots}
-                onChange={(value) =>
-                  setEditForm((prev) => ({ ...prev, greenside_bunker_shots: value }))
-                }
-              />
-              <label className="flex items-center gap-3 rounded-2xl border border-line px-5 py-4">
-                <input
-                  type="checkbox"
-                  checked={editForm.is_competition}
-                  onChange={(event) =>
-                    setEditForm((prev) => ({
-                      ...prev,
-                      is_competition: event.target.checked,
-                    }))
-                  }
-                />
-                <span className="font-medium">Competition round</span>
-              </label>
-              <div className="md:col-span-2">
-                <label className="mb-2 block text-sm text-black/50">Notes</label>
-                <textarea
-                  value={editForm.notes}
-                  onChange={(event) =>
-                    setEditForm((prev) => ({ ...prev, notes: event.target.value }))
-                  }
-                  rows={4}
-                  className="w-full rounded-2xl border border-line px-5 py-4 outline-none focus:border-[#1F4D3A]"
-                />
-              </div>
-            </div>
-
-            <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
-              <Button variant="danger" onClick={() => deleteRound(editingRound)}>
-                <Trash2 className="h-4 w-4" />
-                Delete Round
-              </Button>
-              <div className="flex flex-col-reverse gap-3 sm:flex-row">
-                <Button variant="secondary" onClick={() => setEditingRound(null)}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={saveRound}
-                  disabled={saving}
-                  className="bg-[#1F4D3A] hover:bg-[#17392b]"
-                >
-                  {saving ? "Saving..." : "Save Round"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <RoundEditDrawer
+          form={editForm}
+          holes={editHoles}
+          selectedHoleIndex={selectedHoleIndex}
+          saving={saving}
+          title={editingRound.course || "Golf Round"}
+          setForm={setEditForm}
+          setSelectedHoleIndex={setSelectedHoleIndex}
+          updateHole={updateHole}
+          onClose={() => setEditingRound(null)}
+          onSave={saveRound}
+          onDelete={() => deleteRound(editingRound)}
+        />
       )}
+    </main>
+  );
+}
+
+function Metric({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted lg:hidden">{label}</p>
+      <p className={`font-semibold ${danger ? "text-danger" : "text-dark"}`}>{value}</p>
     </div>
   );
 }
 
-function RoundDetailsModal({
+function RoundDetailsDrawer({
   round,
   holes,
   onClose,
@@ -484,75 +359,36 @@ function RoundDetailsModal({
   onDelete: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-      <button
-        onClick={onClose}
-        className="absolute inset-0 bg-black/50"
-        aria-label="Close round details"
-      />
-      <div className="relative z-10 w-full max-w-4xl rounded-xl bg-white p-8 shadow-2xl">
-        <div className="mb-8 flex items-start justify-between gap-4">
-          <div>
-            <p className="mb-2 text-sm uppercase tracking-[0.25em] text-[#1F4D3A]/70">
-              Round Details
-            </p>
-            <h2 className="text-4xl font-semibold text-[#1F4D3A]">
-              {round.course || "Unknown Course"}
-            </h2>
-            <p className="mt-2 text-black/55">{round.date || "No date saved"}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl text-black/50 transition hover:bg-black/5 hover:text-black"
-            aria-label="Close round details"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <button onClick={onClose} className="absolute inset-0 bg-black/50" aria-label="Close round details" />
+      <aside className="relative z-10 h-full w-full max-w-4xl overflow-y-auto border-l border-line bg-panel p-6 shadow-2xl">
+        <DrawerHeader eyebrow="Round Details" title={round.course || "Unknown Course"} onClose={onClose} />
 
-        <div className="grid gap-4 md:grid-cols-4">
-          {[
-            ["Score", round.score?.toString() || "-"],
-            ["Fairways", `${round.fairways_hit ?? "-"}/${round.fairways_possible ?? "-"}`],
-            ["GIR", `${round.greens_in_regulation ?? "-"}/${round.holes_played ?? 18}`],
-            ["Scramble", round.scramble_percentage === null ? "-" : `${round.scramble_percentage}%`],
-            ["Avg Drive", round.average_driving_distance ? `${round.average_driving_distance} yd` : "-"],
-            ["Longest", round.longest_drive ? `${round.longest_drive} yd` : "-"],
-            ["Putts", round.putts?.toString() || "-"],
-            ["Penalties", (round.penalty_shots ?? 0).toString()],
-            ["Chip Shots", (round.chip_shots ?? 0).toString()],
-            ["Bunkers", (round.greenside_bunker_shots ?? 0).toString()],
-            ["Type", round.is_competition ? "Competition" : "General"],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-2xl bg-cream p-5">
-              <p className="mb-2 text-sm text-[#1F4D3A]/70">{label}</p>
-              <h3 className="text-2xl font-semibold">{value}</h3>
-            </div>
-          ))}
+        <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <DetailTile label="Score" value={round.score?.toString() || "-"} />
+          <DetailTile label="FIR" value={`${round.fairways_hit ?? "-"}/${round.fairways_possible ?? "-"}`} />
+          <DetailTile label="GIR" value={`${round.greens_in_regulation ?? "-"}/${round.holes_played ?? 18}`} />
+          <DetailTile label="Scramble" value={round.scramble_percentage === null ? "-" : `${round.scramble_percentage}%`} />
+          <DetailTile label="Avg Drive" value={round.average_driving_distance ? `${round.average_driving_distance} yd` : "-"} />
+          <DetailTile label="Longest" value={round.longest_drive ? `${round.longest_drive} yd` : "-"} />
+          <DetailTile label="Putts" value={round.putts?.toString() || "-"} />
+          <DetailTile label="Penalties" value={(round.penalty_shots ?? 0).toString()} danger={(round.penalty_shots ?? 0) > 0} />
         </div>
 
         {holes.length > 0 && (
-          <div className="mt-6 overflow-x-auto rounded-2xl border border-[#1F4D3A]/10">
+          <div className="overflow-x-auto rounded-xl border border-line">
             <table className="w-full min-w-[860px] text-left text-sm">
-              <thead className="bg-[#1F4D3A]/5 text-[#1F4D3A]">
+              <thead className="bg-steel/5 text-muted">
                 <tr>
-                  <th className="p-3">Hole</th>
-                  <th className="p-3">Par</th>
-                  <th className="p-3">Score</th>
-                  <th className="p-3">Fairway</th>
-                  <th className="p-3">Tee lie</th>
-                  <th className="p-3">GIR</th>
-                  <th className="p-3">Putts</th>
-                  <th className="p-3">Pen</th>
-                  <th className="p-3">Chips</th>
-                  <th className="p-3">Bunkers</th>
-                  <th className="p-3">Recovery</th>
+                  {["Hole", "Par", "Score", "Fairway", "Tee lie", "GIR", "Putts", "Pen", "Chips", "Bunkers", "Recovery"].map((heading) => (
+                    <th key={heading} className="p-3 text-xs font-bold uppercase tracking-[0.14em]">{heading}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {holes.map((hole) => (
                   <tr key={hole.id} className="border-t border-line">
-                    <td className="p-3 font-medium">{hole.hole_number}</td>
+                    <td className="p-3 font-semibold">{hole.hole_number}</td>
                     <td className="p-3">{hole.par}</td>
                     <td className="p-3">{hole.score ?? "-"}</td>
                     <td className="p-3 capitalize">{formatCell(hole.fairway_result || "na")}</td>
@@ -571,57 +407,319 @@ function RoundDetailsModal({
         )}
 
         {round.notes && (
-          <div className="mt-6 rounded-2xl bg-cream p-5">
-            <p className="mb-2 text-sm text-[#1F4D3A]/70">Notes</p>
-            <p className="text-black/70">{round.notes}</p>
+          <div className="mt-5 rounded-xl border border-line bg-steel/5 p-4">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-muted">Notes</p>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{round.notes}</p>
           </div>
         )}
 
-        <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
-          <Button variant="danger" onClick={onDelete}>
-            <Trash2 className="h-4 w-4" />
-            Delete
-          </Button>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+          <Button variant="danger" onClick={onDelete}><Trash2 className="h-4 w-4" />Delete</Button>
           <div className="flex flex-col-reverse gap-3 sm:flex-row">
-            <Button variant="secondary" onClick={onClose}>
-              Close
-            </Button>
-            <Button onClick={onEdit} className="bg-[#1F4D3A] hover:bg-[#17392b]">
-              <Edit3 className="h-4 w-4" />
-              Edit Round
-            </Button>
+            <Button variant="secondary" onClick={onClose}>Close</Button>
+            <Button variant="golf" onClick={onEdit}><Edit3 className="h-4 w-4" />Edit Round</Button>
           </div>
         </div>
-      </div>
+      </aside>
     </div>
+  );
+}
+
+function RoundEditDrawer({
+  form,
+  holes,
+  selectedHoleIndex,
+  title,
+  saving,
+  setForm,
+  setSelectedHoleIndex,
+  updateHole,
+  onClose,
+  onSave,
+  onDelete,
+}: {
+  form: RoundForm;
+  holes: HoleForm[];
+  selectedHoleIndex: number;
+  title: string;
+  saving: boolean;
+  setForm: React.Dispatch<React.SetStateAction<RoundForm>>;
+  setSelectedHoleIndex: (index: number) => void;
+  updateHole: <K extends keyof HoleForm>(index: number, key: K, value: HoleForm[K]) => void;
+  onClose: () => void;
+  onSave: () => void;
+  onDelete: () => void;
+}) {
+  const selectedHole = holes[selectedHoleIndex];
+  const stats = useMemo(() => calculateHoleStats(holes), [holes]);
+  const setField = <K extends keyof RoundForm>(key: K, value: RoundForm[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <button onClick={onClose} className="absolute inset-0 bg-black/50" aria-label="Close round editor" />
+      <aside className="relative z-10 h-full w-full max-w-5xl overflow-y-auto border-l border-line bg-panel p-6 shadow-2xl">
+        <DrawerHeader eyebrow="Edit Scorecard" title={title} onClose={onClose} />
+
+        <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <DetailTile label="Score" value={stats.holesCompleted ? stats.totalScore.toString() : form.score || "-"} />
+          <DetailTile label="Holes" value={`${stats.holesCompleted}/${holes.length || form.holes_played || 18}`} />
+          <DetailTile label="Putts" value={stats.holesCompleted ? stats.putts.toString() : form.putts || "-"} />
+          <DetailTile label="Penalties" value={stats.holesCompleted ? stats.penalties.toString() : form.penalty_shots || "0"} danger={(stats.penalties || Number(form.penalty_shots || 0)) > 0} />
+        </div>
+
+        <div className="mb-5 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Field label="Course" value={form.course} onChange={(value) => setField("course", value)} />
+          <Field label="Date" type="date" value={form.date} onChange={(value) => setField("date", value)} />
+          <Field label="Tees Played" value={form.tee_colour} onChange={(value) => setField("tee_colour", value)} />
+          <Field label="Average Driving Distance" type="number" value={form.average_driving_distance} onChange={(value) => setField("average_driving_distance", value)} />
+          <Field label="Longest Drive" type="number" value={form.longest_drive} onChange={(value) => setField("longest_drive", value)} />
+          <Field label="Tee Shot Quality" value={form.tee_shot_quality} onChange={(value) => setField("tee_shot_quality", value)} />
+          <label className="flex items-center gap-3 rounded-lg border border-line bg-steel/5 px-4 py-3">
+            <input type="checkbox" checked={form.is_competition} onChange={(event) => setField("is_competition", event.target.checked)} />
+            <span className="font-medium text-dark">Competition round</span>
+          </label>
+        </div>
+
+        <Surface className="mb-5 p-4">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-golf">Hole-by-hole edit</p>
+              <h3 className="mt-1 text-2xl font-semibold text-dark">
+                {selectedHole ? `Hole ${selectedHole.hole_number}` : "No holes available"}
+              </h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {holes.map((hole, index) => (
+                <button
+                  key={hole.hole_number}
+                  onClick={() => setSelectedHoleIndex(index)}
+                  className={`h-10 w-10 rounded-lg border text-sm font-semibold transition ${
+                    index === selectedHoleIndex
+                      ? "border-golf bg-golf text-white"
+                      : hole.score
+                        ? "border-golf/30 bg-golf/10 text-golf"
+                        : "border-line bg-panel text-muted hover:border-golf/40"
+                  }`}
+                  aria-label={`Edit hole ${hole.hole_number}`}
+                >
+                  {hole.hole_number}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {selectedHole && (
+            <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
+              <SelectField label="Par" value={selectedHole.par} onChange={(value) => updateHole(selectedHoleIndex, "par", value)} options={["3", "4", "5"]} />
+              <Field label="Score" type="number" value={selectedHole.score} onChange={(value) => updateHole(selectedHoleIndex, "score", value)} />
+              <SelectField
+                label="Fairway"
+                value={selectedHole.fairway_result}
+                disabled={selectedHole.par === "3"}
+                onChange={(value) => updateHole(selectedHoleIndex, "fairway_result", value as FairwayResult)}
+                options={fairwayOptions}
+              />
+              {selectedHole.par !== "3" && selectedHole.fairway_result !== "hit" && selectedHole.fairway_result !== "na" && (
+                <SelectField
+                  label="Where did it finish?"
+                  value={selectedHole.tee_shot_location}
+                  onChange={(value) => updateHole(selectedHoleIndex, "tee_shot_location", value as "" | TeeShotLocation)}
+                  options={teeLocationOptions}
+                />
+              )}
+              <label className="flex items-center gap-3 rounded-lg border border-line bg-steel/5 px-4 py-3">
+                <input type="checkbox" checked={selectedHole.gir} onChange={(event) => updateHole(selectedHoleIndex, "gir", event.target.checked)} />
+                <span className="font-medium text-dark">GIR</span>
+              </label>
+              <Field label="Putts" type="number" value={selectedHole.putts} onChange={(value) => updateHole(selectedHoleIndex, "putts", value)} />
+              <Field label="Penalties" type="number" value={selectedHole.penalty_shots} onChange={(value) => updateHole(selectedHoleIndex, "penalty_shots", value)} />
+              <Field label="Chips" type="number" value={selectedHole.chip_shots} onChange={(value) => updateHole(selectedHoleIndex, "chip_shots", value)} />
+              <Field label="Bunkers" type="number" value={selectedHole.greenside_bunker_shots} onChange={(value) => updateHole(selectedHoleIndex, "greenside_bunker_shots", value)} />
+              <SelectField
+                label="Recovery counted as"
+                value={selectedHole.recovery_shot_type}
+                onChange={(value) => updateHole(selectedHoleIndex, "recovery_shot_type", value as "" | "chip" | "sand")}
+                options={["", "chip", "sand"]}
+              />
+            </div>
+          )}
+        </Surface>
+
+        <div>
+          <FieldLabel>Notes</FieldLabel>
+          <TextArea value={form.notes} onChange={(event) => setField("notes", event.target.value)} rows={4} />
+        </div>
+
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+          <Button variant="danger" onClick={onDelete}><Trash2 className="h-4 w-4" />Delete Round</Button>
+          <div className="flex flex-col-reverse gap-3 sm:flex-row">
+            <Button variant="secondary" onClick={onClose}>Cancel</Button>
+            <Button variant="golf" onClick={onSave} disabled={saving}>{saving ? "Saving..." : "Save Scorecard"}</Button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function DrawerHeader({ eyebrow, title, onClose }: { eyebrow: string; title: string; onClose: () => void }) {
+  return (
+    <div className="mb-6 flex items-start justify-between gap-4 border-b border-line pb-5">
+      <div>
+        <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-golf">{eyebrow}</p>
+        <h2 className="text-3xl font-semibold tracking-tight text-dark">{title}</h2>
+      </div>
+      <button onClick={onClose} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-steel/10 hover:text-dark" aria-label={`Close ${eyebrow}`}>
+        <X className="h-5 w-5" />
+      </button>
+    </div>
+  );
+}
+
+function DetailTile({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
+  return (
+    <div className="rounded-xl border border-line bg-steel/5 p-4">
+      <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted">{label}</p>
+      <p className={`mt-2 text-2xl font-semibold ${danger ? "text-danger" : "text-dark"}`}>{value}</p>
+    </div>
+  );
+}
+
+function Field({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
+  return (
+    <div>
+      <FieldLabel>{label}</FieldLabel>
+      <TextInput type={type} min={type === "number" ? 0 : undefined} value={value} onChange={(event) => onChange(event.target.value)} />
+    </div>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+  disabled?: boolean;
+}) {
+  return (
+    <div>
+      <FieldLabel>{label}</FieldLabel>
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-lg border border-line bg-white px-4 py-3 text-sm capitalize text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10 disabled:bg-steel/5 disabled:text-muted"
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {formatCell(option || "none")}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function toRoundForm(round: Round): RoundForm {
+  return {
+    course: round.course || "",
+    date: round.date || "",
+    score: round.score?.toString() || "",
+    fairways_hit: round.fairways_hit?.toString() || "",
+    fairways_possible: round.fairways_possible?.toString() || "",
+    greens_in_regulation: round.greens_in_regulation?.toString() || "",
+    putts: round.putts?.toString() || "",
+    holes_played: round.holes_played?.toString() || "18",
+    tee_colour: round.tee_colour || "",
+    average_driving_distance: round.average_driving_distance?.toString() || "",
+    longest_drive: round.longest_drive?.toString() || "",
+    tee_shot_quality: round.tee_shot_quality || "",
+    penalty_shots: round.penalty_shots?.toString() || "",
+    chip_shots: round.chip_shots?.toString() || "",
+    greenside_bunker_shots: round.greenside_bunker_shots?.toString() || "",
+    is_competition: round.is_competition,
+    notes: round.notes || "",
+  };
+}
+
+function toHoleForms(round: Round, holes: RoundHole[]): HoleForm[] {
+  if (holes.length > 0) {
+    return holes.map((hole) => ({
+      id: hole.id,
+      hole_number: hole.hole_number,
+      par: hole.par?.toString() || "4",
+      score: hole.score?.toString() || "",
+      fairway_result: hole.fairway_result || "na",
+      tee_shot_location: hole.tee_shot_location || "",
+      gir: hole.gir,
+      putts: hole.putts?.toString() || "",
+      penalty_shots: hole.penalty_shots?.toString() || "",
+      chip_shots: hole.chip_shots?.toString() || "",
+      greenside_bunker_shots: hole.greenside_bunker_shots?.toString() || "",
+      recovery_shot_type: hole.recovery_shot_type || "",
+    }));
+  }
+
+  const holeCount = Math.max(1, Math.min(round.holes_played || 18, 18));
+  return Array.from({ length: holeCount }, (_, index) => ({
+    hole_number: index + 1,
+    par: "4",
+    score: "",
+    fairway_result: "na",
+    tee_shot_location: "",
+    gir: false,
+    putts: "",
+    penalty_shots: "",
+    chip_shots: "",
+    greenside_bunker_shots: "",
+    recovery_shot_type: "",
+  }));
+}
+
+function calculateHoleStats(holes: HoleForm[]) {
+  const completed = holes.filter((hole) => hole.score !== "");
+  const fairwayHoles = completed.filter((hole) => hole.par !== "3");
+  const scrambleChances = completed.filter((hole) => !hole.gir);
+  const successfulScrambles = scrambleChances.filter((hole) => Number(hole.score) <= Number(hole.par || 4)).length;
+
+  return {
+    holesCompleted: completed.length,
+    totalScore: completed.reduce((sum, hole) => sum + Number(hole.score || 0), 0),
+    fairwaysHit: fairwayHoles.filter((hole) => hole.fairway_result === "hit").length,
+    fairwaysPossible: fairwayHoles.length,
+    girs: completed.filter((hole) => hole.gir).length,
+    putts: completed.reduce((sum, hole) => sum + Number(hole.putts || 0), 0),
+    penalties: completed.reduce((sum, hole) => sum + Number(hole.penalty_shots || 0), 0),
+    chips: completed.reduce((sum, hole) => sum + Number(hole.chip_shots || 0), 0),
+    bunkers: completed.reduce((sum, hole) => sum + Number(hole.greenside_bunker_shots || 0), 0),
+    scramblePercent: scrambleChances.length ? Math.round((successfulScrambles / scrambleChances.length) * 100) : null,
+  };
+}
+
+function hasAnyHoleData(hole: HoleForm) {
+  return Boolean(
+    hole.score ||
+      hole.putts ||
+      hole.penalty_shots ||
+      hole.chip_shots ||
+      hole.greenside_bunker_shots ||
+      hole.gir ||
+      hole.fairway_result !== "na" ||
+      hole.tee_shot_location ||
+      hole.recovery_shot_type
   );
 }
 
 function formatCell(value: string) {
   if (value === "na") return "N/A";
+  if (value === "none") return "None";
   return value.replaceAll("_", " ");
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  type = "text",
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
-}) {
-  return (
-    <div>
-      <label className="mb-2 block text-sm text-black/50">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-line px-5 py-4 outline-none focus:border-[#1F4D3A]"
-      />
-    </div>
-  );
 }
