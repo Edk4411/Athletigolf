@@ -40,6 +40,7 @@ import {
 import type { Competition, ExerciseLog, OnboardingData, PracticeSession, Round, RoundHole, Workout } from "@/lib/types";
 import type { WellnessLog } from "@/lib/types";
 import type { LiveActivity } from "@/lib/types";
+import { defaultWellnessTargets, getWellnessTargets, type WellnessTargets } from "@/lib/wellnessTargets";
 
 export default function Dashboard() {
   const [, navigate] = useLocation();
@@ -52,6 +53,7 @@ export default function Dashboard() {
   const [wellnessLogs, setWellnessLogs] = useState<WellnessLog[]>([]);
   const [liveActivities, setLiveActivities] = useState<LiveActivity[]>([]);
   const [sportMode, setSportMode] = useState<OnboardingData["mainSport"]>("both");
+  const [wellnessTargets, setWellnessTargets] = useState<WellnessTargets>(defaultWellnessTargets);
   const [loading, setLoading] = useState(true);
 
   const firstName =
@@ -78,7 +80,9 @@ export default function Dashboard() {
       setCompetitions((c as Competition[]) || []);
       setWellnessLogs((wellness as WellnessLog[]) || []);
       setLiveActivities((live as LiveActivity[]) || []);
-      setSportMode(((profile?.onboarding_data as OnboardingData | null)?.mainSport) || "both");
+      const onboarding = (profile?.onboarding_data as OnboardingData | null) || null;
+      setSportMode(onboarding?.mainSport || "both");
+      setWellnessTargets(getWellnessTargets(onboarding));
       setLoading(false);
     };
     load();
@@ -93,7 +97,7 @@ export default function Dashboard() {
   const lastRound = rounds[0] ?? null;
   const nextCompetition = competitions[0] ?? null;
   const todayWellness = wellnessLogs.find((log) => log.log_date === new Date().toISOString().slice(0, 10)) || wellnessLogs[0] || null;
-  const hydrationProgress = todayWellness?.water_litres ? Math.min((todayWellness.water_litres / 2.5) * 100, 100) : 0;
+  const hydrationProgress = todayWellness?.water_litres ? Math.min((todayWellness.water_litres / wellnessTargets.waterLitres) * 100, 100) : 0;
   const liveActivity = liveActivities[0] || null;
   const trainingOnly = sportMode === "training";
   const golfStats = getGolfStats(rounds);
@@ -176,6 +180,9 @@ export default function Dashboard() {
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Wellness</p>
               <p className="mt-3 text-lg font-semibold leading-snug text-dark">
                 {todayWellness ? `${todayWellness.water_litres ?? "-"} L water` : "No log"}
+              </p>
+              <p className="mt-1 text-sm text-muted">
+                Target {wellnessTargets.waterLitres} L water
               </p>
               <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-steel/10">
                 <div className="h-full rounded-full bg-pulse" style={{ width: `${hydrationProgress}%` }} />

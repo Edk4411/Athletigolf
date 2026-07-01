@@ -2,12 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Activity, Droplets, Flame, Moon, Scale, Utensils, Zap } from "lucide-react";
 import { Button, EmptyState, FieldLabel, PageHeader, SelectInput, Surface, TextArea, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
-import type { WellnessLog } from "@/lib/types";
-
-const waterTarget = 2.5;
-const proteinTarget = 140;
-const calorieTarget = 2400;
-const sleepTarget = 8;
+import type { OnboardingData, WellnessLog } from "@/lib/types";
+import { defaultWellnessTargets, getWellnessTargets, type WellnessTargets } from "@/lib/wellnessTargets";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
@@ -26,6 +22,7 @@ const blankForm = {
 
 export default function Wellness() {
   const [logs, setLogs] = useState<WellnessLog[]>([]);
+  const [targets, setTargets] = useState<WellnessTargets>(defaultWellnessTargets);
   const [selectedLog, setSelectedLog] = useState<WellnessLog | null>(null);
   const [form, setForm] = useState(blankForm);
   const [loading, setLoading] = useState(true);
@@ -38,13 +35,18 @@ export default function Wellness() {
 
   async function loadLogs() {
     setLoading(true);
-    const { data } = await supabase
-      .from("daily_wellness_logs")
-      .select("*")
-      .order("log_date", { ascending: false })
-      .limit(30);
+    const [{ data }, { data: profile }] = await Promise.all([
+      supabase
+        .from("daily_wellness_logs")
+        .select("*")
+        .order("log_date", { ascending: false })
+        .limit(30),
+      supabase.from("profiles").select("onboarding_data").maybeSingle(),
+    ]);
 
     const loadedLogs = (data as WellnessLog[]) || [];
+    const onboarding = (profile?.onboarding_data as OnboardingData | null) || null;
+    setTargets(getWellnessTargets(onboarding));
     setLogs(loadedLogs);
     const todayLog = loadedLogs.find((log) => log.log_date === todayIso()) || null;
     setSelectedLog(todayLog);
@@ -101,7 +103,7 @@ export default function Wellness() {
   const todayLog = logs.find((log) => log.log_date === todayIso()) || selectedLog;
   const weekLogs = useMemo(() => logs.slice(0, 7), [logs]);
   const weekly = useMemo(() => getWeeklySummary(weekLogs), [weekLogs]);
-  const insights = useMemo(() => buildWellnessInsights(weekLogs), [weekLogs]);
+  const insights = useMemo(() => buildWellnessInsights(weekLogs, targets), [weekLogs, targets]);
 
   if (loading) {
     return (
@@ -121,10 +123,10 @@ export default function Wellness() {
       />
 
       <section className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <WellnessTile icon={Droplets} label="Water" value={formatLitres(todayLog?.water_litres)} target={`${waterTarget} L`} progress={getProgress(todayLog?.water_litres, waterTarget)} tone="pulse" />
-        <WellnessTile icon={Utensils} label="Protein" value={formatGrams(todayLog?.protein_grams)} target={`${proteinTarget} g`} progress={getProgress(todayLog?.protein_grams, proteinTarget)} tone="golf" />
-        <WellnessTile icon={Flame} label="Calories" value={formatNumber(todayLog?.calories)} target={`${calorieTarget}`} progress={getProgress(todayLog?.calories, calorieTarget)} tone="gold" />
-        <WellnessTile icon={Moon} label="Sleep" value={formatHours(todayLog?.sleep_hours)} target={`${sleepTarget} h`} progress={getProgress(todayLog?.sleep_hours, sleepTarget)} tone="lab" />
+        <WellnessTile icon={Droplets} label="Water" value={formatLitres(todayLog?.water_litres)} target={`${targets.waterLitres} L`} progress={getProgress(todayLog?.water_litres, targets.waterLitres)} tone="pulse" />
+        <WellnessTile icon={Utensils} label="Protein" value={formatGrams(todayLog?.protein_grams)} target={`${targets.proteinGrams} g`} progress={getProgress(todayLog?.protein_grams, targets.proteinGrams)} tone="golf" />
+        <WellnessTile icon={Flame} label="Calories" value={formatNumber(todayLog?.calories)} target={`${targets.calories}`} progress={getProgress(todayLog?.calories, targets.calories)} tone="gold" />
+        <WellnessTile icon={Moon} label="Sleep" value={formatHours(todayLog?.sleep_hours)} target={`${targets.sleepHours} h`} progress={getProgress(todayLog?.sleep_hours, targets.sleepHours)} tone="lab" />
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
@@ -142,9 +144,9 @@ export default function Wellness() {
           <form onSubmit={saveLog} className="grid gap-4">
             <Field label="Date" type="date" value={form.log_date} onChange={(value) => setForm((prev) => ({ ...prev, log_date: value }))} required />
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Water (litres)" type="number" step="0.1" value={form.water_litres} onChange={(value) => setForm((prev) => ({ ...prev, water_litres: value }))} placeholder="2.5" />
-              <Field label="Calories" type="number" value={form.calories} onChange={(value) => setForm((prev) => ({ ...prev, calories: value }))} placeholder="2400" />
-              <Field label="Protein (g)" type="number" value={form.protein_grams} onChange={(value) => setForm((prev) => ({ ...prev, protein_grams: value }))} placeholder="140" />
+              <Field label="Water (litres)" type="number" step="0.1" value={form.water_litres} onChange={(value) => setForm((prev) => ({ ...prev, water_litres: value }))} placeholder={`${targets.waterLitres}`} />
+              <Field label="Calories" type="number" value={form.calories} onChange={(value) => setForm((prev) => ({ ...prev, calories: value }))} placeholder={`${targets.calories}`} />
+              <Field label="Protein (g)" type="number" value={form.protein_grams} onChange={(value) => setForm((prev) => ({ ...prev, protein_grams: value }))} placeholder={`${targets.proteinGrams}`} />
               <Field label="Carbs (g)" type="number" value={form.carbs_grams} onChange={(value) => setForm((prev) => ({ ...prev, carbs_grams: value }))} placeholder="260" />
               <Field label="Fats (g)" type="number" value={form.fats_grams} onChange={(value) => setForm((prev) => ({ ...prev, fats_grams: value }))} placeholder="70" />
               <Field label="Bodyweight" type="number" step="0.1" value={form.bodyweight} onChange={(value) => setForm((prev) => ({ ...prev, bodyweight: value }))} placeholder="78.5" />
@@ -339,7 +341,7 @@ function getWeeklySummary(logs: WellnessLog[]) {
   };
 }
 
-function buildWellnessInsights(logs: WellnessLog[]) {
+function buildWellnessInsights(logs: WellnessLog[], targets: WellnessTargets) {
   const weekly = getWeeklySummary(logs);
   const loggedDays = logs.length;
   const insights = [
@@ -351,15 +353,15 @@ function buildWellnessInsights(logs: WellnessLog[]) {
     },
     {
       label: "Hydration",
-      title: (weekly.avgWater ?? 0) >= waterTarget ? "Hydration is on target" : "Hydration needs attention",
-      detail: weekly.avgWater === null ? "Add water totals to see whether hydration is helping or hurting practice days." : `Recent average is ${formatLitres(weekly.avgWater)} against a ${waterTarget} L target.`,
-      tone: (weekly.avgWater ?? 0) >= waterTarget ? "border-pulse/20 bg-pulse/8" : "border-gold/25 bg-gold/10",
+      title: (weekly.avgWater ?? 0) >= targets.waterLitres ? "Hydration is on target" : "Hydration needs attention",
+      detail: weekly.avgWater === null ? "Add water totals to see whether hydration is helping or hurting practice days." : `Recent average is ${formatLitres(weekly.avgWater)} against a ${targets.waterLitres} L target.`,
+      tone: (weekly.avgWater ?? 0) >= targets.waterLitres ? "border-pulse/20 bg-pulse/8" : "border-gold/25 bg-gold/10",
     },
     {
       label: "Recovery",
-      title: (weekly.avgSleep ?? 0) >= 7 ? "Sleep is usable" : "Sleep may limit output",
+      title: (weekly.avgSleep ?? 0) >= targets.sleepHours - 0.5 ? "Sleep is usable" : "Sleep may limit output",
       detail: weekly.avgSleep === null ? "Add sleep hours so AthletiGolf can compare recovery with training quality." : `Recent sleep average is ${formatHours(weekly.avgSleep)}.`,
-      tone: (weekly.avgSleep ?? 0) >= 7 ? "border-lab/20 bg-lab/8" : "border-gold/25 bg-gold/10",
+      tone: (weekly.avgSleep ?? 0) >= targets.sleepHours - 0.5 ? "border-lab/20 bg-lab/8" : "border-gold/25 bg-gold/10",
     },
   ];
 

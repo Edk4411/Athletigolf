@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
-import { ArrowRight, Check, Dumbbell, Flag, Target } from "lucide-react";
+import { ArrowRight, Check, Droplets, Dumbbell, Flag, Target } from "lucide-react";
 import { Button, FieldLabel, Surface, TextArea, TextInput } from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import type { OnboardingData } from "@/lib/types";
+import {
+  defaultWellnessSetup,
+  withCalculatedWellnessTargets,
+} from "@/lib/wellnessTargets";
 
 const weekDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -12,6 +16,7 @@ const defaultData: OnboardingData = {
   mainSport: "both",
   fullName: "",
   mainGoal: "",
+  wellness: defaultWellnessSetup,
   golf: {
     homeCourse: "",
     handicap: "",
@@ -69,12 +74,18 @@ export default function Onboarding() {
         ...defaultData.training,
         ...(existing?.training || {}),
       },
+      wellness: {
+        ...defaultWellnessSetup,
+        ...(existing?.wellness || {}),
+      },
     });
     setLoading(false);
   }
 
-  const recommendation = useMemo(() => buildRecommendation(data), [data]);
-  const progress = Math.round(((step + 1) / 4) * 100);
+  const preparedData = useMemo(() => withCalculatedWellnessTargets(data), [data]);
+  const recommendation = useMemo(() => buildRecommendation(preparedData), [preparedData]);
+  const wellnessTargets = preparedData.wellness?.targets;
+  const progress = Math.round(((step + 1) / 5) * 100);
 
   function update<K extends keyof OnboardingData>(key: K, value: OnboardingData[K]) {
     setError("");
@@ -92,6 +103,21 @@ export default function Onboarding() {
   ) {
     setError("");
     setData((prev) => ({ ...prev, training: { ...prev.training, [key]: value } }));
+  }
+
+  function updateWellness<K extends keyof NonNullable<OnboardingData["wellness"]>>(
+    key: K,
+    value: NonNullable<OnboardingData["wellness"]>[K]
+  ) {
+    setError("");
+    setData((prev) => ({
+      ...prev,
+      wellness: {
+        ...defaultWellnessSetup,
+        ...(prev.wellness || {}),
+        [key]: value,
+      },
+    }));
   }
 
   function toggleRestDay(day: string) {
@@ -113,14 +139,18 @@ export default function Onboarding() {
     setSaving(true);
     setError("");
 
+    const wellness = preparedData.wellness;
     const { error: saveError } = await supabase.from("profiles").upsert({
       id: user.id,
       full_name: data.fullName || null,
+      age: wellness?.age ? Number(wellness.age) : null,
+      height: wellness?.heightCm ? `${wellness.heightCm}cm` : null,
+      weight: wellness?.weightKg ? `${wellness.weightKg}kg` : null,
       golf_handicap: data.golf.handicap ? Number(data.golf.handicap) : null,
       main_goal: data.mainGoal || `${data.golf.scoringGoal} + ${data.training.goal}`,
       onboarding_completed: true,
       onboarding_completed_at: new Date().toISOString(),
-      onboarding_data: data,
+      onboarding_data: preparedData,
       updated_at: new Date().toISOString(),
     });
 
@@ -143,14 +173,18 @@ export default function Onboarding() {
     setSaving(true);
     setError("");
 
+    const wellness = preparedData.wellness;
     const { error: saveError } = await supabase.from("profiles").upsert({
       id: user.id,
       full_name: data.fullName || user.user_metadata?.username || null,
+      age: wellness?.age ? Number(wellness.age) : null,
+      height: wellness?.heightCm ? `${wellness.heightCm}cm` : null,
+      weight: wellness?.weightKg ? `${wellness.weightKg}kg` : null,
       golf_handicap: data.golf.handicap ? Number(data.golf.handicap) : null,
       main_goal: data.mainGoal || null,
       onboarding_completed: true,
       onboarding_completed_at: new Date().toISOString(),
-      onboarding_data: data,
+      onboarding_data: preparedData,
       updated_at: new Date().toISOString(),
     });
 
@@ -201,7 +235,7 @@ export default function Onboarding() {
         <section className="grid gap-5 lg:grid-cols-[260px_1fr]">
           <Surface className="h-fit">
             <div className="space-y-2">
-              {["Profile", "Golf", "Training", "Review"].map((label, index) => (
+              {["Profile", "Golf", "Training", "Wellness", "Review"].map((label, index) => (
                 <button
                   key={label}
                   type="button"
@@ -344,6 +378,71 @@ export default function Onboarding() {
 
             {step === 3 && (
               <SetupStep
+                icon={<Droplets className="h-5 w-5" />}
+                eyebrow="Wellness Targets"
+                title="Set your daily baseline."
+                detail="These targets are a starting point for the Wellness page. You can still log whatever you actually hit each day."
+              >
+                <div className="grid gap-4 md:grid-cols-2">
+                  <ChoiceGroup
+                    label="Wellness goal"
+                    value={data.wellness?.goal || defaultWellnessSetup.goal}
+                    options={["Maintain", "Lose fat", "Gain muscle", "Performance / recovery"]}
+                    onChange={(value) => updateWellness("goal", value)}
+                  />
+                  <ChoiceGroup
+                    label="Activity level"
+                    value={data.wellness?.activityLevel || defaultWellnessSetup.activityLevel}
+                    options={["Light", "Moderate", "High", "Very high"]}
+                    onChange={(value) => updateWellness("activityLevel", value)}
+                  />
+                  <ChoiceGroup
+                    label="Sex"
+                    value={data.wellness?.sex || defaultWellnessSetup.sex}
+                    options={["Male", "Female", "Prefer not to say"]}
+                    onChange={(value) => updateWellness("sex", value)}
+                  />
+                  <Field
+                    label="Age"
+                    type="number"
+                    value={data.wellness?.age || ""}
+                    onChange={(value) => updateWellness("age", value)}
+                    placeholder="18"
+                  />
+                  <Field
+                    label="Height (cm)"
+                    type="number"
+                    value={data.wellness?.heightCm || ""}
+                    onChange={(value) => updateWellness("heightCm", value)}
+                    placeholder="178"
+                  />
+                  <Field
+                    label="Weight (kg)"
+                    type="number"
+                    value={data.wellness?.weightKg || ""}
+                    onChange={(value) => updateWellness("weightKg", value)}
+                    placeholder="78"
+                  />
+                  <Field
+                    label="Target bodyweight (optional)"
+                    type="number"
+                    value={data.wellness?.targetBodyweight || ""}
+                    onChange={(value) => updateWellness("targetBodyweight", value)}
+                    placeholder="80"
+                  />
+                </div>
+
+                <div className="mt-5 grid gap-3 md:grid-cols-4">
+                  <TargetPreview label="Calories" value={`${wellnessTargets?.calories ?? 2400}`} />
+                  <TargetPreview label="Protein" value={`${wellnessTargets?.proteinGrams ?? 140} g`} />
+                  <TargetPreview label="Water" value={`${wellnessTargets?.waterLitres ?? 2.5} L`} />
+                  <TargetPreview label="Sleep" value={`${wellnessTargets?.sleepHours ?? 8} h`} />
+                </div>
+              </SetupStep>
+            )}
+
+            {step === 4 && (
+              <SetupStep
                 icon={<Check className="h-5 w-5" />}
                 eyebrow="Starting Plan"
                 title="Your first AthletiGolf direction."
@@ -377,7 +476,7 @@ export default function Onboarding() {
                     Back
                   </Button>
                 )}
-                {step < 3 ? (
+                {step < 4 ? (
                   <Button type="button" variant="pulse" onClick={() => setStep((current) => current + 1)}>
                     Continue <ArrowRight className="h-4 w-4" />
                   </Button>
@@ -481,7 +580,17 @@ function ChoiceGroup({
   );
 }
 
+function TargetPreview({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-line bg-white/70 p-4">
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-dark">{value}</p>
+    </div>
+  );
+}
+
 function buildRecommendation(data: OnboardingData) {
+  const targets = data.wellness?.targets;
   if (data.mainSport === "training") {
     return [
       {
@@ -498,6 +607,11 @@ function buildRecommendation(data: OnboardingData) {
         label: "Future Sports",
         title: data.mainGoal || "Performance profile",
         detail: "Your setup is stored as a flexible profile, so future sport modules can build on the same athlete record.",
+      },
+      {
+        label: "Wellness Targets",
+        title: targets ? `${targets.calories} kcal / ${targets.waterLitres} L` : "Baseline ready",
+        detail: "Daily calories, protein, hydration and sleep targets will feed the Wellness dashboard.",
       },
     ];
   }
@@ -517,6 +631,11 @@ function buildRecommendation(data: OnboardingData) {
       label: "Dashboard Signal",
       title: data.mainGoal || data.golf.scoringGoal,
       detail: "Once you log rounds, practice and workouts, AthletiGolf can start connecting what changed with why it changed.",
+    },
+    {
+      label: "Wellness Targets",
+      title: targets ? `${targets.proteinGrams} g protein / ${targets.waterLitres} L water` : "Baseline ready",
+      detail: "Nutrition, hydration and sleep now have a personal target instead of generic defaults.",
     },
   ];
 }

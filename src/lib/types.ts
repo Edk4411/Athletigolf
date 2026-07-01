@@ -16,6 +16,21 @@ export type OnboardingData = {
   mainSport?: "golf" | "training" | "both" | "other";
   fullName: string;
   mainGoal: string;
+  wellness?: {
+    goal: string;
+    age: string;
+    heightCm: string;
+    weightKg: string;
+    sex: string;
+    activityLevel: string;
+    targetBodyweight: string;
+    targets?: {
+      calories: number;
+      proteinGrams: number;
+      waterLitres: number;
+      sleepHours: number;
+    };
+  };
   golf: {
     homeCourse: string;
     handicap: string;
