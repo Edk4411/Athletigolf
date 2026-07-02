@@ -72,6 +72,11 @@ export default function Wellness() {
   const [savedFoodForm, setSavedFoodForm] = useState(blankFoodForm);
   const [activeMeal, setActiveMeal] = useState<NutritionEntry["meal_type"]>("breakfast");
   const [quickCalories, setQuickCalories] = useState("");
+  const [reuseMeal, setReuseMeal] = useState<{
+    sourceMeal: NutritionEntry["meal_type"];
+    selectedIds: string[];
+  } | null>(null);
+  const [skippedMeals, setSkippedMeals] = useState<string[]>([]);
   const [selectedSavedFood, setSelectedSavedFood] = useState("");
   const [copySourceDate, setCopySourceDate] = useState(offsetIso(-1));
   const [editingSavedFoodId, setEditingSavedFoodId] = useState("");
@@ -280,6 +285,7 @@ export default function Wellness() {
     setSelectedSavedFood("");
     setSelectedFoodResult(null);
     setSaveAsPreset(false);
+    setSkippedMeals((prev) => prev.filter((key) => key !== mealSkipKey(activeNutritionDate, foodForm.meal_type)));
     setSaving(false);
     await loadLogs();
   }
@@ -296,6 +302,128 @@ export default function Wellness() {
     }
 
     await loadLogs();
+  }
+
+  function openMealReuse(sourceMeal: NutritionEntry["meal_type"]) {
+    const sourceEntries = activeEntries.filter((entry) => entry.meal_type === sourceMeal);
+    if (!sourceEntries.length) {
+      setError(`No ${formatMealLabel(sourceMeal).toLowerCase()} foods to copy on ${formatDate(activeNutritionDate)}.`);
+      return;
+    }
+
+    setReuseMeal({
+      sourceMeal,
+      selectedIds: sourceEntries.map((entry) => entry.id),
+    });
+    setError("");
+  }
+
+  function toggleReuseFood(id: string) {
+    setReuseMeal((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        selectedIds: prev.selectedIds.includes(id)
+          ? prev.selectedIds.filter((selectedId) => selectedId !== id)
+          : [...prev.selectedIds, id],
+      };
+    });
+  }
+
+  function selectAllReuseFoods() {
+    setReuseMeal((prev) => {
+      if (!prev) return prev;
+      const sourceEntries = activeEntries.filter((entry) => entry.meal_type === prev.sourceMeal);
+      return { ...prev, selectedIds: sourceEntries.map((entry) => entry.id) };
+    });
+  }
+
+  async function copySelectedMealFoods(selectedIds = reuseMeal?.selectedIds || []) {
+    if (!reuseMeal || !selectedIds.length) return;
+    const sourceEntries = activeEntries.filter((entry) => selectedIds.includes(entry.id));
+    if (!sourceEntries.length) return;
+
+    setSaving(true);
+    setError("");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setError("You need to be signed in to copy nutrition entries.");
+      setSaving(false);
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const { error: insertError } = await supabase.from("nutrition_entries").insert(
+      sourceEntries.map((entry) => ({
+        user_id: user.id,
+        log_date: activeNutritionDate,
+        meal_type: activeMeal,
+        food_name: entry.food_name,
+        serving: entry.serving,
+        calories: entry.calories || 0,
+        protein_grams: entry.protein_grams || 0,
+        carbs_grams: entry.carbs_grams || 0,
+        fats_grams: entry.fats_grams || 0,
+        saturated_fats_grams: entry.saturated_fats_grams || 0,
+        sugars_grams: entry.sugars_grams || 0,
+        source: entry.source || "manual",
+        external_id: entry.external_id || null,
+        brand: entry.brand || null,
+        barcode: entry.barcode || null,
+        serving_grams: entry.serving_grams || null,
+        serving_label: entry.serving_label || null,
+        calories_per_100g: entry.calories_per_100g || null,
+        protein_per_100g: entry.protein_per_100g || null,
+        carbs_per_100g: entry.carbs_per_100g || null,
+        fats_per_100g: entry.fats_per_100g || null,
+        saturated_fats_per_100g: entry.saturated_fats_per_100g || null,
+        sugars_per_100g: entry.sugars_per_100g || null,
+        updated_at: now,
+      }))
+    );
+
+    setSaving(false);
+    if (insertError) {
+      setError(insertError.message);
+      return;
+    }
+
+    setReuseMeal(null);
+    setSkippedMeals((prev) => prev.filter((key) => key !== mealSkipKey(activeNutritionDate, activeMeal)));
+    await loadLogs();
+  }
+
+  async function copyAllReuseFoods() {
+    if (!reuseMeal) return;
+    const ids = activeEntries
+      .filter((entry) => entry.meal_type === reuseMeal.sourceMeal)
+      .map((entry) => entry.id);
+    await copySelectedMealFoods(ids);
+  }
+
+  async function deleteActiveMeal() {
+    if (!activeMealEntries.length) return;
+
+    setSaving(true);
+    setError("");
+    const { error: deleteError } = await supabase
+      .from("nutrition_entries")
+      .delete()
+      .in("id", activeMealEntries.map((entry) => entry.id));
+    setSaving(false);
+
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+
+    await loadLogs();
+  }
+
+  function skipActiveMeal() {
+    const key = mealSkipKey(activeNutritionDate, activeMeal);
+    setSkippedMeals((prev) => (prev.includes(key) ? prev : [...prev, key]));
+    setError("");
   }
 
   async function addQuickCalories(event: React.FormEvent) {
@@ -335,6 +463,7 @@ export default function Wellness() {
     }
 
     setQuickCalories("");
+    setSkippedMeals((prev) => prev.filter((key) => key !== mealSkipKey(activeNutritionDate, activeMeal)));
     await loadLogs();
   }
 
@@ -583,20 +712,36 @@ export default function Wellness() {
   function updateServingGrams(value: string) {
     setFoodForm((prev) => {
       const grams = toNumber(value);
-      const next = { ...prev, serving_grams: value, serving: grams ? `${grams}g` : prev.serving };
-      const food = selectedFoodResult || foodResultFromForm(next);
-      if (!food || !grams) return next;
-      const calculated = calculateMacros(food, grams);
-      return {
-        ...next,
-        calories: toFormValue(calculated.calories),
-        protein_grams: toFormValue(calculated.protein),
-        carbs_grams: toFormValue(calculated.carbs),
-        fats_grams: toFormValue(calculated.fats),
-        saturated_fats_grams: toFormValue(calculated.saturatedFats),
-        sugars_grams: toFormValue(calculated.sugars),
-      };
+      const next = { ...prev, serving_grams: value, serving: grams ? `${formatServingGrams(grams)}g` : prev.serving };
+      return grams ? scaleFoodFormToServing(next, grams) : next;
     });
+  }
+
+  function updateServingLabel(value: string) {
+    setFoodForm((prev) => {
+      const grams = parseServingGrams(value);
+      const next = {
+        ...prev,
+        serving: value,
+        serving_grams: grams ? toFormValue(grams) : prev.serving_grams,
+      };
+      return grams ? scaleFoodFormToServing(next, grams) : next;
+    });
+  }
+
+  function scaleFoodFormToServing(form: typeof blankFoodForm, grams: number) {
+    const food = foodResultFromForm(form) || selectedFoodResult;
+    if (!food || !hasPer100gNutrition(food)) return form;
+    const calculated = calculateMacros(food, grams);
+    return {
+      ...form,
+      calories: toFormValue(calculated.calories),
+      protein_grams: toFormValue(calculated.protein),
+      carbs_grams: toFormValue(calculated.carbs),
+      fats_grams: toFormValue(calculated.fats),
+      saturated_fats_grams: toFormValue(calculated.saturatedFats),
+      sugars_grams: toFormValue(calculated.sugars),
+    };
   }
 
   const todayLog = logs.find((log) => log.log_date === todayIso()) || selectedLog;
@@ -609,6 +754,7 @@ export default function Wellness() {
     () => activeEntries.filter((entry) => entry.meal_type === activeMeal),
     [activeEntries, activeMeal]
   );
+  const activeMealSkipped = skippedMeals.includes(mealSkipKey(activeNutritionDate, activeMeal));
   const availableNutritionDates = useMemo(
     () =>
       Array.from(new Set(nutritionEntries.map((entry) => entry.log_date)))
@@ -705,9 +851,6 @@ export default function Wellness() {
             <DarkMetric label="Calories" value={`${Math.round(getProgress(displayNutrition.calories, targets.calories))}%`} />
             <DarkMetric label="Sleep" value={`${Math.round(getProgress(todayLog?.sleep_hours, targets.sleepHours))}%`} />
           </div>
-          <div className="mt-5 max-w-xs">
-            <QuickAddButton label="Copy yesterday" onClick={() => copyMealsFromDate(offsetIso(-1))} icon={Copy} />
-          </div>
         </Surface>
 
         <Surface>
@@ -720,15 +863,15 @@ export default function Wellness() {
         </Surface>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-        <Surface>
+      <section className="grid gap-5 xl:grid-cols-[1.35fr_0.75fr]">
+        <Surface className="order-2 xl:order-2">
           <div className="mb-5 flex items-center gap-3">
             <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-pulse/10 text-pulse">
               <Activity className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">Daily Log</p>
-              <h2 className="text-xl font-semibold text-dark">Manual totals</h2>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">Recovery details</p>
+              <h2 className="text-xl font-semibold text-dark">Water, sleep and body signals</h2>
             </div>
           </div>
 
@@ -776,15 +919,15 @@ export default function Wellness() {
           </form>
         </Surface>
 
-        <div className="space-y-5">
+        <div className="order-1 space-y-5 xl:order-1">
           <Surface>
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex items-center gap-3">
                 <Utensils className="h-5 w-5 text-golf" />
                 <div>
-                  <h2 className="text-xl font-semibold text-dark">Meals</h2>
+                  <h2 className="text-xl font-semibold text-dark">Food log</h2>
                   <p className="mt-1 text-sm text-muted">
-                    Choose a meal, add food from the database, or just log calories.
+                    Pick a meal, reuse foods, search the database, or add calories fast.
                   </p>
                 </div>
               </div>
@@ -796,24 +939,56 @@ export default function Wellness() {
 
             <div className="mb-5 grid gap-2 sm:grid-cols-4">
               {mealTypes.map((meal) => {
-                const totals = getNutritionTotals(activeEntries.filter((entry) => entry.meal_type === meal.value));
+                const mealEntries = activeEntries.filter((entry) => entry.meal_type === meal.value);
+                const totals = getNutritionTotals(mealEntries);
                 return (
-                  <button
+                  <div
                     key={meal.value}
-                    type="button"
-                    onClick={() => selectMeal(meal.value)}
                     className={`rounded-xl border p-4 text-left transition ${
                       activeMeal === meal.value
                         ? "border-pulse bg-pulse/10 text-dark"
                         : "border-line bg-white/70 text-muted hover:border-pulse/40 hover:text-dark"
                     }`}
                   >
-                    <span className="block text-sm font-semibold">{meal.label}</span>
-                    <span className="mt-2 block text-xl font-semibold text-dark">{totals.calories} kcal</span>
-                    <span className="mt-1 block text-xs text-muted">{activeEntries.filter((entry) => entry.meal_type === meal.value).length} item{activeEntries.filter((entry) => entry.meal_type === meal.value).length === 1 ? "" : "s"}</span>
-                  </button>
+                    <button type="button" onClick={() => selectMeal(meal.value)} className="block w-full text-left">
+                      <span className="block text-sm font-semibold">{meal.label}</span>
+                      <span className="mt-2 block text-xl font-semibold text-dark">{totals.calories} kcal</span>
+                      <span className="mt-1 block text-xs text-muted">
+                        {mealEntries.length} item{mealEntries.length === 1 ? "" : "s"}
+                        {skippedMeals.includes(mealSkipKey(activeNutritionDate, meal.value)) && mealEntries.length === 0 ? " - skipped" : ""}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openMealReuse(meal.value)}
+                      className="mt-3 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border border-line bg-panel px-3 py-2 text-xs font-semibold text-muted transition hover:border-pulse/40 hover:bg-pulse/8 hover:text-pulse disabled:cursor-not-allowed disabled:opacity-45"
+                      disabled={!mealEntries.length}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      Copy to {formatMealLabel(activeMeal)}
+                    </button>
+                  </div>
                 );
               })}
+            </div>
+
+            <div className="mb-5 grid gap-3 rounded-xl border border-line bg-white/55 p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Active meal</p>
+                <p className="mt-1 font-semibold text-dark">
+                  {formatMealLabel(activeMeal)} on {formatDate(activeNutritionDate)}
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  {activeMealSkipped && !activeMealEntries.length ? "Marked as skipped." : `${activeMealEntries.length} item${activeMealEntries.length === 1 ? "" : "s"} logged.`}
+                </p>
+              </div>
+              <Button type="button" variant="secondary" onClick={skipActiveMeal} disabled={saving || activeMealEntries.length > 0}>
+                Skip Meal
+              </Button>
+              <Button type="button" variant="danger" onClick={deleteActiveMeal} disabled={saving || !activeMealEntries.length}>
+                <Trash2 className="h-4 w-4" />
+                Delete Meal
+              </Button>
             </div>
 
             <div className="mb-5 rounded-xl border border-line bg-white/55 p-3">
@@ -955,7 +1130,7 @@ export default function Wellness() {
                   </SelectInput>
                 </div>
                 <FoodField label="Food" value={foodForm.food_name} onChange={(value) => setFoodForm((prev) => ({ ...prev, food_name: value }))} placeholder="Chicken wrap" />
-                <FoodField label="Serving" value={foodForm.serving} onChange={(value) => setFoodForm((prev) => ({ ...prev, serving: value }))} placeholder="1 wrap / 250g" />
+                <FoodField label="Serving" value={foodForm.serving} onChange={updateServingLabel} placeholder="1 wrap / 250g" />
                 <FoodField label="Serving grams" type="number" value={foodForm.serving_grams} onChange={updateServingGrams} placeholder="100" />
                 <FoodField label="Calories" type="number" value={foodForm.calories} onChange={(value) => setFoodForm((prev) => ({ ...prev, calories: value }))} placeholder="520" />
                 <FoodField label="Protein (g)" type="number" value={foodForm.protein_grams} onChange={(value) => setFoodForm((prev) => ({ ...prev, protein_grams: value }))} placeholder="38" />
@@ -1054,19 +1229,6 @@ export default function Wellness() {
             />
           </Surface>
 
-          <Surface>
-            <div className="mb-5 flex items-center gap-3">
-              <Utensils className="h-5 w-5 text-golf" />
-              <h2 className="text-xl font-semibold text-dark">Macro progress</h2>
-            </div>
-            <div className="space-y-4">
-              <MacroProgress label="Calories" value={displayNutrition.calories} target={targets.calories} unit="" tone="gold" />
-              <MacroProgress label="Protein" value={displayNutrition.protein} target={targets.proteinGrams} unit="g" tone="golf" />
-              <MacroProgress label="Carbs" value={displayNutrition.carbs} target={Math.round(targets.calories * 0.48 / 4)} unit="g" tone="pulse" />
-              <MacroProgress label="Fats" value={displayNutrition.fats} target={Math.round(targets.calories * 0.25 / 9)} unit="g" tone="lab" />
-            </div>
-          </Surface>
-
           <Surface className="bg-dark text-white">
             <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-start">
               <div>
@@ -1148,6 +1310,72 @@ export default function Wellness() {
           </div>
         </Surface>
       </section>
+
+      {reuseMeal && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/55"
+            onClick={() => setReuseMeal(null)}
+            aria-label="Close meal reuse"
+          />
+          <div className="relative z-10 w-full max-w-2xl rounded-xl border border-line bg-panel p-5 shadow-2xl">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Reuse meal</p>
+                <h2 className="mt-1 text-2xl font-semibold text-dark">
+                  Copy {formatMealLabel(reuseMeal.sourceMeal)} to {formatMealLabel(activeMeal)}
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted">
+                  Select the foods you want to reuse on {formatDate(activeNutritionDate)}.
+                </p>
+              </div>
+              <Button type="button" variant="ghost" onClick={() => setReuseMeal(null)}>
+                Close
+              </Button>
+            </div>
+
+            <div className="max-h-[52vh] space-y-2 overflow-auto pr-1">
+              {activeEntries
+                .filter((entry) => entry.meal_type === reuseMeal.sourceMeal)
+                .map((entry) => (
+                  <label key={entry.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-white/70 p-3">
+                    <input
+                      type="checkbox"
+                      checked={reuseMeal.selectedIds.includes(entry.id)}
+                      onChange={() => toggleReuseFood(entry.id)}
+                      className="mt-1"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold text-dark">{entry.food_name}</span>
+                      <span className="mt-1 block text-sm text-muted">
+                        {entry.serving || "Serving not set"} - {entry.calories || 0} kcal / {entry.protein_grams || 0}g protein
+                      </span>
+                    </span>
+                  </label>
+                ))}
+            </div>
+
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button type="button" variant="secondary" onClick={selectAllReuseFoods}>
+                Select All
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={copyAllReuseFoods}
+                disabled={saving}
+              >
+                Copy All Items
+              </Button>
+              <Button type="button" variant="pulse" onClick={() => copySelectedMealFoods()} disabled={saving || reuseMeal.selectedIds.length === 0}>
+                <Copy className="h-4 w-4" />
+                Copy Selected
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -1450,14 +1678,16 @@ function MealGroup({
                   C {entry.carbs_grams || 0}g / F {entry.fats_grams || 0}g
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => onDelete(entry.id)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-danger/10 hover:text-danger"
-                aria-label={`Delete ${entry.food_name}`}
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              <div className="flex gap-2 sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => onDelete(entry.id)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-danger/10 hover:text-danger"
+                  aria-label={`Delete ${entry.food_name}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -1501,37 +1731,6 @@ function QuickMealButton({ label, onClick }: { label: string; onClick: () => voi
       <Copy className="h-3.5 w-3.5" />
       {label}
     </button>
-  );
-}
-
-function MacroProgress({
-  label,
-  value,
-  target,
-  unit,
-  tone,
-}: {
-  label: string;
-  value: number | null | undefined;
-  target: number;
-  unit: string;
-  tone: "gold" | "golf" | "pulse" | "lab";
-}) {
-  const progress = getProgress(value, target);
-  const bar =
-    tone === "gold" ? "bg-gold" : tone === "golf" ? "bg-golf" : tone === "pulse" ? "bg-pulse" : "bg-lab";
-  return (
-    <div>
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="text-sm font-medium text-muted">{label}</p>
-        <p className="font-semibold text-dark">
-          {value === null || value === undefined ? "-" : `${Math.round(value)}${unit}`} / {target}{unit}
-        </p>
-      </div>
-      <div className="h-2.5 overflow-hidden rounded-full bg-steel/10">
-        <div className={`h-full rounded-full ${bar}`} style={{ width: `${progress}%` }} />
-      </div>
-    </div>
   );
 }
 
@@ -1823,6 +2022,17 @@ function foodResultFromForm(form: typeof blankFoodForm): FoodSearchResult | null
   };
 }
 
+function hasPer100gNutrition(food: FoodSearchResult) {
+  return [
+    food.caloriesPer100g,
+    food.proteinPer100g,
+    food.carbsPer100g,
+    food.fatsPer100g,
+    food.saturatedFatsPer100g,
+    food.sugarsPer100g,
+  ].some((value) => value !== null && value !== undefined && Number.isFinite(value));
+}
+
 function roundMacro(value: number | null, multiplier: number) {
   if (value === null || value === undefined || !Number.isFinite(value)) return 0;
   return Math.round(value * multiplier);
@@ -1834,7 +2044,22 @@ function formatFoodSource(source: string) {
   return "Manual";
 }
 
-function toNumber(value: string) {
+function parseServingGrams(value: string) {
+  const match = value.trim().match(/(\d+(?:\.\d+)?)\s*(kg|kilogram|kilograms|g|gram|grams)\b/i);
+  if (!match) return null;
+  const amount = Number(match[1]);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  const unit = match[2].toLowerCase();
+  return unit.startsWith("kg") || unit.startsWith("kilogram") ? amount * 1000 : amount;
+}
+
+function formatServingGrams(value: number) {
+  return Number.isInteger(value) ? `${value}` : value.toFixed(1).replace(/\.0$/, "");
+}
+
+function toNumber(value: string | number | null | undefined) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
   if (value.trim() === "") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -1884,6 +2109,10 @@ function formatDate(value: string) {
 
 function formatMealLabel(value: NutritionEntry["meal_type"]) {
   return mealTypes.find((meal) => meal.value === value)?.label || value;
+}
+
+function mealSkipKey(date: string, meal: NutritionEntry["meal_type"]) {
+  return `${date}:${meal}`;
 }
 
 function formatShortDay(value: string) {
