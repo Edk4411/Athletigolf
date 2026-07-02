@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "wouter";
 import { Edit3, Eye, Flag, Trash2, X } from "lucide-react";
-import { Button, EmptyState, FieldLabel, PageHeader, StatCard, Surface, TextArea, TextInput } from "@/components/ui";
+import { Button, ConfirmDialog, EmptyState, FieldLabel, PageHeader, StatCard, Surface, TextArea, TextInput } from "@/components/ui";
 import { formatAverage, getGolfStats } from "@/lib/golfStats";
 import { supabase } from "@/lib/supabase";
 import type { FairwayResult, Round, RoundHole, TeeShotLocation } from "@/lib/types";
@@ -64,11 +65,13 @@ const fairwayOptions: FairwayResult[] = ["na", "hit", "left", "right", "miss"];
 const teeLocationOptions: Array<"" | TeeShotLocation> = ["", "rough", "fairway_bunker", "woods", "water", "out_of_bounds", "other_fairway", "other"];
 
 export default function RoundHistory() {
+  const [, navigate] = useLocation();
   const [rounds, setRounds] = useState<Round[]>([]);
   const [roundHoles, setRoundHoles] = useState<Record<string, RoundHole[]>>({});
   const [loading, setLoading] = useState(true);
   const [selectedRound, setSelectedRound] = useState<Round | null>(null);
   const [editingRound, setEditingRound] = useState<Round | null>(null);
+  const [pendingDeleteRound, setPendingDeleteRound] = useState<Round | null>(null);
   const [saving, setSaving] = useState(false);
   const [roundError, setRoundError] = useState("");
   const [editForm, setEditForm] = useState<RoundForm>(emptyForm);
@@ -205,12 +208,11 @@ export default function RoundHistory() {
     await loadRounds();
   };
 
-  const deleteRound = async (round: Round) => {
-    const confirmed = window.confirm(`Delete ${round.course || "this round"}? This cannot be undone.`);
-    if (!confirmed) return;
+  const deleteRound = async () => {
+    if (!pendingDeleteRound) return;
 
     setRoundError("");
-    const { error } = await supabase.from("rounds").delete().eq("id", round.id);
+    const { error } = await supabase.from("rounds").delete().eq("id", pendingDeleteRound.id);
 
     if (error) {
       setRoundError(error.message);
@@ -219,7 +221,8 @@ export default function RoundHistory() {
 
     setSelectedRound(null);
     setEditingRound(null);
-    setRounds((prev) => prev.filter((item) => item.id !== round.id));
+    setPendingDeleteRound(null);
+    setRounds((prev) => prev.filter((item) => item.id !== pendingDeleteRound.id));
   };
 
   const golfStats = getGolfStats(rounds);
@@ -240,7 +243,7 @@ export default function RoundHistory() {
           title="Round History"
           description="Review scoring, inspect hole-by-hole details, and keep your golf record clean."
           tone="text-golf"
-          actions={<Button variant="golf" onClick={() => (window.location.href = "/golf/submit")}><Flag className="h-4 w-4" />Submit Round</Button>}
+          actions={<Button variant="golf" onClick={() => navigate("/golf/submit")}><Flag className="h-4 w-4" />Submit Round</Button>}
         />
 
         <section className="mb-5 grid gap-4 md:grid-cols-4">
@@ -260,7 +263,7 @@ export default function RoundHistory() {
           <EmptyState
             title="No rounds yet"
             description="Submit your first round to start building your golf logbook."
-            action={<Button variant="golf" onClick={() => (window.location.href = "/golf/submit")}>Submit Round</Button>}
+            action={<Button variant="golf" onClick={() => navigate("/golf/submit")}>Submit Round</Button>}
           />
         ) : (
           <Surface className="overflow-hidden p-0">
@@ -313,7 +316,7 @@ export default function RoundHistory() {
           holes={roundHoles[selectedRound.id] || []}
           onClose={() => setSelectedRound(null)}
           onEdit={() => openEdit(selectedRound)}
-          onDelete={() => deleteRound(selectedRound)}
+          onDelete={() => setPendingDeleteRound(selectedRound)}
         />
       )}
 
@@ -329,9 +332,17 @@ export default function RoundHistory() {
           updateHole={updateHole}
           onClose={() => setEditingRound(null)}
           onSave={saveRound}
-          onDelete={() => deleteRound(editingRound)}
+          onDelete={() => setPendingDeleteRound(editingRound)}
         />
       )}
+      <ConfirmDialog
+        open={!!pendingDeleteRound}
+        title="Delete round?"
+        description={`This will permanently delete ${pendingDeleteRound?.course || "this round"} and its hole-by-hole stats. This cannot be undone.`}
+        confirmLabel="Delete Round"
+        onConfirm={deleteRound}
+        onCancel={() => setPendingDeleteRound(null)}
+      />
     </main>
   );
 }

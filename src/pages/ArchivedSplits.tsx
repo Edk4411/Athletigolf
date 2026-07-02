@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Archive, RotateCcw, Trash2 } from "lucide-react";
 import { useLocation } from "wouter";
-import { Button, EmptyState, PageHeader, Surface } from "@/components/ui";
+import { Button, ConfirmDialog, EmptyState, PageHeader, Surface } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { SplitDay } from "@/lib/types";
 
@@ -23,6 +23,7 @@ export default function ArchivedSplits() {
   const [loading, setLoading] = useState(true);
   const [busyAction, setBusyAction] = useState("");
   const [message, setMessage] = useState("");
+  const [pendingDeleteArchive, setPendingDeleteArchive] = useState<string | null>(null);
 
   useEffect(() => {
     loadArchives();
@@ -72,13 +73,12 @@ export default function ArchivedSplits() {
     navigate("/workouts");
   };
 
-  const deleteArchive = async (archivedAt: string) => {
-    const confirmed = window.confirm("Permanently delete this archived split?");
-    if (!confirmed) return;
+  const deleteArchive = async () => {
+    if (!pendingDeleteArchive) return;
 
-    setBusyAction(archivedAt);
+    setBusyAction(pendingDeleteArchive);
     setMessage("");
-    const { error } = await supabase.from("split_days").delete().eq("archived_at", archivedAt);
+    const { error } = await supabase.from("split_days").delete().eq("archived_at", pendingDeleteArchive);
     setBusyAction("");
 
     if (error) {
@@ -86,6 +86,7 @@ export default function ArchivedSplits() {
       return;
     }
 
+    setPendingDeleteArchive(null);
     setMessage("Archived split deleted");
     await loadArchives();
   };
@@ -157,7 +158,7 @@ export default function ArchivedSplits() {
                       <Button
                         type="button"
                         variant="secondary"
-                        onClick={() => deleteArchive(archive.archivedAt)}
+                        onClick={() => setPendingDeleteArchive(archive.archivedAt)}
                         disabled={busyAction === archive.archivedAt}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -183,6 +184,14 @@ export default function ArchivedSplits() {
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={!!pendingDeleteArchive}
+        title="Delete archived split?"
+        description="This permanently deletes this archived split. This cannot be undone."
+        confirmLabel={busyAction === pendingDeleteArchive ? "Deleting..." : "Delete Archive"}
+        onConfirm={deleteArchive}
+        onCancel={() => setPendingDeleteArchive(null)}
+      />
     </main>
   );
 }

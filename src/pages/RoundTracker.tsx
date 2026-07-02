@@ -278,10 +278,11 @@ export default function RoundTracker() {
             <Button onClick={resetRound} variant="golf">
               Start New Round
             </Button>
-            <Link href="/golf">
-              <a className="inline-flex items-center justify-center rounded-lg border border-line bg-white px-5 py-3 font-semibold text-dark transition hover:bg-steel/5">
-                View Round History
-              </a>
+            <Link
+              href="/golf"
+              className="inline-flex items-center justify-center rounded-lg border border-line bg-white px-5 py-3 font-semibold text-dark transition hover:bg-steel/5"
+            >
+              View Round History
             </Link>
           </div>
         </Card>
@@ -290,7 +291,7 @@ export default function RoundTracker() {
   }
 
   return (
-    <div className="min-h-screen bg-cream p-6 text-dark md:p-10">
+    <div className="min-h-screen bg-cream px-4 py-5 text-dark md:p-10">
       <div className="mx-auto max-w-7xl">
         <PageHeader
           eyebrow="Golf Form"
@@ -379,7 +380,7 @@ export default function RoundTracker() {
           </Card>
         ) : (
           <>
-            <section className="mb-8 grid gap-4 md:grid-cols-4 xl:grid-cols-8">
+            <section className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
               <StatCard label="Score" value={stats.totalScore || "-"} tone="bg-white" />
               <StatCard label="To Par" value={formatToPar(stats.scoreToPar)} tone="bg-white" />
               <StatCard label="Holes" value={`${stats.holesCompleted}/${holesPlayed}`} tone="bg-white" />
@@ -405,7 +406,7 @@ export default function RoundTracker() {
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="-mx-1 flex max-w-full gap-2 overflow-x-auto px-1 pb-1 lg:flex-wrap lg:overflow-visible">
                     {holes.map((hole, index) => (
                       <button
                         key={index}
@@ -517,33 +518,35 @@ export default function RoundTracker() {
                   />
                 </div>
 
-                <div className="mt-8 flex flex-col-reverse gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="mt-8 rounded-xl border border-line bg-panel p-3 lg:flex lg:items-center lg:justify-between">
                   <Button
                     variant="secondary"
                     onClick={goToPreviousHole}
                     disabled={currentHoleIndex === 0}
+                    className="w-full lg:w-auto"
                   >
                     Previous
                   </Button>
-                  <div className="flex flex-col gap-3 sm:flex-row">
+                  <div className="mt-3 flex flex-col gap-3 sm:grid sm:grid-cols-3 lg:mt-0 lg:flex lg:flex-row">
                     <Button
                       variant="secondary"
                       onClick={goToNextHole}
                       disabled={currentHoleIndex === holesPlayed - 1}
+                      className="w-full"
                     >
                       Skip Hole
                     </Button>
                     {currentHoleIndex < holesPlayed - 1 ? (
-                      <Button variant="golf" onClick={goToNextHole}>
+                      <Button variant="golf" onClick={goToNextHole} className="w-full">
                         Next Hole
                       </Button>
                     ) : (
-                      <Button variant="golf" onClick={reviewRound}>
+                      <Button variant="golf" onClick={reviewRound} className="w-full">
                         Finish
                       </Button>
                     )}
                     {currentHoleIndex < holesPlayed - 1 && (
-                      <Button variant="golf" onClick={reviewRound}>
+                      <Button variant="golf" onClick={reviewRound} className="w-full">
                         Finish
                       </Button>
                     )}

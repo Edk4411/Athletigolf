@@ -11,6 +11,28 @@ import {
 } from "@/lib/wellnessTargets";
 
 const weekDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const primaryUseOptions: { value: NonNullable<OnboardingData["mainSport"]>; label: string; detail: string }[] = [
+  {
+    value: "both",
+    label: "Golf + Fitness Tracking",
+    detail: "Full golf, fitness, wellness and insight experience.",
+  },
+  {
+    value: "golf",
+    label: "Golf Focus",
+    detail: "Prioritise scorecards, practice, competitions and golf reports.",
+  },
+  {
+    value: "training",
+    label: "Fitness Tracking Only",
+    detail: "Use training, wellness, nutrition and social without golf setup.",
+  },
+  {
+    value: "other",
+    label: "Athletic Performance",
+    detail: "General performance tracking now, with future sport layers later.",
+  },
+];
 
 const defaultData: OnboardingData = {
   mainSport: "both",
@@ -85,7 +107,27 @@ export default function Onboarding() {
   const preparedData = useMemo(() => withCalculatedWellnessTargets(data), [data]);
   const recommendation = useMemo(() => buildRecommendation(preparedData), [preparedData]);
   const wellnessTargets = preparedData.wellness?.targets;
-  const progress = Math.round(((step + 1) / 5) * 100);
+  const fitnessOnly = data.mainSport === "training";
+  const setupSteps = fitnessOnly
+    ? [
+        { id: "profile", label: "Profile" },
+        { id: "training", label: "Fitness Tracking" },
+        { id: "wellness", label: "Wellness" },
+        { id: "review", label: "Review" },
+      ]
+    : [
+        { id: "profile", label: "Profile" },
+        { id: "golf", label: "Golf" },
+        { id: "training", label: "Fitness Tracking" },
+        { id: "wellness", label: "Wellness" },
+        { id: "review", label: "Review" },
+      ];
+  const currentStep = setupSteps[step]?.id || "profile";
+  const progress = Math.round(((step + 1) / setupSteps.length) * 100);
+
+  useEffect(() => {
+    if (step >= setupSteps.length) setStep(setupSteps.length - 1);
+  }, [setupSteps.length, step]);
 
   function update<K extends keyof OnboardingData>(key: K, value: OnboardingData[K]) {
     setError("");
@@ -146,8 +188,8 @@ export default function Onboarding() {
       age: wellness?.age ? Number(wellness.age) : null,
       height: wellness?.heightCm ? `${wellness.heightCm}cm` : null,
       weight: wellness?.weightKg ? `${wellness.weightKg}kg` : null,
-      golf_handicap: data.golf.handicap ? Number(data.golf.handicap) : null,
-      main_goal: data.mainGoal || `${data.golf.scoringGoal} + ${data.training.goal}`,
+      golf_handicap: fitnessOnly ? null : data.golf.handicap ? Number(data.golf.handicap) : null,
+      main_goal: data.mainGoal || (fitnessOnly ? data.training.goal : `${data.golf.scoringGoal} + ${data.training.goal}`),
       onboarding_completed: true,
       onboarding_completed_at: new Date().toISOString(),
       onboarding_data: preparedData,
@@ -180,7 +222,7 @@ export default function Onboarding() {
       age: wellness?.age ? Number(wellness.age) : null,
       height: wellness?.heightCm ? `${wellness.heightCm}cm` : null,
       weight: wellness?.weightKg ? `${wellness.weightKg}kg` : null,
-      golf_handicap: data.golf.handicap ? Number(data.golf.handicap) : null,
+      golf_handicap: fitnessOnly ? null : data.golf.handicap ? Number(data.golf.handicap) : null,
       main_goal: data.mainGoal || null,
       onboarding_completed: true,
       onboarding_completed_at: new Date().toISOString(),
@@ -235,7 +277,7 @@ export default function Onboarding() {
         <section className="grid gap-5 lg:grid-cols-[260px_1fr]">
           <Surface className="h-fit">
             <div className="space-y-2">
-              {["Profile", "Golf", "Training", "Wellness", "Review"].map((label, index) => (
+              {setupSteps.map(({ label }, index) => (
                 <button
                   key={label}
                   type="button"
@@ -252,7 +294,7 @@ export default function Onboarding() {
           </Surface>
 
           <Surface>
-            {step === 0 && (
+            {currentStep === "profile" && (
               <SetupStep
                 icon={<Target className="h-5 w-5" />}
                 eyebrow="Profile"
@@ -265,14 +307,14 @@ export default function Onboarding() {
                   <ChoiceGroup
                     label="Primary use"
                     value={data.mainSport || "both"}
-                    options={["both", "golf", "training", "other"]}
+                    options={primaryUseOptions}
                     onChange={(value) => update("mainSport", value as OnboardingData["mainSport"])}
                   />
                 </div>
               </SetupStep>
             )}
 
-            {step === 1 && (
+            {currentStep === "golf" && (
               <SetupStep
                 icon={<Flag className="h-5 w-5" />}
                 eyebrow="Golf Baseline"
@@ -305,16 +347,20 @@ export default function Onboarding() {
               </SetupStep>
             )}
 
-            {step === 2 && (
+            {currentStep === "training" && (
               <SetupStep
                 icon={<Dumbbell className="h-5 w-5" />}
-                eyebrow="Training Baseline"
-                title="Set the performance lab rules."
-                detail="This keeps training useful for golf rather than becoming a random list of exercises."
+                eyebrow="Fitness Tracking"
+                title="Set your fitness tracking rules."
+                detail={
+                  fitnessOnly
+                    ? "This gives the app enough context to track strength, consistency, recovery and wellness without any golf setup."
+                    : "This keeps the fitness side useful instead of becoming a random list of exercises."
+                }
               >
                 <div className="grid gap-4 md:grid-cols-2">
                   <ChoiceGroup
-                    label="Training experience"
+                    label="Fitness experience"
                     value={data.training.experience}
                     options={["New starter", "Under 1 year", "1-2 years", "2+ years"]}
                     onChange={(value) => updateTraining("experience", value)}
@@ -338,7 +384,7 @@ export default function Onboarding() {
                     onChange={(value) => updateTraining("equipment", value)}
                   />
                   <ChoiceGroup
-                    label="Training goal"
+                    label="Fitness goal"
                     value={data.training.goal}
                     options={["Strength", "Muscle", "Speed / power", "Mobility", "Fat loss"]}
                     onChange={(value) => updateTraining("goal", value)}
@@ -376,7 +422,7 @@ export default function Onboarding() {
               </SetupStep>
             )}
 
-            {step === 3 && (
+            {currentStep === "wellness" && (
               <SetupStep
                 icon={<Droplets className="h-5 w-5" />}
                 eyebrow="Wellness Targets"
@@ -441,7 +487,7 @@ export default function Onboarding() {
               </SetupStep>
             )}
 
-            {step === 4 && (
+            {currentStep === "review" && (
               <SetupStep
                 icon={<Check className="h-5 w-5" />}
                 eyebrow="Starting Plan"
@@ -476,7 +522,7 @@ export default function Onboarding() {
                     Back
                   </Button>
                 )}
-                {step < 4 ? (
+                {step < setupSteps.length - 1 ? (
                   <Button type="button" variant="pulse" onClick={() => setStep((current) => current + 1)}>
                     Continue <ArrowRight className="h-4 w-4" />
                   </Button>
@@ -553,28 +599,40 @@ function ChoiceGroup({
 }: {
   label: string;
   value: string;
-  options: string[];
+  options: (string | { value: string; label: string; detail?: string })[];
   onChange: (value: string) => void;
 }) {
   return (
     <div>
       <FieldLabel>{label}</FieldLabel>
       <div className="grid gap-2">
-        {options.map((option) => (
+        {options.map((option) => {
+          const optionValue = typeof option === "string" ? option : option.value;
+          const optionLabel = typeof option === "string" ? option : option.label;
+          const optionDetail = typeof option === "string" ? "" : option.detail;
+          return (
           <button
-            key={option}
+            key={optionValue}
             type="button"
-            onClick={() => onChange(option)}
+            onClick={() => onChange(optionValue)}
             className={`flex items-center justify-between rounded-lg border px-4 py-3 text-left text-sm font-semibold transition ${
-              value === option
+              value === optionValue
                 ? "border-dark bg-dark text-white"
                 : "border-line bg-white/70 text-dark hover:border-pulse/40 hover:bg-pulse/8"
             }`}
           >
-            {option}
-            {value === option && <Check className="h-4 w-4" />}
+            <span>
+              <span className="block">{optionLabel}</span>
+              {optionDetail && (
+                <span className={`mt-1 block text-xs leading-relaxed ${value === optionValue ? "text-white/60" : "text-muted"}`}>
+                  {optionDetail}
+                </span>
+              )}
+            </span>
+            {value === optionValue && <Check className="h-4 w-4 shrink-0" />}
           </button>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -594,7 +652,7 @@ function buildRecommendation(data: OnboardingData) {
   if (data.mainSport === "training") {
     return [
       {
-        label: "Training Focus",
+        label: "Fitness Focus",
         title: `${data.training.daysAvailable} / ${data.training.goal}`,
         detail: `${data.training.sessionLength} sessions using ${data.training.equipment.toLowerCase()}. The product will still work even if you never log golf.`,
       },
@@ -623,7 +681,7 @@ function buildRecommendation(data: OnboardingData) {
       detail: getGolfRecommendation(data.golf.biggestWeakness, data.golf.practiceAvailability),
     },
     {
-      label: "Training Direction",
+        label: "Fitness Direction",
       title: `${data.training.daysAvailable} / ${data.training.goal}`,
       detail: `${data.training.sessionLength} sessions using ${data.training.equipment.toLowerCase()}, with golf transfer kept visible in the Training Board.`,
     },

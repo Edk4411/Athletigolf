@@ -260,6 +260,22 @@ export default function Social() {
           </div>
 
           <form onSubmit={startActivity} className="grid gap-4">
+            <div className="grid gap-2 sm:grid-cols-4">
+              {activityOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setActivityType(option.value)}
+                  className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                    activityType === option.value
+                      ? "border-pulse bg-pulse text-white"
+                      : "border-line bg-panel text-muted hover:border-pulse/30 hover:text-pulse"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
             <div>
               <FieldLabel>Activity</FieldLabel>
               <SelectInput value={activityType} onChange={(event) => setActivityType(event.target.value as ActivityType)}>
@@ -303,10 +319,16 @@ export default function Social() {
                 </p>
               </div>
             </div>
-            {activeActivity && (
-              <Button type="button" variant="secondary" onClick={() => endActivity(activeActivity.id)} disabled={saving} className="mt-6 border-white/15 bg-white/10 text-white hover:bg-white/15">
-                End Check-In
-              </Button>
+          {activeActivity && (
+              <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                <p className="text-sm text-white/50">
+                  Started {formatRelativeTime(activeActivity.started_at)}
+                  {activeActivity.expires_at ? `, expires ${formatRelativeTime(activeActivity.expires_at)}` : ""}
+                </p>
+                <Button type="button" variant="secondary" onClick={() => endActivity(activeActivity.id)} disabled={saving} className="border-white/15 bg-white/10 text-white hover:bg-white/15">
+                  End Check-In
+                </Button>
+              </div>
             )}
           </Surface>
 
@@ -336,12 +358,13 @@ export default function Social() {
           </div>
           <div className="mb-5 rounded-xl border border-pulse/20 bg-pulse/8 p-4">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Your friend code</p>
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
               <code className="min-w-0 flex-1 truncate rounded-lg bg-white/70 px-3 py-2 text-xs font-semibold text-dark">
                 {userId || "Loading..."}
               </code>
-              <Button type="button" variant="secondary" onClick={() => navigator.clipboard?.writeText(userId)} disabled={!userId}>
+              <Button type="button" variant="secondary" onClick={() => navigator.clipboard?.writeText(userId)} disabled={!userId} className="w-full sm:w-auto">
                 <Copy className="h-4 w-4" />
+                Copy
               </Button>
             </div>
           </div>
@@ -375,7 +398,7 @@ export default function Social() {
                 onSaveLabel={saveFriendLabel}
                 onCancelRename={() => setEditingFriendId("")}
                 action={(connection) => (
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button type="button" variant="secondary" onClick={() => updateConnection(connection.id, "accepted")} disabled={saving}>
                       <Check className="h-4 w-4" />Accept
                     </Button>
@@ -433,9 +456,9 @@ export default function Social() {
             <h2 className="text-xl font-semibold text-dark">Privacy controls</h2>
           </div>
           <div className="grid gap-3 md:grid-cols-3">
-            <PrivacyCard title="Friends-only live feed" detail="Only accepted friends can see friends-visible check-ins once the migration is applied." />
-            <PrivacyCard title="Private mode stays private" detail="Private check-ins remain visible only to you." />
-            <PrivacyCard title="You control status" detail="Ending a check-in removes it from active views." />
+            <PrivacyCard title="Friends-only live feed" detail="Only accepted friends can see check-ins marked friends-only." />
+            <PrivacyCard title="Private mode stays private" detail="Private check-ins are saved for you without broadcasting to friends." />
+            <PrivacyCard title="You control status" detail="End or replace a check-in whenever your session changes." />
           </div>
         </Surface>
       </section>
@@ -486,15 +509,17 @@ function PrivacyCard({ title, detail }: { title: string; detail: string }) {
 function ActivityRow({ activity, name }: { activity: LiveActivity; name?: string }) {
   return (
     <div className="rounded-xl border border-line bg-white/70 p-4">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="font-semibold text-dark">{getActivityLabel(activity.activity_type)}</p>
           <p className="mt-1 text-sm text-muted">
             {activity.location_name || "No location"} {activity.detail ? `- ${activity.detail}` : ""}
           </p>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted">{name || `Friend ${activity.user_id.slice(0, 8)}`}</p>
+          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {name || `Friend ${activity.user_id.slice(0, 8)}`} - {formatRelativeTime(activity.started_at)}
+          </p>
         </div>
-        <span className="rounded-full bg-pulse/10 px-3 py-1 text-xs font-bold text-pulse">Live</span>
+        <span className="w-fit rounded-full bg-pulse/10 px-3 py-1 text-xs font-bold text-pulse">Live</span>
       </div>
     </div>
   );
@@ -562,7 +587,7 @@ function ConnectionSection({
                   <p className="mt-1 truncate text-sm text-muted">{otherId}</p>
                 </div>
                 <span className={getConnectionClass(connection.status)}>{connection.status}</span>
-                {action(connection)}
+                <div className="flex flex-wrap gap-2 md:justify-end">{action(connection)}</div>
               </div>
             );
           })}
@@ -595,4 +620,13 @@ function getConnectionClass(status: FriendConnection["status"]) {
   if (status === "accepted") return `${base} bg-golf/10 text-golf`;
   if (status === "blocked") return `${base} bg-danger/10 text-danger`;
   return `${base} bg-gold/15 text-gold`;
+}
+
+function formatRelativeTime(value: string) {
+  const diffMinutes = Math.round((new Date(value).getTime() - Date.now()) / 60000);
+  const absolute = Math.abs(diffMinutes);
+  if (absolute < 1) return "just now";
+  if (absolute < 60) return diffMinutes < 0 ? `${absolute}m ago` : `in ${absolute}m`;
+  const hours = Math.round(absolute / 60);
+  return diffMinutes < 0 ? `${hours}h ago` : `in ${hours}h`;
 }

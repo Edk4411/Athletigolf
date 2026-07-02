@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, CalendarDays, Droplets, Flame, Moon, Plus, Scale, Trash2, Utensils, Zap } from "lucide-react";
+import { Activity, CalendarDays, Copy, Droplets, Flame, Moon, Pencil, Plus, Scale, Trash2, Utensils, Zap } from "lucide-react";
 import { Button, EmptyState, FieldLabel, PageHeader, SelectInput, Surface, TextArea, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { NutritionEntry, OnboardingData, SavedFood, WellnessLog } from "@/lib/types";
 import { defaultWellnessTargets, getWellnessTargets, type WellnessTargets } from "@/lib/wellnessTargets";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
+const offsetIso = (days: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+};
 
 const blankForm = {
   log_date: todayIso(),
@@ -45,7 +50,10 @@ export default function Wellness() {
   const [selectedLog, setSelectedLog] = useState<WellnessLog | null>(null);
   const [form, setForm] = useState(blankForm);
   const [foodForm, setFoodForm] = useState(blankFoodForm);
+  const [savedFoodForm, setSavedFoodForm] = useState(blankFoodForm);
   const [selectedSavedFood, setSelectedSavedFood] = useState("");
+  const [copySourceDate, setCopySourceDate] = useState(offsetIso(-1));
+  const [editingSavedFoodId, setEditingSavedFoodId] = useState("");
   const [saveAsPreset, setSaveAsPreset] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -213,6 +221,116 @@ export default function Wellness() {
     await loadLogs();
   }
 
+  async function copyMealsFromDate(sourceDate: string, mealType?: NutritionEntry["meal_type"]) {
+    const sourceEntries = nutritionEntries.filter(
+      (entry) => entry.log_date === sourceDate && (!mealType || entry.meal_type === mealType)
+    );
+
+    if (!sourceEntries.length) {
+      setError(
+        mealType
+          ? `No ${formatMealLabel(mealType).toLowerCase()} logged on ${formatDate(sourceDate)} to copy.`
+          : `No meals logged on ${formatDate(sourceDate)} to copy.`
+      );
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setError("You need to be signed in to copy meals.");
+      setSaving(false);
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const { error: insertError } = await supabase.from("nutrition_entries").insert(
+      sourceEntries.map((entry) => ({
+        user_id: user.id,
+        log_date: activeNutritionDate,
+        meal_type: entry.meal_type,
+        food_name: entry.food_name,
+        serving: entry.serving,
+        calories: entry.calories || 0,
+        protein_grams: entry.protein_grams || 0,
+        carbs_grams: entry.carbs_grams || 0,
+        fats_grams: entry.fats_grams || 0,
+        updated_at: now,
+      }))
+    );
+
+    setSaving(false);
+    if (insertError) {
+      setError(insertError.message);
+      return;
+    }
+
+    await loadLogs();
+  }
+
+  function startEditSavedFood(food: SavedFood) {
+    setEditingSavedFoodId(food.id);
+    setSavedFoodForm({
+      meal_type: "breakfast",
+      food_name: food.food_name,
+      serving: food.serving || "",
+      calories: toFormValue(food.calories),
+      protein_grams: toFormValue(food.protein_grams),
+      carbs_grams: toFormValue(food.carbs_grams),
+      fats_grams: toFormValue(food.fats_grams),
+    });
+  }
+
+  async function saveSavedFoodEdit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!editingSavedFoodId || !savedFoodForm.food_name.trim()) return;
+
+    setSaving(true);
+    setError("");
+    const { error: updateError } = await supabase
+      .from("saved_foods")
+      .update({
+        food_name: savedFoodForm.food_name.trim(),
+        serving: savedFoodForm.serving.trim() || null,
+        calories: toInteger(savedFoodForm.calories) || 0,
+        protein_grams: toInteger(savedFoodForm.protein_grams) || 0,
+        carbs_grams: toInteger(savedFoodForm.carbs_grams) || 0,
+        fats_grams: toInteger(savedFoodForm.fats_grams) || 0,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", editingSavedFoodId);
+
+    setSaving(false);
+    if (updateError) {
+      setError(updateError.message);
+      return;
+    }
+
+    setEditingSavedFoodId("");
+    setSavedFoodForm(blankFoodForm);
+    await loadLogs();
+  }
+
+  async function deleteSavedFood(id: string) {
+    setSaving(true);
+    setError("");
+    const { error: deleteError } = await supabase.from("saved_foods").delete().eq("id", id);
+    setSaving(false);
+
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+
+    if (selectedSavedFood === id) setSelectedSavedFood("");
+    if (editingSavedFoodId === id) {
+      setEditingSavedFoodId("");
+      setSavedFoodForm(blankFoodForm);
+    }
+    await loadLogs();
+  }
+
   function applySavedFood(id: string) {
     setSelectedSavedFood(id);
     const food = savedFoods.find((item) => item.id === id);
@@ -235,6 +353,13 @@ export default function Wellness() {
     () => nutritionEntries.filter((entry) => entry.log_date === activeNutritionDate),
     [nutritionEntries, activeNutritionDate]
   );
+  const availableNutritionDates = useMemo(
+    () =>
+      Array.from(new Set(nutritionEntries.map((entry) => entry.log_date)))
+        .filter((date) => date !== activeNutritionDate)
+        .sort((a, b) => b.localeCompare(a)),
+    [nutritionEntries, activeNutritionDate]
+  );
   const nutritionTotals = useMemo(() => getNutritionTotals(activeEntries), [activeEntries]);
   const displayNutrition = {
     calories: nutritionTotals.calories || todayLog?.calories || null,
@@ -246,6 +371,7 @@ export default function Wellness() {
   const weekly = useMemo(() => getWeeklySummary(weekLogs), [weekLogs]);
   const todayScore = useMemo(() => getDailyCompletion(todayLog, targets), [todayLog, targets]);
   const insights = useMemo(() => buildWellnessInsights(weekLogs, targets, nutritionTotals), [weekLogs, targets, nutritionTotals]);
+  const nutritionStatus = useMemo(() => buildNutritionStatus(displayNutrition, targets), [displayNutrition, targets]);
 
   if (loading) {
     return (
@@ -293,6 +419,12 @@ export default function Wellness() {
             <DarkMetric label="Calories" value={`${Math.round(getProgress(displayNutrition.calories, targets.calories))}%`} />
             <DarkMetric label="Sleep" value={`${Math.round(getProgress(todayLog?.sleep_hours, targets.sleepHours))}%`} />
           </div>
+          <div className="mt-5 grid gap-2 sm:grid-cols-4">
+            <QuickAddButton label="+250ml" onClick={() => addWater(0.25)} />
+            <QuickAddButton label="+500ml" onClick={() => addWater(0.5)} />
+            <QuickAddButton label="+1L" onClick={() => addWater(1)} />
+            <QuickAddButton label="Copy yesterday" onClick={() => copyMealsFromDate(offsetIso(-1))} icon={Copy} />
+          </div>
         </Surface>
 
         <Surface>
@@ -301,6 +433,23 @@ export default function Wellness() {
             <WellnessTile icon={Utensils} label="Protein" value={formatGrams(displayNutrition.protein)} target={`${targets.proteinGrams} g`} progress={getProgress(displayNutrition.protein, targets.proteinGrams)} tone="golf" />
             <WellnessTile icon={Flame} label="Calories" value={formatNumber(displayNutrition.calories)} target={`${targets.calories}`} progress={getProgress(displayNutrition.calories, targets.calories)} tone="gold" />
             <WellnessTile icon={Moon} label="Sleep" value={formatHours(todayLog?.sleep_hours)} target={`${targets.sleepHours} h`} progress={getProgress(todayLog?.sleep_hours, targets.sleepHours)} tone="lab" />
+          </div>
+          <div className="mt-5 rounded-xl border border-line bg-white/55 p-4">
+            <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Nutrition Target</p>
+                <h3 className="mt-1 text-lg font-semibold text-dark">{nutritionStatus.title}</h3>
+              </div>
+              <span className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${nutritionStatus.badgeClass}`}>
+                {nutritionStatus.badge}
+              </span>
+            </div>
+            <p className="text-sm leading-relaxed text-muted">{nutritionStatus.detail}</p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              {nutritionStatus.rows.map((row) => (
+                <NutritionTargetMini key={row.label} {...row} />
+              ))}
+            </div>
           </div>
         </Surface>
       </section>
@@ -357,9 +506,45 @@ export default function Wellness() {
 
         <div className="space-y-5">
           <Surface>
-            <div className="mb-5 flex items-center gap-3">
-              <Utensils className="h-5 w-5 text-golf" />
-              <h2 className="text-xl font-semibold text-dark">Meals</h2>
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-center gap-3">
+                <Utensils className="h-5 w-5 text-golf" />
+                <div>
+                  <h2 className="text-xl font-semibold text-dark">Meals</h2>
+                  <p className="mt-1 text-sm text-muted">Log today, reuse yesterday, or build saved foods.</p>
+                </div>
+              </div>
+              <Button type="button" variant="secondary" onClick={() => copyMealsFromDate(copySourceDate)} disabled={saving}>
+                <Copy className="h-4 w-4" />
+                Copy Day
+              </Button>
+            </div>
+
+            <div className="mb-5 rounded-xl border border-line bg-white/55 p-3">
+              <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                <div>
+                  <FieldLabel>Copy meals from</FieldLabel>
+                  <SelectInput value={copySourceDate} onChange={(event) => setCopySourceDate(event.target.value)}>
+                    <option value={offsetIso(-1)}>Yesterday ({formatDate(offsetIso(-1))})</option>
+                    {availableNutritionDates.map((date) => (
+                      <option key={date} value={date}>{formatDate(date)}</option>
+                    ))}
+                  </SelectInput>
+                </div>
+                <Button type="button" variant="secondary" onClick={() => copyMealsFromDate(copySourceDate)} disabled={saving}>
+                  <Copy className="h-4 w-4" />
+                  Copy All
+                </Button>
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                {mealTypes.map((meal) => (
+                  <QuickMealButton
+                    key={meal.value}
+                    label={meal.label}
+                    onClick={() => copyMealsFromDate(copySourceDate, meal.value)}
+                  />
+                ))}
+              </div>
             </div>
 
             <form onSubmit={saveFoodEntry} className="mb-5 grid gap-3">
@@ -398,6 +583,68 @@ export default function Wellness() {
                 Add Food
               </Button>
             </form>
+
+            {savedFoods.length > 0 && (
+              <div className="mb-5 rounded-xl border border-line bg-white/55 p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold text-dark">Saved foods</h3>
+                    <p className="mt-1 text-sm text-muted">Edit presets so quick logging stays clean.</p>
+                  </div>
+                  <span className="rounded-full bg-steel/10 px-3 py-1 text-xs font-semibold text-muted">
+                    {savedFoods.length}
+                  </span>
+                </div>
+
+                {editingSavedFoodId && (
+                  <form onSubmit={saveSavedFoodEdit} className="mb-4 grid gap-3 rounded-lg border border-pulse/20 bg-pulse/8 p-3">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <FoodField label="Food" value={savedFoodForm.food_name} onChange={(value) => setSavedFoodForm((prev) => ({ ...prev, food_name: value }))} placeholder="Food name" />
+                      <FoodField label="Serving" value={savedFoodForm.serving} onChange={(value) => setSavedFoodForm((prev) => ({ ...prev, serving: value }))} placeholder="Serving" />
+                      <FoodField label="Calories" type="number" value={savedFoodForm.calories} onChange={(value) => setSavedFoodForm((prev) => ({ ...prev, calories: value }))} placeholder="520" />
+                      <FoodField label="Protein (g)" type="number" value={savedFoodForm.protein_grams} onChange={(value) => setSavedFoodForm((prev) => ({ ...prev, protein_grams: value }))} placeholder="38" />
+                      <FoodField label="Carbs (g)" type="number" value={savedFoodForm.carbs_grams} onChange={(value) => setSavedFoodForm((prev) => ({ ...prev, carbs_grams: value }))} placeholder="55" />
+                      <FoodField label="Fats (g)" type="number" value={savedFoodForm.fats_grams} onChange={(value) => setSavedFoodForm((prev) => ({ ...prev, fats_grams: value }))} placeholder="14" />
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button type="submit" variant="pulse" disabled={saving || !savedFoodForm.food_name.trim()}>Save Preset</Button>
+                      <Button type="button" variant="ghost" onClick={() => setEditingSavedFoodId("")}>Cancel</Button>
+                    </div>
+                  </form>
+                )}
+
+                <div className="grid gap-2">
+                  {savedFoods.slice(0, 8).map((food) => (
+                    <div key={food.id} className="grid gap-3 rounded-lg border border-line bg-panel p-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                      <div>
+                        <p className="font-semibold text-dark">{food.food_name}</p>
+                        <p className="mt-1 text-sm text-muted">
+                          {food.serving || "Serving not set"} - {food.calories || 0} kcal / {food.protein_grams || 0}g protein
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => startEditSavedFood(food)}
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-pulse/10 hover:text-pulse"
+                          aria-label={`Edit ${food.food_name}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteSavedFood(food.id)}
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-danger/10 hover:text-danger"
+                          aria-label={`Delete ${food.food_name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-4">
               {mealTypes.map((meal) => (
@@ -550,6 +797,42 @@ function WellnessTile({
   );
 }
 
+function NutritionTargetMini({
+  label,
+  value,
+  target,
+  status,
+}: {
+  label: string;
+  value: string;
+  target: string;
+  status: "behind" | "on-track" | "ahead" | "empty";
+}) {
+  const statusClass =
+    status === "on-track"
+      ? "bg-golf/10 text-golf"
+      : status === "ahead"
+      ? "bg-gold/15 text-gold"
+      : status === "behind"
+      ? "bg-danger/10 text-danger"
+      : "bg-steel/10 text-muted";
+  const statusLabel =
+    status === "on-track" ? "On track" : status === "ahead" ? "Ahead" : status === "behind" ? "Behind" : "No data";
+
+  return (
+    <div className="rounded-lg border border-line bg-panel p-3">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">{label}</p>
+        <span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] ${statusClass}`}>
+          {statusLabel}
+        </span>
+      </div>
+      <p className="mt-3 text-lg font-semibold text-dark">{value}</p>
+      <p className="mt-1 text-xs text-muted">Target {target}</p>
+    </div>
+  );
+}
+
 function Field({
   label,
   value,
@@ -652,14 +935,35 @@ function MealGroup({
   );
 }
 
-function QuickAddButton({ label, onClick }: { label: string; onClick: () => void }) {
+function QuickAddButton({
+  label,
+  onClick,
+  icon: Icon = Plus,
+}: {
+  label: string;
+  onClick: () => void;
+  icon?: React.ComponentType<{ className?: string }>;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       className="inline-flex items-center justify-center gap-1 rounded-lg border border-pulse/20 bg-pulse/8 px-2 py-2 text-xs font-semibold text-pulse transition hover:border-pulse/40 hover:bg-pulse/12"
     >
-      <Plus className="h-3.5 w-3.5" />
+      <Icon className="h-3.5 w-3.5" />
+      {label}
+    </button>
+  );
+}
+
+function QuickMealButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-line bg-panel px-3 py-2 text-xs font-semibold text-muted transition hover:border-golf/30 hover:bg-golf/8 hover:text-golf"
+    >
+      <Copy className="h-3.5 w-3.5" />
       {label}
     </button>
   );
@@ -838,6 +1142,108 @@ function buildWellnessInsights(
   return insights.slice(0, 5);
 }
 
+function buildNutritionStatus(
+  nutrition: {
+    calories: number | null;
+    protein: number | null;
+    carbs: number | null;
+    fats: number | null;
+  },
+  targets: WellnessTargets
+) {
+  const calorieStatus = getTargetStatus(nutrition.calories, targets.calories);
+  const proteinStatus = getTargetStatus(nutrition.protein, targets.proteinGrams);
+  const carbTarget = Math.round((targets.calories * 0.48) / 4);
+  const fatTarget = Math.round((targets.calories * 0.25) / 9);
+  const loggedCalories = nutrition.calories || 0;
+  const loggedProtein = nutrition.protein || 0;
+
+  if (!loggedCalories && !loggedProtein) {
+    return {
+      title: "No meals logged yet",
+      badge: "Empty",
+      badgeClass: "bg-steel/10 text-muted",
+      detail: "Add meals or copy a previous day to see whether today is supporting your training and golf.",
+      rows: [
+        { label: "Calories", value: "-", target: `${targets.calories}`, status: "empty" as const },
+        { label: "Protein", value: "-", target: `${targets.proteinGrams}g`, status: "empty" as const },
+        { label: "Carbs", value: "-", target: `${carbTarget}g`, status: "empty" as const },
+      ],
+    };
+  }
+
+  const behind = [calorieStatus, proteinStatus].filter((status) => status === "behind").length;
+  const ahead = calorieStatus === "ahead";
+  const title =
+    behind >= 2
+      ? "Fuel is behind target"
+      : behind === 1
+      ? proteinStatus === "behind"
+        ? "Protein needs attention"
+        : "Calories are behind"
+      : ahead
+      ? "Calories are ahead"
+      : "Fuel is on track";
+  const badge =
+    behind >= 1 ? "Needs attention" : ahead ? "Ahead" : "On track";
+  const badgeClass =
+    behind >= 1
+      ? "bg-danger/10 text-danger"
+      : ahead
+      ? "bg-gold/15 text-gold"
+      : "bg-golf/10 text-golf";
+  const detail =
+    behind >= 2
+      ? "Today is light on both calories and protein. Add a proper meal before training or recovery work."
+      : proteinStatus === "behind"
+      ? "Protein is behind today. A high-protein meal or snack would make this day more useful."
+      : calorieStatus === "behind"
+      ? "Calories are light today. If you trained or played, this may affect energy and recovery."
+      : ahead
+      ? "Calories are above target. That might be fine on heavy training days, but worth knowing."
+      : "Calories and protein are sitting in a useful range for the day.";
+
+  return {
+    title,
+    badge,
+    badgeClass,
+    detail,
+    rows: [
+      {
+        label: "Calories",
+        value: `${Math.round(loggedCalories)}`,
+        target: `${targets.calories}`,
+        status: calorieStatus,
+      },
+      {
+        label: "Protein",
+        value: `${Math.round(loggedProtein)}g`,
+        target: `${targets.proteinGrams}g`,
+        status: proteinStatus,
+      },
+      {
+        label: "Carbs",
+        value: nutrition.carbs === null ? "-" : `${Math.round(nutrition.carbs)}g`,
+        target: `${carbTarget}g`,
+        status: getTargetStatus(nutrition.carbs, carbTarget),
+      },
+      {
+        label: "Fats",
+        value: nutrition.fats === null ? "-" : `${Math.round(nutrition.fats)}g`,
+        target: `${fatTarget}g`,
+        status: getTargetStatus(nutrition.fats, fatTarget),
+      },
+    ].slice(0, 3),
+  };
+}
+
+function getTargetStatus(value: number | null | undefined, target: number): "behind" | "on-track" | "ahead" | "empty" {
+  if (value === null || value === undefined || value <= 0) return "empty";
+  if (value < target * 0.8) return "behind";
+  if (value > target * 1.12) return "ahead";
+  return "on-track";
+}
+
 function toNumber(value: string) {
   if (value.trim() === "") return null;
   const parsed = Number(value);
@@ -884,6 +1290,10 @@ function formatDate(value: string) {
     day: "numeric",
     month: "short",
   });
+}
+
+function formatMealLabel(value: NutritionEntry["meal_type"]) {
+  return mealTypes.find((meal) => meal.value === value)?.label || value;
 }
 
 function formatShortDay(value: string) {

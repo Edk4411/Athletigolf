@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   BarChart3,
+  Bell,
   Brain,
   CalendarDays,
   ChevronDown,
@@ -23,12 +24,16 @@ import {
   X,
 } from "lucide-react";
 import { Button, StatusPill } from "@/components/ui";
+import { supabase } from "@/lib/supabase";
+import { getSportModeLabel, isGolfEnabledMode, isTrainingOnlyMode } from "@/lib/sportMode";
+import type { AppNotification, OnboardingData } from "@/lib/types";
 
 type NavItem = {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   tone?: "golf" | "gym" | "gold" | "pulse";
+  adminOnly?: boolean;
 };
 
 const mainLinks: NavItem[] = [
@@ -59,6 +64,7 @@ const golfLinks: NavItem[] = [
 const supportLinks: NavItem[] = [
   { href: "/settings", label: "Settings", icon: Settings },
   { href: "/contact", label: "Contact", icon: Mail },
+  { href: "/admin/feedback", label: "Admin Feedback", icon: ShieldCheck, adminOnly: true },
   { href: "/follow", label: "Follow", icon: Instagram },
 ];
 
@@ -89,8 +95,12 @@ export default function MobileSidebar() {
   const [open, setOpen] = useState(false);
   const [trainingOpen, setTrainingOpen] = useState(true);
   const [golfOpen, setGolfOpen] = useState(true);
+  const [sportMode, setSportMode] = useState<OnboardingData["mainSport"]>("both");
+  const [role, setRole] = useState("user");
   const [location, navigate] = useLocation();
   const meta = titles[location] ?? { title: "AthletiGolf", section: "Performance" };
+  const trainingOnly = isTrainingOnlyMode(sportMode);
+  const golfEnabled = isGolfEnabledMode(sportMode);
   const today = useMemo(
     () =>
       new Date().toLocaleDateString("en-GB", {
@@ -103,6 +113,25 @@ export default function MobileSidebar() {
 
   const closeMenu = () => setOpen(false);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    supabase
+      .from("profiles")
+      .select("onboarding_data, role")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const onboarding = (data?.onboarding_data as OnboardingData | null) || null;
+        setSportMode(onboarding?.mainSport || "both");
+        setRole(data?.role || "user");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <>
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-white/10 bg-dark text-white lg:flex">
@@ -112,6 +141,10 @@ export default function MobileSidebar() {
           golfOpen={golfOpen}
           setGolfOpen={setGolfOpen}
           onClick={() => undefined}
+          sportMode={sportMode}
+          trainingOnly={trainingOnly}
+          golfEnabled={golfEnabled}
+          role={role}
         />
       </aside>
 
@@ -128,8 +161,17 @@ export default function MobileSidebar() {
           </div>
 
           <div className="hidden items-center gap-3 md:flex">
+            <NotificationBell />
             <Button variant="pulse" onClick={() => navigate("/workouts/submit")}>Training</Button>
-            <Button variant="golf" onClick={() => navigate("/golf/submit")}>Round</Button>
+            {golfEnabled ? (
+              <Button variant="golf" onClick={() => navigate("/golf/submit")}>Round</Button>
+            ) : (
+              <Button variant="secondary" onClick={() => navigate("/wellness")}>Wellness</Button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 md:hidden">
+            <NotificationBell compact />
           </div>
 
           <button
@@ -156,6 +198,10 @@ export default function MobileSidebar() {
               golfOpen={golfOpen}
               setGolfOpen={setGolfOpen}
               onClick={closeMenu}
+              sportMode={sportMode}
+              trainingOnly={trainingOnly}
+              golfEnabled={golfEnabled}
+              role={role}
               closeButton={
                 <button
                   onClick={closeMenu}
@@ -179,6 +225,10 @@ function NavContent({
   golfOpen,
   setGolfOpen,
   onClick,
+  sportMode,
+  trainingOnly,
+  golfEnabled,
+  role,
   closeButton,
 }: {
   trainingOpen: boolean;
@@ -186,8 +236,17 @@ function NavContent({
   golfOpen: boolean;
   setGolfOpen: (value: boolean) => void;
   onClick: () => void;
+  sportMode: OnboardingData["mainSport"];
+  trainingOnly: boolean;
+  golfEnabled: boolean;
+  role: string;
   closeButton?: React.ReactNode;
 }) {
+  const visibleMainLinks = trainingOnly
+    ? mainLinks.filter((item) => item.href !== "/analytics")
+    : mainLinks;
+  const visibleSupportLinks = supportLinks.filter((item) => !item.adminOnly || role === "admin");
+
   return (
     <div className="flex min-h-0 flex-1 flex-col p-5">
       <div className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
@@ -197,16 +256,19 @@ function NavContent({
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-pulse">AthletiGolf</p>
           </div>
           <h2 className="mt-2 text-xl font-semibold">Performance Platform</h2>
+          <p className="mt-1 text-xs font-semibold text-white/45">{getSportModeLabel(sportMode)}</p>
         </div>
         {closeButton}
       </div>
 
       <nav className="flex min-h-0 flex-1 flex-col justify-between overflow-y-auto">
         <div className="space-y-5">
-          <NavGroup items={mainLinks} onClick={onClick} />
-          <Dropdown title="Golf" open={golfOpen} setOpen={setGolfOpen}>
-            <NavGroup items={golfLinks} onClick={onClick} compact />
-          </Dropdown>
+          <NavGroup items={visibleMainLinks} onClick={onClick} />
+          {golfEnabled && (
+            <Dropdown title="Golf" open={golfOpen} setOpen={setGolfOpen}>
+              <NavGroup items={golfLinks} onClick={onClick} compact />
+            </Dropdown>
+          )}
           <Dropdown title="Training" open={trainingOpen} setOpen={setTrainingOpen}>
             <NavGroup items={trainingLinks} onClick={onClick} compact />
           </Dropdown>
@@ -216,10 +278,12 @@ function NavContent({
           <div className="rounded-2xl border border-pulse/20 bg-pulse/10 p-4">
             <p className="text-sm font-semibold text-pulse">Build the week</p>
             <p className="mt-1 text-sm leading-relaxed text-white/65">
-              Log rounds and sessions consistently to make the insights sharper.
+              {trainingOnly
+                ? "Log sessions, wellness and nutrition consistently to make training insights sharper."
+                : "Log rounds and sessions consistently to make the insights sharper."}
             </p>
           </div>
-          <NavGroup items={supportLinks} onClick={onClick} compact />
+          <NavGroup items={visibleSupportLinks} onClick={onClick} compact />
         </div>
       </nav>
     </div>
@@ -309,4 +373,121 @@ function Dropdown({
       {open && <div className="mt-1 space-y-1">{children}</div>}
     </div>
   );
+}
+
+function NotificationBell({ compact = false }: { compact?: boolean }) {
+  const [, navigate] = useLocation();
+  const [open, setOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+
+  useEffect(() => {
+    loadNotifications();
+
+    const timer = window.setInterval(loadNotifications, 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  async function loadNotifications() {
+    const { data } = await supabase
+      .from("notifications")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(8);
+    setNotifications((data as AppNotification[]) || []);
+  }
+
+  async function openNotification(notification: AppNotification) {
+    if (!notification.read_at) {
+      await supabase
+        .from("notifications")
+        .update({ read_at: new Date().toISOString() })
+        .eq("id", notification.id);
+    }
+    setOpen(false);
+    await loadNotifications();
+    if (notification.link_path) navigate(notification.link_path);
+  }
+
+  async function markAllRead() {
+    const unreadIds = notifications.filter((item) => !item.read_at).map((item) => item.id);
+    if (!unreadIds.length) return;
+    await supabase
+      .from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .in("id", unreadIds);
+    await loadNotifications();
+  }
+
+  const unreadCount = notifications.filter((item) => !item.read_at).length;
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className={`relative inline-flex items-center justify-center rounded-lg border border-line bg-panel text-dark shadow-sm transition hover:border-pulse/35 hover:text-pulse ${
+          compact ? "h-11 w-11" : "h-11 w-11"
+        }`}
+        aria-label="Open notifications"
+      >
+        <Bell className="h-5 w-5" />
+        {unreadCount > 0 && (
+          <span className="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-[11px] font-bold text-white">
+            {unreadCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-12 z-50 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-xl border border-line bg-panel shadow-2xl">
+          <div className="flex items-center justify-between border-b border-line p-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Notifications</p>
+              <h3 className="font-semibold text-dark">{unreadCount} unread</h3>
+            </div>
+            <button type="button" onClick={markAllRead} className="text-xs font-bold uppercase tracking-[0.12em] text-pulse">
+              Mark read
+            </button>
+          </div>
+
+          {notifications.length ? (
+            <div className="max-h-[420px] overflow-y-auto">
+              {notifications.map((notification) => (
+                <button
+                  key={notification.id}
+                  type="button"
+                  onClick={() => openNotification(notification)}
+                  className={`block w-full border-b border-line p-4 text-left transition last:border-b-0 hover:bg-pulse/8 ${
+                    notification.read_at ? "bg-panel" : "bg-pulse/5"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-dark">{notification.title}</p>
+                      {notification.body && <p className="mt-1 text-sm leading-relaxed text-muted">{notification.body}</p>}
+                      <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+                        {formatNotificationDate(notification.created_at)}
+                      </p>
+                    </div>
+                    {!notification.read_at && <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-pulse" />}
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="p-5 text-sm text-muted">No notifications yet.</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatNotificationDate(value: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }

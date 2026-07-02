@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import { useLocation } from "wouter";
 import { Edit3, Eye, NotebookPen, Plus, Trash2, X } from "lucide-react";
-import { Button, EmptyState, FieldLabel, PageHeader, StatCard, Surface, TextArea, TextInput } from "@/components/ui";
+import { Button, ConfirmDialog, EmptyState, FieldLabel, PageHeader, StatCard, Surface, TextArea, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { PracticeDrill, PracticeSession } from "@/lib/types";
 
@@ -23,11 +24,13 @@ const blankDrill = (): PracticeDrillForm => ({
 });
 
 export default function PracticeHistory() {
+  const [, navigate] = useLocation();
   const [sessions, setSessions] = useState<PracticeSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedSession, setSelectedSession] = useState<PracticeSession | null>(null);
   const [editingSession, setEditingSession] = useState<PracticeSession | null>(null);
+  const [pendingDeleteSession, setPendingDeleteSession] = useState<PracticeSession | null>(null);
   const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState({
     practice_type: "Driving Range" as PracticeType,
@@ -100,11 +103,10 @@ export default function PracticeHistory() {
     await loadSessions();
   };
 
-  const deleteSession = async (session: PracticeSession) => {
-    const confirmed = window.confirm(`Delete this ${session.practice_type} session? This cannot be undone.`);
-    if (!confirmed) return;
+  const deleteSession = async () => {
+    if (!pendingDeleteSession) return;
 
-    const { error } = await supabase.from("practice_sessions").delete().eq("id", session.id);
+    const { error } = await supabase.from("practice_sessions").delete().eq("id", pendingDeleteSession.id);
 
     if (error) {
       setError(error.message);
@@ -112,7 +114,9 @@ export default function PracticeHistory() {
     }
 
     setEditingSession(null);
-    setSessions((prev) => prev.filter((s) => s.id !== session.id));
+    setSelectedSession(null);
+    setPendingDeleteSession(null);
+    setSessions((prev) => prev.filter((s) => s.id !== pendingDeleteSession.id));
   };
 
   const totalMinutes = sessions.reduce((sum, session) => sum + (session.duration_minutes || 0), 0);
@@ -136,7 +140,7 @@ export default function PracticeHistory() {
           title="Practice History"
           description="Review range work, drills, ratings, and the practice signals feeding your golf progress."
           tone="text-golf"
-          actions={<Button variant="golf" onClick={() => (window.location.href = "/golf/practice")}><NotebookPen className="h-4 w-4" />Log Practice</Button>}
+          actions={<Button variant="golf" onClick={() => navigate("/golf/practice")}><NotebookPen className="h-4 w-4" />Log Practice</Button>}
         />
 
         <section className="mb-5 grid gap-4 md:grid-cols-4">
@@ -156,7 +160,7 @@ export default function PracticeHistory() {
           <EmptyState
             title="No practice sessions yet"
             description="Log a practice session to start building your practice logbook."
-            action={<Button variant="golf" onClick={() => (window.location.href = "/golf/practice")}>Log Practice</Button>}
+            action={<Button variant="golf" onClick={() => navigate("/golf/practice")}>Log Practice</Button>}
           />
         ) : (
           <section className="grid gap-5 xl:grid-cols-[1fr_320px]">
@@ -237,7 +241,7 @@ export default function PracticeHistory() {
             setSelectedSession(null);
             openEditor(session);
           }}
-          onDelete={() => deleteSession(selectedSession)}
+          onDelete={() => setPendingDeleteSession(selectedSession)}
         />
       )}
 
@@ -248,7 +252,7 @@ export default function PracticeHistory() {
           setForm={setEditForm}
           onClose={() => setEditingSession(null)}
           onSave={saveSession}
-          onDelete={() => deleteSession(editingSession)}
+          onDelete={() => setPendingDeleteSession(editingSession)}
           addDrill={() => setEditForm((prev) => ({ ...prev, drills: [...prev.drills, blankDrill()] }))}
           updateDrill={(index, key, value) =>
             setEditForm((prev) => ({
@@ -259,6 +263,14 @@ export default function PracticeHistory() {
           removeDrill={(index) => setEditForm((prev) => ({ ...prev, drills: prev.drills.filter((_, drillIndex) => drillIndex !== index) }))}
         />
       )}
+      <ConfirmDialog
+        open={!!pendingDeleteSession}
+        title="Delete practice session?"
+        description={`This will permanently delete this ${pendingDeleteSession?.practice_type || "practice"} session. This cannot be undone.`}
+        confirmLabel="Delete Session"
+        onConfirm={deleteSession}
+        onCancel={() => setPendingDeleteSession(null)}
+      />
     </main>
   );
 }

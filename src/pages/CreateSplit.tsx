@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Archive, Dumbbell, GripVertical, Info, Plus, Trash2, Wand2, X } from "lucide-react";
 import { useLocation } from "wouter";
 import { supabase } from "@/lib/supabase";
-import { Button, FieldLabel, PageHeader, Surface, TextInput } from "@/components/ui";
+import { Button, ConfirmDialog, FieldLabel, PageHeader, Surface, TextInput } from "@/components/ui";
 import { getExerciseGuide } from "@/lib/exerciseLibrary";
 import type { SplitDay } from "@/lib/types";
 
@@ -43,6 +43,7 @@ export default function CreateSplit() {
   const [savedMessage, setSavedMessage] = useState("");
   const [busyAction, setBusyAction] = useState("");
   const [selectedExercise, setSelectedExercise] = useState("");
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
 
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editFocus, setEditFocus] = useState("");
@@ -121,9 +122,6 @@ export default function CreateSplit() {
   };
 
   const removeCurrentSplit = async () => {
-    const confirmed = window.confirm("Remove the current active split? Archived splits will stay saved.");
-    if (!confirmed) return;
-
     setBusyAction("remove");
     const { error } = await supabase.from("split_days").delete().is("archived_at", null);
     setBusyAction("");
@@ -136,6 +134,7 @@ export default function CreateSplit() {
     setSplit(blankSplit);
     setHasActiveSplit(false);
     setShowCreateChoice(true);
+    setConfirmRemoveOpen(false);
     setSavedMessage("Current split removed");
     await loadSplit();
   };
@@ -387,7 +386,7 @@ export default function CreateSplit() {
                   {busyAction === "archive" ? "Archiving..." : "Archive Current"}
                 </Button>
                 <Button
-                  onClick={removeCurrentSplit}
+                  onClick={() => setConfirmRemoveOpen(true)}
                   disabled={busyAction === "remove"}
                   variant="danger"
                 >
@@ -595,6 +594,15 @@ export default function CreateSplit() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmRemoveOpen}
+        title="Remove active split?"
+        description="This removes your current active split. Archived splits will stay saved."
+        confirmLabel={busyAction === "remove" ? "Removing..." : "Remove Split"}
+        onConfirm={removeCurrentSplit}
+        onCancel={() => setConfirmRemoveOpen(false)}
+      />
     </main>
   );
 }

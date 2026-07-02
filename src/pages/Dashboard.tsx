@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   Activity,
   ArrowUpRight,
+  Brain,
   CalendarDays,
   Droplets,
   Dumbbell,
@@ -87,6 +88,7 @@ export default function Dashboard() {
   const hydrationProgress = todayWellness?.water_litres ? Math.min((todayWellness.water_litres / wellnessTargets.waterLitres) * 100, 100) : 0;
   const liveActivity = liveActivities[0] || null;
   const trainingOnly = sportMode === "training";
+  const golfEnabled = !trainingOnly;
   const golfStats = getGolfStats(rounds);
   const shortGameStats = getShortGameStats(roundHoles);
   const trainingVolume = workouts.reduce(
@@ -100,13 +102,13 @@ export default function Dashboard() {
   const trainingIntel = getTrainingIntelligence(workouts);
 
   const activity = [
-    ...rounds.slice(0, 3).map((round) => ({
+    ...(golfEnabled ? rounds.slice(0, 3).map((round) => ({
       id: `round-${round.id}`,
       type: "Round",
       title: `${round.score ?? "-"} at ${round.course || "Unknown Course"}`,
       meta: round.date || new Date(round.created_at).toLocaleDateString("en-GB"),
       tone: "golf" as const,
-    })),
+    })) : []),
     ...workouts.slice(0, 3).map((workout) => ({
       id: `workout-${workout.id}`,
       type: "Training",
@@ -134,14 +136,18 @@ export default function Dashboard() {
                   : "Golf form, training load and next actions in one tighter command view."}
               </p>
               <div className="mt-6 flex flex-wrap gap-2">
-                <Button variant="golf" onClick={() => navigate("/golf/submit")}><Flag className="h-4 w-4" />Round</Button>
+                {golfEnabled && <Button variant="golf" onClick={() => navigate("/golf/submit")}><Flag className="h-4 w-4" />Round</Button>}
                 <Button variant="pulse" onClick={() => navigate("/workouts/submit")}><Dumbbell className="h-4 w-4" />Training</Button>
-                <Button variant="secondary" onClick={() => navigate("/golf/practice")} className="border-white/15 bg-white/10 text-white hover:bg-white/15"><NotebookPen className="h-4 w-4" />Practice</Button>
+                {golfEnabled ? (
+                  <Button variant="secondary" onClick={() => navigate("/golf/practice")} className="border-white/15 bg-white/10 text-white hover:bg-white/15"><NotebookPen className="h-4 w-4" />Practice</Button>
+                ) : (
+                  <Button variant="secondary" onClick={() => navigate("/wellness")} className="border-white/15 bg-white/10 text-white hover:bg-white/15"><Droplets className="h-4 w-4" />Wellness</Button>
+                )}
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
-              <MiniMetric label="Rounds Month" value={loading ? "..." : roundsThisMonth} />
+              <MiniMetric label={trainingOnly ? "Wellness Logs" : "Rounds Month"} value={loading ? "..." : trainingOnly ? wellnessLogs.length : roundsThisMonth} />
               <MiniMetric label="Training Week" value={loading ? "..." : workoutsThisWeek} />
             </div>
           </div>
@@ -149,8 +155,12 @@ export default function Dashboard() {
 
         <Surface className="bg-panel/95">
           <SectionTitle eyebrow="Today" title={now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} />
-          <div className="grid gap-3 md:grid-cols-3">
-            <SummaryTile label="Last Round" value={lastRound ? `${lastRound.score ?? "-"}${lastRound.course ? ` / ${lastRound.course}` : ""}` : "No round"} tone="golf" />
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {golfEnabled ? (
+              <SummaryTile label="Last Round" value={lastRound ? `${lastRound.score ?? "-"}${lastRound.course ? ` / ${lastRound.course}` : ""}` : "No round"} tone="golf" />
+            ) : (
+              <SummaryTile label="Sport Mode" value="Fitness Tracking" tone="pulse" />
+            )}
             <SummaryTile label="Last Training" value={latestWorkout?.workout_name || "No session"} tone="lab" />
             <button
               type="button"
@@ -194,7 +204,7 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          {nextCompetition && (
+          {golfEnabled && nextCompetition && (
             <button
               type="button"
               onClick={() => navigate("/golf/competitions")}
@@ -223,7 +233,7 @@ export default function Dashboard() {
         </Surface>
       </section>
 
-      {competitionToday && nextCompetition && (
+      {golfEnabled && competitionToday && nextCompetition && (
         <section className="mb-5 overflow-hidden rounded-2xl border border-gold/25 bg-dark text-white shadow-sm">
           <div className="grid gap-5 p-5 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
@@ -248,16 +258,27 @@ export default function Dashboard() {
       )}
 
       <section className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Kpi label="Avg Score" value={formatAverage(golfStats.avgScore)} sub={`${rounds.length} rounds`} tone="golf" />
-        <Kpi label="FIR" value={formatPercent(golfStats.avgFairwayPercent)} sub="driving shape" tone="golf" />
-        <Kpi label="GIR" value={formatPercent(golfStats.avgGirPercent)} sub="approach control" tone="pulse" />
-        <Kpi label="Avg Drive" value={formatDistance(golfStats.avgDrivingDistance)} sub="distance tracked" tone="golf" />
-        <Kpi label="Up & Down" value={formatPercent(shortGameStats.upAndDownPercent)} sub={`${shortGameStats.upAndDowns}/${shortGameStats.chipChances} chip chances`} tone="golf" />
-        <Kpi label="Sand Save" value={formatPercent(shortGameStats.sandSavePercent)} sub={`${shortGameStats.sandSaves}/${shortGameStats.sandSaveChances} bunker chances`} tone="golf" />
+        {golfEnabled ? (
+          <>
+            <Kpi label="Avg Score" value={formatAverage(golfStats.avgScore)} sub={`${rounds.length} rounds`} tone="golf" />
+            <Kpi label="FIR" value={formatPercent(golfStats.avgFairwayPercent)} sub="driving shape" tone="golf" />
+            <Kpi label="GIR" value={formatPercent(golfStats.avgGirPercent)} sub="approach control" tone="pulse" />
+            <Kpi label="Avg Drive" value={formatDistance(golfStats.avgDrivingDistance)} sub="distance tracked" tone="golf" />
+            <Kpi label="Up & Down" value={formatPercent(shortGameStats.upAndDownPercent)} sub={`${shortGameStats.upAndDowns}/${shortGameStats.chipChances} chip chances`} tone="golf" />
+            <Kpi label="Sand Save" value={formatPercent(shortGameStats.sandSavePercent)} sub={`${shortGameStats.sandSaves}/${shortGameStats.sandSaveChances} bunker chances`} tone="golf" />
+          </>
+        ) : (
+          <>
+            <Kpi label="Training Sessions" value={workouts.length} sub={`${workoutsThisWeek} this week`} tone="lab" />
+            <Kpi label="Total Volume" value={Math.round(trainingVolume)} sub="structured load tracked" tone="pulse" />
+            <Kpi label="Hydration" value={todayWellness?.water_litres ? `${todayWellness.water_litres} L` : "-"} sub={`target ${wellnessTargets.waterLitres} L`} tone="pulse" />
+            <Kpi label="Calories" value={todayWellness?.calories ?? "-"} sub={`target ${wellnessTargets.calories}`} tone="lab" />
+          </>
+        )}
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[1fr_1fr_0.8fr]">
-        <Surface>
+        {golfEnabled && <Surface>
           <SectionTitle eyebrow="Golf Form" title="Scoring profile" />
           {rounds.length ? (
             <div className="space-y-4">
@@ -288,7 +309,7 @@ export default function Dashboard() {
               action={<Button variant="golf" onClick={() => navigate("/golf/submit")}>Submit Round</Button>}
             />
           )}
-        </Surface>
+        </Surface>}
 
         <Surface>
           <SectionTitle eyebrow="Performance Lab" title="Training load" />
@@ -336,14 +357,24 @@ export default function Dashboard() {
           <p className="leading-relaxed text-white/68">
             {nextCompetition
               ? `Competition prep: keep the week simple and focus on ${nextCompetition.focus_area || "course strategy"} before ${nextCompetition.name}.`
+              : trainingOnly && workouts.length
+              ? "Keep building the performance profile: log today's training, wellness and nutrition, then open AthletiAI for the deeper read."
               : rounds.length || workouts.length
               ? "Keep the home screen tidy: log today's golf, training or wellness, then open AthletiAI for the deeper read."
               : "Start with one round, one training session, or one wellness log so the dashboard has something to show."}
           </p>
           <div className="mt-6 grid gap-2">
-            <Button variant="pulse" onClick={() => navigate("/golf/practice")} className="w-full">Log Practice</Button>
+            {golfEnabled ? (
+              <Button variant="pulse" onClick={() => navigate("/golf/practice")} className="w-full">Log Practice</Button>
+            ) : (
+              <Button variant="pulse" onClick={() => navigate("/wellness")} className="w-full">Log Wellness</Button>
+            )}
             <Button variant="golf" onClick={() => navigate("/athletiai")} className="w-full">Open AthletiAI</Button>
-            <Button variant="secondary" onClick={() => navigate("/analytics")} className="w-full border-white/15 bg-white/10 text-white hover:bg-white/15">Open Analytics</Button>
+            {golfEnabled ? (
+              <Button variant="secondary" onClick={() => navigate("/analytics")} className="w-full border-white/15 bg-white/10 text-white hover:bg-white/15">Open Analytics</Button>
+            ) : (
+              <Button variant="secondary" onClick={() => navigate("/gym/history")} className="w-full border-white/15 bg-white/10 text-white hover:bg-white/15">Training Logbook</Button>
+            )}
           </div>
         </Surface>
       </section>
@@ -372,12 +403,13 @@ export default function Dashboard() {
         <Surface>
           <SectionTitle eyebrow="Fast actions" title="Launchpad" />
           <div className="grid gap-3 sm:grid-cols-2">
-            <Action href="/golf/submit" icon={Flag} title="Round" text="Scorecard entry" tone="golf" />
+            {golfEnabled && <Action href="/golf/submit" icon={Flag} title="Round" text="Scorecard entry" tone="golf" />}
             <Action href="/workouts/submit" icon={Dumbbell} title="Training" text="Performance console" tone="pulse" />
             <Action href="/workouts" icon={PlusCircle} title="Board" text="Plan the week" tone="lab" />
             <Action href="/wellness" icon={Droplets} title="Wellness" text="Hydration and recovery" tone="pulse" />
             <Action href="/social" icon={Users} title="Social" text="Live check-ins" tone="pulse" />
-            <Action href="/analytics" icon={ArrowUpRight} title="Report" text="Review trends" tone="dark" />
+            <Action href="/athletiai" icon={Brain} title="AthletiAI" text={trainingOnly ? "Training read" : "Golf x training read"} tone="dark" />
+            {golfEnabled && <Action href="/analytics" icon={ArrowUpRight} title="Report" text="Review trends" tone="dark" />}
           </div>
         </Surface>
       </section>
@@ -541,7 +573,7 @@ function Action({
       : "bg-dark text-white";
 
   return (
-    <a href={href} className="group rounded-xl border border-line bg-white p-4 transition hover:border-steel/25">
+    <Link href={href} className="group rounded-xl border border-line bg-white p-4 transition hover:border-steel/25">
       <div className="mb-4 flex items-center justify-between">
         <span className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${toneClass}`}>
           <Icon className="h-5 w-5" />
@@ -550,7 +582,7 @@ function Action({
       </div>
       <h3 className="font-semibold text-dark">{title}</h3>
       <p className="mt-1 text-sm text-muted">{text}</p>
-    </a>
+    </Link>
   );
 }
 

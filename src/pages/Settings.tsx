@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { Copy, ShieldCheck } from "lucide-react";
+import { Copy, Mail, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { sportModeLabels, type SportMode } from "@/lib/sportMode";
 import { applyTheme, type AppTheme } from "@/lib/theme";
 import type { OnboardingData } from "@/lib/types";
 
@@ -30,6 +31,7 @@ export default function Settings() {
     main_goal: "",
     distance_unit: "yards",
     weight_unit: "kg",
+    primary_sport: "both" as SportMode,
     theme: "light",
     notifications_enabled: false,
     default_live_visibility: "friends" as "friends" | "private",
@@ -70,6 +72,7 @@ export default function Settings() {
         main_goal: data.main_goal || "",
         distance_unit: data.distance_unit || "yards",
         weight_unit: data.weight_unit || "kg",
+        primary_sport: existingOnboarding?.mainSport || "both",
         theme,
         notifications_enabled: data.notifications_enabled ?? false,
         default_live_visibility: existingOnboarding?.privacy?.defaultLiveVisibility || "friends",
@@ -104,6 +107,7 @@ export default function Settings() {
       notifications_enabled: profile.notifications_enabled,
       onboarding_data: {
         ...(onboardingData || {}),
+        mainSport: profile.primary_sport,
         privacy: {
           ...((onboardingData as OnboardingData | null)?.privacy || {}),
           defaultLiveVisibility: profile.default_live_visibility,
@@ -273,6 +277,34 @@ export default function Settings() {
             </div>
           </div>
 
+          {/* SPORT MODE */}
+          <div className="rounded-xl border border-line bg-panel p-6 shadow-sm">
+            <h2 className="mb-2 text-2xl font-semibold text-dark">Sport mode</h2>
+            <p className="mb-6 text-muted">
+              Choose whether AthletiGolf should behave like a golf platform, fitness tracking platform, or full combined setup.
+            </p>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              {(Object.entries(sportModeLabels) as [SportMode, string][]).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => set("primary_sport", value)}
+                  className={`rounded-xl border p-4 text-left transition ${
+                    profile.primary_sport === value
+                      ? "border-pulse bg-pulse/10 text-dark"
+                      : "border-line bg-white/70 text-muted hover:border-pulse/40 hover:text-dark"
+                  }`}
+                >
+                  <span className="block font-semibold">{label}</span>
+                  <span className="mt-1 block text-sm leading-relaxed">
+                    {getSportModeDetail(value)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* THEME */}
           <div className="rounded-xl border border-line bg-panel p-6 shadow-sm">
             <h2 className="mb-2 text-2xl font-semibold text-dark">Theme</h2>
@@ -416,6 +448,33 @@ export default function Settings() {
             </button>
           </div>
 
+          {/* ALPHA FEEDBACK */}
+          <div className="rounded-xl border border-pulse/20 bg-pulse/8 p-6 shadow-sm">
+            <div className="mb-4 flex items-start gap-3">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-pulse/10 text-pulse">
+                <Mail className="h-5 w-5" />
+              </span>
+              <div>
+                <h2 className="text-2xl font-semibold text-dark">Alpha feedback</h2>
+                <p className="mt-2 text-muted">
+                  Found a bug, confusing screen, or missing feature? Send it while it is fresh.
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+              <p className="text-sm leading-relaxed text-muted">
+                Ask testers to include what they were trying to do, what happened, and whether they were on mobile or laptop.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate("/contact")}
+                className="rounded-lg bg-pulse px-5 py-3 text-sm font-semibold text-white transition hover:bg-pulse/90"
+              >
+                Send Feedback
+              </button>
+            </div>
+          </div>
+
         </section>
 
         {/* ACCOUNT CONTROLS */}
@@ -473,4 +532,11 @@ function PrivacyNote({ title, detail }: { title: string; detail: string }) {
       <p className="mt-2 text-sm leading-relaxed text-muted">{detail}</p>
     </div>
   );
+}
+
+function getSportModeDetail(mode: SportMode) {
+  if (mode === "training") return "Hide golf clutter and focus the app around fitness tracking, wellness, nutrition and social performance.";
+  if (mode === "golf") return "Prioritise golf tracking, practice, competitions and golf-specific reports.";
+  if (mode === "other") return "Use AthletiGolf as a general athletic performance platform while future sport modules grow.";
+  return "Use the full golf, fitness tracking, wellness and AthletiAI relationship view.";
 }

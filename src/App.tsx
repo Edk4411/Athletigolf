@@ -31,6 +31,7 @@ import Memberships from "./pages/Memberships";
 import Settings from "./pages/Settings";
 import Contact from "./pages/Contact";
 import Follow from "./pages/Follow";
+import AdminFeedback from "./pages/AdminFeedback";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -196,7 +197,7 @@ function AppShell() {
 
         <Route path="/setup/gym">
           <ProtectedRoute>
-            <GymQuiz onComplete={() => window.location.href = "/dashboard"} />
+            <GymQuiz onComplete={() => navigate("/dashboard")} />
           </ProtectedRoute>
         </Route>
 
@@ -220,7 +221,7 @@ function AppShell() {
 
         <Route path="/setup/golf">
           <ProtectedRoute>
-            <GolfQuiz onComplete={() => window.location.href = "/dashboard"} />
+            <GolfQuiz onComplete={() => navigate("/dashboard")} />
           </ProtectedRoute>
         </Route>
 
@@ -240,6 +241,12 @@ function AppShell() {
 <Route path="/contact">
   <ProtectedRoute>
     <Contact />
+  </ProtectedRoute>
+</Route>
+
+<Route path="/admin/feedback">
+  <ProtectedRoute>
+    <AdminFeedback />
   </ProtectedRoute>
 </Route>
 

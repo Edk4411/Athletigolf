@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import { Activity, Dumbbell, Plus, Trash2 } from "lucide-react";
 import { Button, EmptyState, FieldLabel, PageHeader, StatusPill, Surface, TextInput } from "@/components/ui";
 import { findExercise, inferExerciseMuscle } from "@/lib/exerciseLibrary";
@@ -20,6 +21,7 @@ type WorkoutOption = {
 };
 
 export default function SubmitSession() {
+  const [, navigate] = useLocation();
   const [workoutOptions, setWorkoutOptions] = useState<WorkoutOption[]>([]);
   const [loadingSplit, setLoadingSplit] = useState(true);
   const [selectedDay, setSelectedDay] = useState("");
@@ -169,7 +171,7 @@ export default function SubmitSession() {
               <EmptyState
                 title="No saved split yet"
                 description="Save a Training Board split first, then the planned days will appear here for fast workout logging."
-                action={<Button type="button" variant="pulse" onClick={() => window.location.href = "/workouts"}>Open Training Board</Button>}
+                action={<Button type="button" variant="pulse" onClick={() => navigate("/workouts")}>Open Training Board</Button>}
               />
             )}
           </div>
@@ -211,21 +213,21 @@ export default function SubmitSession() {
                 {exercises.map((exercise, index) => (
                   <div
                     key={index}
-                    className="grid gap-3 rounded-xl border border-line bg-white p-3 lg:grid-cols-[1.3fr_0.7fr_0.55fr_0.55fr_1fr_44px] lg:items-end"
+                    className="grid grid-cols-2 gap-3 rounded-xl border border-line bg-white p-3 lg:grid-cols-[1.3fr_0.7fr_0.55fr_0.55fr_1fr_44px] lg:items-end"
                   >
-                    <LogField label="Exercise" value={exercise.name} onChange={(value) => updateExercise(index, "name", value)} placeholder="Exercise name" />
+                    <LogField className="col-span-2 lg:col-span-1" label="Exercise" value={exercise.name} onChange={(value) => updateExercise(index, "name", value)} placeholder="Exercise name" />
                     {findExercise(exercise.name) && (
-                      <p className="text-xs font-medium text-muted lg:hidden">
+                      <p className="col-span-2 text-xs font-medium text-muted lg:hidden">
                         {findExercise(exercise.name)?.primaryMuscle} · {findExercise(exercise.name)?.equipment}
                       </p>
                     )}
                     <LogField label={`Load (${weightUnit})`} value={exercise.weight} onChange={(value) => updateExercise(index, "weight", value)} placeholder="75" />
                     <LogField label="Sets" value={exercise.sets} onChange={(value) => updateExercise(index, "sets", value)} placeholder="3" />
                     <LogField label="Reps" value={exercise.reps} onChange={(value) => updateExercise(index, "reps", value)} placeholder="8" />
-                    <LogField label="Notes" value={exercise.notes} onChange={(value) => updateExercise(index, "notes", value)} placeholder="RPE, tempo..." />
+                    <LogField className="col-span-2 lg:col-span-1" label="Notes" value={exercise.notes} onChange={(value) => updateExercise(index, "notes", value)} placeholder="RPE, tempo..." />
                     <button
                       onClick={() => removeExercise(index)}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-line text-muted transition hover:border-danger hover:text-danger"
+                      className="col-span-2 inline-flex h-10 w-full items-center justify-center rounded-lg border border-line text-muted transition hover:border-danger hover:text-danger lg:col-span-1 lg:w-10"
                       aria-label="Remove exercise"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -310,14 +312,16 @@ function LogField({
   value,
   onChange,
   placeholder,
+  className = "",
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
+  className?: string;
 }) {
   return (
-    <div>
+    <div className={className}>
       <FieldLabel>{label}</FieldLabel>
       <TextInput value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
     </div>

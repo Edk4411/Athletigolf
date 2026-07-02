@@ -141,6 +141,51 @@ export function EmptyState({
   );
 }
 
+export function ConfirmDialog({
+  open,
+  title,
+  description,
+  confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
+  tone = "danger",
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean;
+  title: string;
+  description: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  tone?: "danger" | "primary";
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/55"
+        onClick={onCancel}
+        aria-label={cancelLabel}
+      />
+      <div className="relative z-10 w-full max-w-md rounded-xl border border-line bg-panel p-6 shadow-2xl">
+        <h2 className="text-2xl font-semibold text-dark">{title}</h2>
+        <p className="mt-3 text-sm leading-relaxed text-muted">{description}</p>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <Button type="button" variant="secondary" onClick={onCancel}>
+            {cancelLabel}
+          </Button>
+          <Button type="button" variant={tone === "danger" ? "danger" : "primary"} onClick={onConfirm}>
+            {confirmLabel}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function FieldLabel({ children }: { children: ReactNode }) {
   return <label className="mb-2 block text-sm font-medium text-muted">{children}</label>;
 }

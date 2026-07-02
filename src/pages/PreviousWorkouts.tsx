@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Edit3, Plus, Trash2, X } from "lucide-react";
-import { Button, FieldLabel, PageHeader, StatCard, Surface, TextInput } from "@/components/ui";
+import { Button, ConfirmDialog, FieldLabel, PageHeader, StatCard, Surface, TextInput } from "@/components/ui";
 import { findExercise, inferExerciseMuscle } from "@/lib/exerciseLibrary";
 import { supabase } from "@/lib/supabase";
 import type { ExerciseLog, Workout } from "@/lib/types";
@@ -19,6 +19,7 @@ export default function PreviousWorkouts() {
   const [loading, setLoading] = useState(true);
   const [selectedSplit, setSelectedSplit] = useState("All");
   const [editingWorkout, setEditingWorkout] = useState<Workout | null>(null);
+  const [pendingDeleteWorkout, setPendingDeleteWorkout] = useState<Workout | null>(null);
   const [editName, setEditName] = useState("");
   const [editDate, setEditDate] = useState("");
   const [editExercises, setEditExercises] = useState<ExerciseLog[]>([]);
@@ -88,13 +89,10 @@ export default function PreviousWorkouts() {
     await loadWorkouts();
   };
 
-  const deleteWorkout = async (workout: Workout) => {
-    const confirmed = window.confirm(
-      `Delete ${workout.workout_name || "this workout"}? This cannot be undone.`
-    );
-    if (!confirmed) return;
+  const deleteWorkout = async () => {
+    if (!pendingDeleteWorkout) return;
 
-    const { error } = await supabase.from("workouts").delete().eq("id", workout.id);
+    const { error } = await supabase.from("workouts").delete().eq("id", pendingDeleteWorkout.id);
 
     if (error) {
       setError(error.message);
@@ -102,7 +100,8 @@ export default function PreviousWorkouts() {
     }
 
     setEditingWorkout(null);
-    setWorkouts((prev) => prev.filter((item) => item.id !== workout.id));
+    setPendingDeleteWorkout(null);
+    setWorkouts((prev) => prev.filter((item) => item.id !== pendingDeleteWorkout.id));
   };
 
   const splitOptions = [
@@ -139,11 +138,12 @@ export default function PreviousWorkouts() {
             tone="text-lab"
           />
 
-          <Link href="/workouts/submit">
-            <a className="inline-flex items-center justify-center gap-2 rounded-lg bg-pulse px-5 py-3 font-semibold text-dark shadow-sm transition hover:-translate-y-0.5 hover:bg-pulse/85">
-              <Plus className="mr-2 h-4 w-4" />
-              Log Session
-            </a>
+          <Link
+            href="/workouts/submit"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-pulse px-5 py-3 font-semibold text-dark shadow-sm transition hover:-translate-y-0.5 hover:bg-pulse/85"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Log Session
           </Link>
         </div>
 
@@ -181,10 +181,11 @@ export default function PreviousWorkouts() {
             <p className="mb-5 text-muted">
               Log a training session and it'll appear here.
             </p>
-            <Link href="/workouts/submit">
-              <a className="inline-flex items-center justify-center rounded-lg bg-pulse px-5 py-3 font-semibold text-dark transition hover:bg-pulse/85">
-                Log First Session
-              </a>
+            <Link
+              href="/workouts/submit"
+              className="inline-flex items-center justify-center rounded-lg bg-pulse px-5 py-3 font-semibold text-dark transition hover:bg-pulse/85"
+            >
+              Log First Session
             </Link>
           </Surface>
         ) : (
@@ -306,7 +307,7 @@ export default function PreviousWorkouts() {
             </Button>
 
             <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
-              <Button variant="danger" onClick={() => deleteWorkout(editingWorkout)}>
+              <Button variant="danger" onClick={() => setPendingDeleteWorkout(editingWorkout)}>
                 <Trash2 className="h-4 w-4" />
                 Delete Workout
               </Button>
@@ -326,6 +327,14 @@ export default function PreviousWorkouts() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={!!pendingDeleteWorkout}
+        title="Delete training session?"
+        description={`This will permanently delete ${pendingDeleteWorkout?.workout_name || "this workout"}. This cannot be undone.`}
+        confirmLabel="Delete Workout"
+        onConfirm={deleteWorkout}
+        onCancel={() => setPendingDeleteWorkout(null)}
+      />
     </main>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "wouter";
 import { CalendarDays, CheckCircle2, Edit3, Plus, Trophy, X } from "lucide-react";
-import { Button, EmptyState, FieldLabel, PageHeader, SelectInput, Surface, TextArea, TextInput } from "@/components/ui";
+import { Button, ConfirmDialog, EmptyState, FieldLabel, PageHeader, SelectInput, Surface, TextArea, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { Competition } from "@/lib/types";
 
@@ -16,12 +17,14 @@ const blankForm = {
 };
 
 export default function Competitions() {
+  const [, navigate] = useLocation();
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState(blankForm);
   const [editingCompetition, setEditingCompetition] = useState<Competition | null>(null);
+  const [confirmWithdrawOpen, setConfirmWithdrawOpen] = useState(false);
   const [editForm, setEditForm] = useState(blankForm);
 
   useEffect(() => {
@@ -121,14 +124,14 @@ export default function Competitions() {
   async function withdrawCompetition() {
     if (!editingCompetition) return;
 
-    const confirmed = window.confirm(`Withdraw from ${editingCompetition.name}? It will be moved out of upcoming competitions.`);
-    if (!confirmed) return;
-
     setSaving(true);
     setError("");
     const saved = await updateCompetition(editingCompetition.id, { status: "cancelled" });
     setSaving(false);
-    if (saved) setEditingCompetition(null);
+    if (saved) {
+      setConfirmWithdrawOpen(false);
+      setEditingCompetition(null);
+    }
   }
 
   const upcoming = useMemo(
@@ -137,6 +140,10 @@ export default function Competitions() {
   );
   const completed = useMemo(
     () => competitions.filter((competition) => competition.status === "completed"),
+    [competitions]
+  );
+  const cancelled = useMemo(
+    () => competitions.filter((competition) => competition.status === "cancelled"),
     [competitions]
   );
   const nextCompetition = upcoming[0] || null;
@@ -227,11 +234,14 @@ export default function Competitions() {
             </div>
           </div>
           {nextCompetition && (
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              <DarkMetric label="Date" value={formatDate(nextCompetition.competition_date)} />
-              <DarkMetric label="Target" value={nextCompetition.target_score || "-"} />
-              <DarkMetric label="Focus" value={nextCompetition.focus_area || "Auto"} />
-            </div>
+            <>
+              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                <DarkMetric label="Date" value={formatDate(nextCompetition.competition_date)} />
+                <DarkMetric label="Target" value={nextCompetition.target_score || "-"} />
+                <DarkMetric label="Focus" value={nextCompetition.focus_area || "Auto"} />
+              </div>
+              <PrepChecklist competition={nextCompetition} />
+            </>
           )}
         </Surface>
       </section>
@@ -252,13 +262,13 @@ export default function Competitions() {
               </div>
             </div>
             <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
-              <Button variant="gold" onClick={() => (window.location.href = "/golf/submit")}>
+              <Button variant="gold" onClick={() => navigate("/golf/submit")}>
                 Start Scorecard
               </Button>
               <Button variant="secondary" onClick={() => openEditor(todayCompetition)} className="border-white/15 bg-white/10 text-white hover:bg-white/15">
                 Edit Plan
               </Button>
-              <Button variant="secondary" onClick={() => (window.location.href = "/golf/practice-plan")} className="border-white/15 bg-white/10 text-white hover:bg-white/15">
+              <Button variant="secondary" onClick={() => navigate("/golf/practice-plan")} className="border-white/15 bg-white/10 text-white hover:bg-white/15">
                 Warm-up Plan
               </Button>
             </div>
@@ -309,6 +319,32 @@ export default function Competitions() {
           )}
         </Surface>
       </section>
+
+      {cancelled.length > 0 && (
+        <section className="mt-5">
+          <Surface>
+            <div className="mb-5 flex items-center gap-3">
+              <X className="h-5 w-5 text-muted" />
+              <h2 className="text-xl font-semibold text-dark">Withdrawn competitions</h2>
+            </div>
+            <div className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white/70">
+              {cancelled.map((competition) => (
+                <div key={competition.id} className="grid gap-3 p-4 md:grid-cols-[1fr_auto] md:items-center">
+                  <div>
+                    <h3 className="font-semibold text-dark">{competition.name}</h3>
+                    <p className="mt-1 text-sm text-muted">
+                      {competition.course || "Course TBC"} - {formatDate(competition.competition_date)}
+                    </p>
+                  </div>
+                  <Button type="button" variant="secondary" onClick={() => updateCompetition(competition.id, { status: "upcoming" })}>
+                    Restore
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </Surface>
+        </section>
+      )}
 
       {editingCompetition && (
         <div className="fixed inset-0 z-50 flex justify-end">
@@ -369,7 +405,7 @@ export default function Competitions() {
               </div>
 
               <div className="mt-4 grid gap-3 border-t border-line pt-5 sm:grid-cols-[1fr_auto_auto]">
-                <Button type="button" variant="danger" onClick={withdrawCompetition} disabled={saving}>
+                <Button type="button" variant="danger" onClick={() => setConfirmWithdrawOpen(true)} disabled={saving}>
                   Withdraw
                 </Button>
                 <Button type="button" variant="secondary" onClick={() => setEditingCompetition(null)} disabled={saving}>
@@ -383,6 +419,14 @@ export default function Competitions() {
           </aside>
         </div>
       )}
+      <ConfirmDialog
+        open={confirmWithdrawOpen}
+        title="Withdraw from competition?"
+        description={`This will move ${editingCompetition?.name || "this competition"} out of upcoming competitions. You can restore it later from the withdrawn section.`}
+        confirmLabel="Withdraw"
+        onConfirm={withdrawCompetition}
+        onCancel={() => setConfirmWithdrawOpen(false)}
+      />
     </main>
   );
 }
@@ -398,7 +442,7 @@ function CompetitionRow({
 }) {
   const [score, setScore] = useState("");
   return (
-    <div className="grid gap-3 p-4 lg:grid-cols-[1fr_120px_120px_260px] lg:items-center">
+    <div className="grid gap-3 p-4 lg:grid-cols-[1fr_120px_120px_280px] lg:items-center">
       <div>
         <h3 className="font-semibold text-dark">{competition.name}</h3>
         <p className="mt-1 text-sm text-muted">
@@ -409,7 +453,7 @@ function CompetitionRow({
       <p className={`rounded-full px-3 py-1 text-center text-sm font-semibold ${getPriorityClass(competition.priority)}`}>
         {competition.priority}
       </p>
-      <div className="flex gap-2">
+      <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
         <TextInput type="number" value={score} onChange={(event) => setScore(event.target.value)} placeholder="Score" />
         <Button type="button" variant="secondary" onClick={onEdit}>
           <Edit3 className="h-4 w-4" />
@@ -418,6 +462,29 @@ function CompetitionRow({
         <Button type="button" variant="secondary" onClick={() => onComplete(score ? Number(score) : null)}>
           Done
         </Button>
+      </div>
+    </div>
+  );
+}
+
+function PrepChecklist({ competition }: { competition: Competition }) {
+  const focus = competition.focus_area || "Course strategy";
+  const items = [
+    `Practice focus: ${focus}`,
+    competition.target_score ? `Target score: ${competition.target_score}` : "Set a realistic scoring target",
+    competition.start_time ? `Start time: ${competition.start_time}` : "Confirm tee time",
+  ];
+
+  return (
+    <div className="mt-5 rounded-xl border border-white/10 bg-white/8 p-4">
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/40">Prep checklist</p>
+      <div className="mt-3 grid gap-2">
+        {items.map((item) => (
+          <div key={item} className="flex items-center gap-2 text-sm text-white/72">
+            <CheckCircle2 className="h-4 w-4 text-gold" />
+            <span>{item}</span>
+          </div>
+        ))}
       </div>
     </div>
   );

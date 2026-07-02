@@ -255,3 +255,28 @@ export type LiveActivity = {
   created_at: string;
   updated_at?: string | null;
 };
+
+export type FeedbackReport = {
+  id: string;
+  user_id: string | null;
+  category: "feedback" | "bug" | "feature" | "confusing" | "other";
+  title: string;
+  message: string;
+  page_url: string | null;
+  device_context: string | null;
+  status: "new" | "reviewing" | "resolved" | "closed";
+  created_at: string;
+  updated_at?: string | null;
+};
+
+export type AppNotification = {
+  id: string;
+  recipient_user_id: string;
+  actor_user_id: string | null;
+  type: "alpha_feedback" | "friend_live_activity" | "system";
+  title: string;
+  body: string | null;
+  link_path: string | null;
+  read_at: string | null;
+  created_at: string;
+};
