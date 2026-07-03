@@ -30,10 +30,20 @@ Deno.serve(async (req) => {
 
   const admin = createClient(supabaseUrl, serviceRoleKey);
   const userId = userData.user.id;
+  const { data: stravaConnection } = await admin
+    .from("strava_connections")
+    .select("refresh_token")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (stravaConnection?.refresh_token) {
+    await revokeStravaToken(stravaConnection.refresh_token);
+  }
 
   await Promise.all([
     admin.from("notifications").delete().or(`recipient_user_id.eq.${userId},actor_user_id.eq.${userId}`),
     admin.from("friend_connections").delete().or(`requester_id.eq.${userId},receiver_id.eq.${userId}`),
+    admin.from("strava_connections").delete().eq("user_id", userId),
     admin.from("live_activities").delete().eq("user_id", userId),
     admin.from("cardio_sessions").delete().eq("user_id", userId),
     admin.from("nutrition_entries").delete().eq("user_id", userId),
@@ -63,5 +73,20 @@ function json(body: unknown, status = 200) {
       ...corsHeaders,
       "Content-Type": "application/json",
     },
+  });
+}
+
+async function revokeStravaToken(token: string) {
+  const clientId = Deno.env.get("STRAVA_CLIENT_ID");
+  const clientSecret = Deno.env.get("STRAVA_CLIENT_SECRET");
+  if (!clientId || !clientSecret) return;
+
+  await fetch("https://www.strava.com/oauth/revoke", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({ token, token_type_hint: "refresh_token" }),
   });
 }

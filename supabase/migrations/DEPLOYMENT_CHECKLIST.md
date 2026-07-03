@@ -10,7 +10,8 @@ Apply all pending files in `supabase/migrations` in timestamp order. The recent 
 - Wellness nutrition: source IDs, per-100g macros, serving grams, saturated fat and sugars on nutrition entries and saved foods.
 - Feedback and notifications: `feedback_reports` and `notifications` for tester reports, admin review, and data requests.
 - Feedback bin: `feedback_reports.deleted_at` and the admin delete policy for permanent deletion.
-- Cardio: `cardio_sessions` for manual run and walk logging, with Strava rows kept private if imported later.
+- Cardio: `cardio_sessions` for manual run and walk logging, with Strava rows kept private when imported.
+- Strava: `strava_connections` for server-side OAuth tokens and `get_strava_connection_status()` for safe client status.
 
 If a migration has already been applied in Supabase, do not paste a duplicated copy into the SQL editor. Confirm the objects exist instead.
 
@@ -22,6 +23,7 @@ Check that these exist before beta testing:
 - `nutrition_entries.source`, `external_id`, `serving_grams`, `calories_per_100g`, `protein_per_100g`, `carbs_per_100g`, `fats_per_100g`, `saturated_fats_per_100g`, `sugars_per_100g`.
 - `saved_foods.source`, `external_id`, `serving_grams`, `calories_per_100g`, `protein_per_100g`, `carbs_per_100g`, `fats_per_100g`, `saturated_fats_per_100g`, `sugars_per_100g`.
 - `cardio_sessions`.
+- `strava_connections`.
 - `feedback_reports`.
 - `feedback_reports.deleted_at`.
 - `notifications`.
@@ -31,10 +33,16 @@ Check that these exist before beta testing:
 
 - RPC: `search_profiles_for_friend`.
 - RPC: `get_friend_connections_with_profiles`.
+- RPC: `get_strava_connection_status`.
 - Edge Function: `food-search`.
 - Edge Function: `delete-account`.
+- Edge Function: `strava-oauth`.
+- Edge Function: `strava-import`.
+- Edge Function: `strava-disconnect`.
 - Environment variable for `food-search`: `USDA_API_KEY`.
 - Environment variables for `delete-account`: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
+- Environment variables for Strava functions: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`.
+- Frontend environment variable: `VITE_STRAVA_CLIENT_ID`.
 
 ## Smoke test after deploy
 
@@ -45,6 +53,8 @@ Check that these exist before beta testing:
 - Request data export from Settings.
 - Close a test account from Settings only after confirming you are using a disposable account.
 - Add a manual cardio run or walk.
+- Connect a disposable Strava account from Cardio and import recent runs/walks.
+- Disconnect Strava and confirm the connection status disappears.
 - Open Dashboard and confirm the Today checklist, cardio tile and next action update.
 - As admin, move a feedback note to resolved/closed, move a note to the bin, restore it, and permanently delete a throwaway note.
 

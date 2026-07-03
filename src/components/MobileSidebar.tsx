@@ -392,7 +392,25 @@ function NotificationBell({ compact = false }: { compact?: boolean }) {
   useEffect(() => {
     let cancelled = false;
 
-    async function initialiseNotifications() {
+    refreshNotificationSetting();
+    const timer = window.setInterval(() => {
+      if (notificationsEnabled) loadNotifications();
+    }, 30000);
+    const onSettingChanged = (event: Event) => {
+      const enabled = (event as CustomEvent<{ enabled?: boolean }>).detail?.enabled === true;
+      setNotificationsEnabled(enabled);
+      if (enabled) loadNotifications(true);
+      else setNotifications([]);
+    };
+    window.addEventListener("athletigolf:notification-setting-changed", onSettingChanged);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener("athletigolf:notification-setting-changed", onSettingChanged);
+    };
+
+    async function refreshNotificationSetting() {
       const { data: profile } = await supabase
         .from("profiles")
         .select("notifications_enabled")
@@ -400,22 +418,13 @@ function NotificationBell({ compact = false }: { compact?: boolean }) {
       const enabled = profile?.notifications_enabled === true;
       if (cancelled) return;
       setNotificationsEnabled(enabled);
-      if (enabled) await loadNotifications();
+      if (enabled) await loadNotifications(true);
       else setNotifications([]);
     }
-
-    initialiseNotifications();
-    const timer = window.setInterval(() => {
-      if (notificationsEnabled) loadNotifications();
-    }, 30000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
   }, [notificationsEnabled]);
 
-  async function loadNotifications() {
-    if (!notificationsEnabled) {
+  async function loadNotifications(forceEnabled = false) {
+    if (!forceEnabled && !notificationsEnabled) {
       setNotifications([]);
       return;
     }
@@ -425,6 +434,19 @@ function NotificationBell({ compact = false }: { compact?: boolean }) {
       .order("created_at", { ascending: false })
       .limit(8);
     setNotifications((data as AppNotification[]) || []);
+  }
+
+  async function refreshAndToggleOpen() {
+    const nextOpen = !open;
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("notifications_enabled")
+      .maybeSingle();
+    const enabled = profile?.notifications_enabled === true;
+    setNotificationsEnabled(enabled);
+    if (enabled) await loadNotifications(true);
+    else setNotifications([]);
+    setOpen(nextOpen);
   }
 
   async function openNotification(notification: AppNotification) {
@@ -455,7 +477,7 @@ function NotificationBell({ compact = false }: { compact?: boolean }) {
     <div className="relative">
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={refreshAndToggleOpen}
         className={`relative inline-flex items-center justify-center rounded-lg border border-line bg-panel text-dark shadow-sm transition hover:border-pulse/35 hover:text-pulse ${
           compact ? "h-11 w-11" : "h-11 w-11"
         }`}

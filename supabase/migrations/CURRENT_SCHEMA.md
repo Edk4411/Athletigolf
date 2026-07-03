@@ -457,6 +457,30 @@ Security:
 - Authenticated users can insert and read their own feedback.
 - Admin users can read, update, soft-delete, restore, and permanently delete feedback.
 
+### `strava_connections`
+
+Purpose: server-side OAuth tokens for a user's connected Strava account.
+
+Required columns:
+
+- `user_id uuid primary key references auth.users(id) on delete cascade`
+- `athlete_id bigint`
+- `athlete_name text`
+- `scope text`
+- `access_token text`
+- `refresh_token text`
+- `expires_at integer`
+- `last_imported_at timestamptz`
+- `created_at timestamptz`
+- `updated_at timestamptz`
+
+Security:
+
+- Row Level Security enabled.
+- No direct browser select policy should expose token columns.
+- Client status is read through `get_strava_connection_status()`.
+- Token exchange, refresh, import and disconnect are handled by Edge Functions with service-role access.
+
 ## Required Functions
 
 ### `search_profiles_for_friend(search_query text)`
@@ -473,6 +497,11 @@ Returns limited username search results for authenticated users:
 
 Returns the current user's friend connections with the other user's limited
 profile display fields for the Social page.
+
+### `get_strava_connection_status()`
+
+Returns the current user's Strava connection metadata without access or refresh
+tokens.
 
 ## Bolt Answer
 

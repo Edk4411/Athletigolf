@@ -160,6 +160,17 @@ export type CardioSession = {
   updated_at?: string | null;
 };
 
+export type StravaConnection = {
+  user_id: string;
+  athlete_id: number;
+  athlete_name: string | null;
+  scope: string;
+  expires_at: number;
+  last_imported_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type PracticeSession = {
   id: string;
   user_id: string;

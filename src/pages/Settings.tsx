@@ -145,6 +145,9 @@ export default function Settings() {
       setSaveState("error");
       setErrorMessage(error.message.includes("username") ? "That username is taken. Try another one." : error.message || "Could not save settings. Please try again.");
     } else {
+      window.dispatchEvent(new CustomEvent("athletigolf:notification-setting-changed", {
+        detail: { enabled: profile.notifications_enabled },
+      }));
       setSaveState("success");
       setTimeout(() => setSaveState("idle"), 3000);
     }
@@ -435,13 +438,17 @@ export default function Settings() {
                   onChange={(e) => set("notifications_enabled", e.target.checked)}
                 />
                 <div
-                  className={`h-7 w-12 rounded-full border transition-colors duration-200 ${
-                    profile.notifications_enabled ? "border-pulse bg-pulse" : "border-steel/45 bg-steel/20"
+                  className={`h-8 w-14 rounded-full border-2 shadow-inner transition-colors duration-200 ${
+                    profile.notifications_enabled
+                      ? "border-pulse bg-pulse"
+                      : "border-dark/40 bg-white dark:border-white/70 dark:bg-dark"
                   }`}
                 />
                 <div
-                  className={`absolute top-1 h-5 w-5 rounded-full border border-white/70 bg-white shadow transition-transform duration-200 ${
-                    profile.notifications_enabled ? "translate-x-6" : "translate-x-1"
+                  className={`absolute top-1 h-6 w-6 rounded-full border-2 shadow-md transition-transform duration-200 ${
+                    profile.notifications_enabled
+                      ? "translate-x-7 border-white bg-white"
+                      : "translate-x-1 border-dark bg-steel/35 dark:border-white dark:bg-white"
                   }`}
                 />
               </div>

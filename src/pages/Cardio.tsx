@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Activity, ExternalLink, Footprints, Link2, Route, ShieldCheck, Timer, Trash2, Watch } from "lucide-react";
 import { Button, EmptyState, FieldLabel, PageHeader, SelectInput, StatCard, Surface, TextArea, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
-import type { CardioSession } from "@/lib/types";
+import type { CardioSession, StravaConnection } from "@/lib/types";
 
 type CardioForm = {
   activity_type: CardioSession["activity_type"];
@@ -33,14 +33,26 @@ export default function Cardio() {
   const [form, setForm] = useState<CardioForm>(emptyForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncingStrava, setSyncingStrava] = useState(false);
+  const [stravaConnection, setStravaConnection] = useState<StravaConnection | null>(null);
   const [error, setError] = useState("");
+  const [stravaMessage, setStravaMessage] = useState("");
 
   useEffect(() => {
-    loadSessions();
+    loadPage();
   }, []);
 
-  async function loadSessions() {
+  useEffect(() => {
+    finishStravaCallback();
+  }, []);
+
+  async function loadPage() {
     setLoading(true);
+    await Promise.all([loadSessions(), loadStravaConnection()]);
+    setLoading(false);
+  }
+
+  async function loadSessions() {
     const { data, error: loadError } = await supabase
       .from("cardio_sessions")
       .select("*")
@@ -53,8 +65,13 @@ export default function Cardio() {
     } else {
       setSessions((data as CardioSession[]) || []);
     }
+  }
 
-    setLoading(false);
+  async function loadStravaConnection() {
+    const { data, error: connectionError } = await supabase
+      .rpc("get_strava_connection_status");
+
+    if (!connectionError) setStravaConnection(((data as StravaConnection[]) || [])[0] || null);
   }
 
   function update<K extends keyof CardioForm>(key: K, value: CardioForm[K]) {
@@ -92,6 +109,71 @@ export default function Cardio() {
     await loadSessions();
   }
 
+  async function finishStravaCallback() {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const state = params.get("state");
+    const denied = params.get("error");
+    if (denied) {
+      setStravaMessage("Strava connection was cancelled.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+    if (!code || state !== "athletigolf-cardio") return;
+
+    setSyncingStrava(true);
+    setError("");
+    setStravaMessage("Connecting Strava...");
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+    const { error: connectError } = await supabase.functions.invoke("strava-oauth", { body: { code } });
+    if (connectError) {
+      setError(connectError.message || "Could not connect Strava.");
+      setStravaMessage("");
+      setSyncingStrava(false);
+      return;
+    }
+
+    setStravaMessage("Strava connected. Importing recent runs and walks...");
+    await importStravaActivities();
+    setSyncingStrava(false);
+  }
+
+  async function importStravaActivities() {
+    setSyncingStrava(true);
+    setError("");
+    setStravaMessage("");
+
+    const { data, error: importError } = await supabase.functions.invoke("strava-import");
+    if (importError) {
+      setError(importError.message || "Could not import Strava activities.");
+      setSyncingStrava(false);
+      return;
+    }
+
+    const imported = typeof data?.imported === "number" ? data.imported : 0;
+    setStravaMessage(imported ? `Imported ${imported} recent Strava activities.` : "No new Strava runs or walks found.");
+    await Promise.all([loadSessions(), loadStravaConnection()]);
+    setSyncingStrava(false);
+  }
+
+  async function disconnectStrava() {
+    const confirmed = window.confirm("Disconnect Strava from AthletiGolf?");
+    if (!confirmed) return;
+
+    setSyncingStrava(true);
+    setError("");
+    const { error: disconnectError } = await supabase.functions.invoke("strava-disconnect");
+    if (disconnectError) {
+      setError(disconnectError.message || "Could not disconnect Strava.");
+      setSyncingStrava(false);
+      return;
+    }
+    setStravaConnection(null);
+    setStravaMessage("Strava disconnected. Imported activity rows already saved in AthletiGolf remain private unless you delete them.");
+    setSyncingStrava(false);
+  }
+
   async function deleteSession(id: string) {
     setError("");
     const { error: deleteError } = await supabase.from("cardio_sessions").delete().eq("id", id);
@@ -118,10 +200,15 @@ export default function Cardio() {
       <PageHeader
         eyebrow="Performance Lab"
         title="Cardio"
-        description="Track running and walking volume, keep easy aerobic work visible, and prepare the app for compliant Strava sync."
+        description="Track running and walking volume, import private Strava runs/walks, and keep aerobic work visible."
         tone="text-lab"
         actions={
-          stravaHref ? (
+          stravaConnection ? (
+            <Button type="button" variant="secondary" onClick={importStravaActivities} disabled={syncingStrava}>
+              <ExternalLink className="h-4 w-4" />
+              {syncingStrava ? "Syncing..." : "Sync Strava"}
+            </Button>
+          ) : stravaHref ? (
             <a
               href={stravaHref}
               className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#fc4c02] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#e44602]"
@@ -192,12 +279,26 @@ export default function Cardio() {
               </span>
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#fc4c02]">Strava</p>
-                <h2 className="mt-1 text-2xl font-semibold">Device sync layer</h2>
+                <h2 className="mt-1 text-2xl font-semibold">
+                  {stravaConnection ? "Connected device sync" : "Device sync layer"}
+                </h2>
                 <p className="mt-3 text-sm leading-relaxed text-white/65">
-                  Strava can bridge runs and walks from watches, but imported data stays private to the connected user and is not used for AthletiAI, social sharing or product analytics.
+                  Strava can import runs and walks from watches. Imported data stays private to the connected user and is not used for AthletiAI, social sharing or cross-user analytics.
                 </p>
               </div>
             </div>
+
+            {stravaConnection && (
+              <div className="mt-5 rounded-lg border border-[#fc4c02]/25 bg-[#fc4c02]/10 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#fc4c02]">Connected account</p>
+                <p className="mt-2 font-semibold text-white">
+                  {stravaConnection.athlete_name || `Strava athlete ${stravaConnection.athlete_id}`}
+                </p>
+                <p className="mt-1 text-sm text-white/60">
+                  Last imported: {stravaConnection.last_imported_at ? formatDateTime(stravaConnection.last_imported_at) : "Not imported yet"}
+                </p>
+              </div>
+            )}
 
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               <DarkCard title="Consent" detail="Users connect with OAuth and can disconnect or request deletion." />
@@ -212,7 +313,23 @@ export default function Cardio() {
               </p>
             </div>
 
-            {stravaHref ? (
+            {stravaMessage && (
+              <p className="mt-5 rounded-lg border border-white/10 bg-white/8 p-3 text-sm font-semibold text-white/75">
+                {stravaMessage}
+              </p>
+            )}
+
+            {stravaConnection ? (
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Button type="button" variant="gold" onClick={importStravaActivities} disabled={syncingStrava}>
+                  <ExternalLink className="h-4 w-4" />
+                  {syncingStrava ? "Syncing..." : "Import recent activities"}
+                </Button>
+                <Button type="button" variant="secondary" onClick={disconnectStrava} disabled={syncingStrava} className="border-white/15 bg-white/10 text-white hover:bg-white/15">
+                  Disconnect
+                </Button>
+              </div>
+            ) : stravaHref ? (
               <a
                 href={stravaHref}
                 className="mt-5 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#fc4c02] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#e44602]"
@@ -222,7 +339,7 @@ export default function Cardio() {
               </a>
             ) : (
               <p className="mt-5 rounded-lg border border-white/10 bg-white/8 p-3 text-sm text-white/65">
-                Add `VITE_STRAVA_CLIENT_ID` to enable the Strava connect button. A Supabase edge function should handle the secure token exchange, refresh tokens, deauthorization webhooks and deletion requests before real sync goes live.
+                Add `VITE_STRAVA_CLIENT_ID` to enable the Strava connect button. The Edge Functions also need `STRAVA_CLIENT_ID` and `STRAVA_CLIENT_SECRET`.
               </p>
             )}
           </Surface>
@@ -418,6 +535,15 @@ function formatNumber(value: number) {
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function parseNumber(value: string) {
