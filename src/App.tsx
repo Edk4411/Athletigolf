@@ -19,6 +19,7 @@ import Competitions from "@/pages/Competitions";
 import ArchivedSplits from "@/pages/ArchivedSplits";
 import CreateSplit from "@/pages/CreateSplit";
 import SubmitSession from "@/pages/SubmitSession";
+import ExerciseDetail from "@/pages/ExerciseDetail";
 import Cardio from "@/pages/Cardio";
 import GymQuiz from "@/pages/GymQuiz";
 import GolfQuiz from "@/pages/GolfQuiz";
@@ -203,6 +204,12 @@ function AppShell() {
         <Route path="/fitness/cardio">
           <ProtectedRoute>
             <Cardio />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/exercises/:slug">
+          <ProtectedRoute>
+            <ExerciseDetail />
           </ProtectedRoute>
         </Route>
 

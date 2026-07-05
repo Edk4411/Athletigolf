@@ -15,8 +15,8 @@ const weekDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satur
 const primaryUseOptions: { value: NonNullable<OnboardingData["mainSport"]>; label: string; detail: string }[] = [
   {
     value: "both",
-    label: "Golf + Fitness Tracking",
-    detail: "Full golf, fitness, wellness and insight experience.",
+    label: "Athletic Performance",
+    detail: "Track everything: golf, training, wellness, nutrition, social and insights.",
   },
   {
     value: "golf",
@@ -27,11 +27,6 @@ const primaryUseOptions: { value: NonNullable<OnboardingData["mainSport"]>; labe
     value: "training",
     label: "Fitness Tracking Only",
     detail: "Use training, wellness, nutrition and social without golf setup.",
-  },
-  {
-    value: "other",
-    label: "Athletic Performance",
-    detail: "General performance tracking now, with future sport layers later.",
   },
 ];
 
@@ -766,7 +761,7 @@ function buildRecommendation(data: OnboardingData) {
     {
         label: "Fitness Direction",
       title: `${data.training.daysAvailable} / ${data.training.goal}`,
-      detail: `${data.training.sessionLength} sessions using ${data.training.equipment.toLowerCase()}, with golf transfer kept visible in the Training Board.`,
+      detail: `${data.training.sessionLength} sessions using ${data.training.equipment.toLowerCase()}, with athletic carryover kept visible in the Training Board.`,
     },
     {
       label: "Dashboard Signal",

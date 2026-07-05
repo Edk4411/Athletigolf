@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { Activity, Dumbbell, Plus, Trash2 } from "lucide-react";
+import ExercisePicker from "@/components/ExercisePicker";
 import { Button, EmptyState, FieldLabel, PageHeader, StatusPill, Surface, TextInput } from "@/components/ui";
-import { findExercise, inferExerciseMuscle } from "@/lib/exerciseLibrary";
+import { findExerciseFromList, inferExerciseMuscle, type ExerciseLibraryItem } from "@/lib/exerciseLibrary";
+import { useExerciseLibrary } from "@/hooks/useExerciseLibrary";
+import { isTrainingOnlyMode } from "@/lib/sportMode";
 import { supabase } from "@/lib/supabase";
-import type { SplitDay } from "@/lib/types";
+import type { OnboardingData, SplitDay } from "@/lib/types";
 
 type ExerciseLog = {
   name: string;
@@ -22,6 +25,7 @@ type WorkoutOption = {
 
 export default function SubmitSession() {
   const [, navigate] = useLocation();
+  const { exercises: libraryExercises } = useExerciseLibrary();
   const [workoutOptions, setWorkoutOptions] = useState<WorkoutOption[]>([]);
   const [loadingSplit, setLoadingSplit] = useState(true);
   const [selectedDay, setSelectedDay] = useState("");
@@ -30,6 +34,7 @@ export default function SubmitSession() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [weightUnit, setWeightUnit] = useState("kg");
+  const [allowGolfSpecific, setAllowGolfSpecific] = useState(true);
 
   useEffect(() => {
     const loadSplit = async () => {
@@ -39,10 +44,12 @@ export default function SubmitSession() {
           .select("*")
           .is("archived_at", null)
           .order("created_at", { ascending: true }),
-        supabase.from("profiles").select("weight_unit").maybeSingle(),
+        supabase.from("profiles").select("weight_unit, onboarding_data").maybeSingle(),
       ]);
 
       setWeightUnit(profile?.weight_unit === "lbs" ? "lbs" : "kg");
+      const onboarding = (profile?.onboarding_data as OnboardingData | null) || null;
+      setAllowGolfSpecific(!isTrainingOnlyMode(onboarding?.mainSport));
 
       if (!error && data && data.length > 0) {
         const savedOptions = (data as SplitDay[])
@@ -103,7 +110,7 @@ export default function SubmitSession() {
       workout_name: selectedDay,
       exercises: exercises
         .filter((e) => e.name.trim() !== "")
-        .map(structureExerciseLog),
+        .map((exercise) => structureExerciseLog(exercise, libraryExercises)),
       notes: null,
     });
     setSaving(false);
@@ -215,10 +222,12 @@ export default function SubmitSession() {
                     key={index}
                     className="grid grid-cols-2 gap-3 rounded-xl border border-line bg-white p-3 lg:grid-cols-[1.3fr_0.7fr_0.55fr_0.55fr_1fr_44px] lg:items-end"
                   >
-                    <LogField className="col-span-2 lg:col-span-1" label="Exercise" value={exercise.name} onChange={(value) => updateExercise(index, "name", value)} placeholder="Exercise name" />
-                    {findExercise(exercise.name) && (
+                    <div className="col-span-2 lg:col-span-1">
+                      <ExercisePicker value={exercise.name} exercises={libraryExercises} allowGolfSpecific={allowGolfSpecific} onChange={(value) => updateExercise(index, "name", value)} placeholder="Exercise name" />
+                    </div>
+                    {findExerciseFromList(exercise.name, libraryExercises) && (
                       <p className="col-span-2 text-xs font-medium text-muted lg:hidden">
-                        {findExercise(exercise.name)?.primaryMuscle} · {findExercise(exercise.name)?.equipment}
+                        {findExerciseFromList(exercise.name, libraryExercises)?.primaryMuscle} | {findExerciseFromList(exercise.name, libraryExercises)?.equipment}
                       </p>
                     )}
                     <LogField label={`Load (${weightUnit})`} value={exercise.weight} onChange={(value) => updateExercise(index, "weight", value)} placeholder="75" />
@@ -266,7 +275,7 @@ export default function SubmitSession() {
   );
 }
 
-function structureExerciseLog(exercise: ExerciseLog) {
+function structureExerciseLog(exercise: ExerciseLog, libraryExercises: ExerciseLibraryItem[]) {
   const weightValue = parseTrainingNumber(exercise.weight);
   const setsValue = parseTrainingNumber(exercise.sets);
   const repsValue = parseTrainingNumber(exercise.reps);
@@ -287,7 +296,7 @@ function structureExerciseLog(exercise: ExerciseLog) {
     reps_value: repsValue,
     volume,
     muscle_group: inferExerciseMuscle(exercise.name),
-    library_match: findExercise(exercise.name),
+    library_match: findExerciseFromList(exercise.name, libraryExercises),
   };
 }
 

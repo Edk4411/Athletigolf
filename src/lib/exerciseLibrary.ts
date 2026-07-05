@@ -1,14 +1,41 @@
 export type ExerciseLibraryItem = {
+  id?: string;
   name: string;
+  slug?: string;
+  category?: string;
   primaryMuscle: string;
   secondaryMuscles: string[];
   equipment: string;
-  movement: "push" | "pull" | "squat" | "hinge" | "carry" | "core" | "mobility";
+  difficulty?: "beginner" | "intermediate" | "advanced";
+  movement: "push" | "pull" | "squat" | "hinge" | "carry" | "rotation" | "anti-rotation" | "cardio" | "core" | "mobility";
+  instructions?: string;
+  safetyNotes?: string;
+  golfRelevant?: boolean;
   golfCarryover: string;
   videoSearch: string;
   formCues?: string[];
   commonMistakes?: string[];
   alternatives: string[];
+};
+
+export type ExerciseLibraryRow = {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  primary_muscles: string[];
+  secondary_muscles: string[] | null;
+  equipment: string;
+  difficulty: "beginner" | "intermediate" | "advanced";
+  movement_type: ExerciseLibraryItem["movement"];
+  instructions: string | null;
+  form_cues: string[] | null;
+  common_mistakes: string[] | null;
+  safety_notes: string | null;
+  golf_relevant: boolean;
+  golf_benefit: string | null;
+  alternatives: string[] | null;
+  youtube_search: string | null;
 };
 
 export const exerciseLibrary: ExerciseLibraryItem[] = [
@@ -135,13 +162,7 @@ export const exerciseLibrary: ExerciseLibraryItem[] = [
 ];
 
 export function findExercise(name: string) {
-  const cleanName = name.trim().toLowerCase();
-  if (!cleanName) return null;
-  return (
-    exerciseLibrary.find((exercise) => exercise.name.toLowerCase() === cleanName) ||
-    exerciseLibrary.find((exercise) => cleanName.includes(exercise.name.toLowerCase())) ||
-    null
-  );
+  return findExerciseFromList(name, exerciseLibrary);
 }
 
 export function getExerciseGuide(name: string) {
@@ -171,6 +192,66 @@ export function getExerciseGuide(name: string) {
     commonMistakes: ["Going too heavy too soon.", "Rushing reps.", "Ignoring discomfort."],
     alternatives: [],
     isLibraryMatch: false,
+  };
+}
+
+export function slugifyExerciseName(name: string) {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+export function exerciseNameFromSlug(slug: string) {
+  return slug
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+export function toExerciseLibraryItem(row: ExerciseLibraryRow): ExerciseLibraryItem {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    category: row.category,
+    primaryMuscle: row.primary_muscles?.join(" / ") || row.category,
+    secondaryMuscles: row.secondary_muscles || [],
+    equipment: row.equipment,
+    difficulty: row.difficulty,
+    movement: row.movement_type,
+    instructions: row.instructions || undefined,
+    safetyNotes: row.safety_notes || undefined,
+    golfRelevant: row.golf_relevant,
+    golfCarryover: row.golf_benefit || "Log this consistently so AthletiGolf can connect training with golf performance.",
+    videoSearch: row.youtube_search || `${row.name} proper form`,
+    formCues: row.form_cues || undefined,
+    commonMistakes: row.common_mistakes || undefined,
+    alternatives: row.alternatives || [],
+  };
+}
+
+export function findExerciseFromList(name: string, list: ExerciseLibraryItem[]) {
+  const cleanName = name.trim().toLowerCase();
+  if (!cleanName) return null;
+  return (
+    list.find((exercise) => exercise.name.toLowerCase() === cleanName) ||
+    list.find((exercise) => cleanName.includes(exercise.name.toLowerCase())) ||
+    null
+  );
+}
+
+export function getExerciseGuideFromList(name: string, list: ExerciseLibraryItem[]) {
+  const libraryMatch = findExerciseFromList(name, list) || findExercise(name);
+  if (!libraryMatch) return getExerciseGuide(name);
+
+  return {
+    ...libraryMatch,
+    videoUrl: `https://www.youtube.com/results?search_query=${encodeURIComponent(libraryMatch.videoSearch)}`,
+    formCues: libraryMatch.formCues || getFallbackCues(libraryMatch.movement),
+    commonMistakes: libraryMatch.commonMistakes || getFallbackMistakes(libraryMatch.movement),
+    isLibraryMatch: true,
   };
 }
 

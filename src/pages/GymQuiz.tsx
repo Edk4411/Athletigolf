@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui";
+import { isGolfOnlyMode, isTrainingOnlyMode, type SportMode } from "@/lib/sportMode";
 import { supabase } from "@/lib/supabase";
+import type { OnboardingData } from "@/lib/types";
 
 interface TrainingData {
   equipment: string;
@@ -80,10 +82,10 @@ const steps: QuizStep[] = [
   },
   {
     key: "golfPriority",
-    eyebrow: "Golf Transfer",
-    title: "Where should training help your golf most?",
+    eyebrow: "Performance Carryover",
+    title: "Where should training improve performance most?",
     detail: "This gives the split its AthletiGolf edge instead of becoming a generic gym plan.",
-    options: ["Driving distance", "Rotation speed", "Stability", "Injury prevention", "Late-round energy"],
+    options: ["Speed / distance", "Rotation speed", "Stability", "Injury prevention", "Endurance"],
   },
   {
     key: "limitation",
@@ -104,6 +106,8 @@ const steps: QuizStep[] = [
 export default function GymQuiz({ onComplete }: { onComplete: () => void }) {
   const [, navigate] = useLocation();
   const [step, setStep] = useState(0);
+  const [sportMode, setSportMode] = useState<SportMode>("both");
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [data, setData] = useState<TrainingData>({
@@ -118,13 +122,35 @@ export default function GymQuiz({ onComplete }: { onComplete: () => void }) {
     weakLink: "",
   });
 
-  const current = steps[step];
-  const complete = step >= steps.length;
-  const plan = buildTrainingPlan(data);
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from("profiles")
+      .select("onboarding_data")
+      .maybeSingle()
+      .then(({ data: profile }) => {
+        if (cancelled) return;
+        const onboarding = (profile?.onboarding_data as OnboardingData | null) || null;
+        setSportMode(onboarding?.mainSport || "both");
+        setLoadingProfile(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const gymOnly = isTrainingOnlyMode(sportMode);
+  const golfOnly = isGolfOnlyMode(sportMode);
+  const activeSteps = gymOnly ? steps.filter((quizStep) => quizStep.key !== "golfPriority") : steps;
+  const current = activeSteps[step];
+  const complete = step >= activeSteps.length;
+  const plan = buildTrainingPlan(data, gymOnly ? "gym" : "athletic");
   const returnToWorkouts =
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("return") === "workouts";
 
   const choose = (value: string) => {
+    if (!current) return;
     if (current.multi) return;
     setData((prev) => ({ ...prev, [current.key]: value }));
     setStep((prev) => prev + 1);
@@ -143,6 +169,36 @@ export default function GymQuiz({ onComplete }: { onComplete: () => void }) {
   const continueFromMultiStep = () => {
     setStep((prev) => prev + 1);
   };
+
+  if (loadingProfile) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-cream p-6 text-muted">
+        Loading split builder...
+      </div>
+    );
+  }
+
+  if (golfOnly) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-cream p-6 text-ink">
+        <div className="w-full max-w-2xl rounded-xl border border-line bg-panel p-8 text-center shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-golf">Golf Focus</p>
+          <h1 className="mt-3 text-3xl font-semibold text-dark">No generated gym split needed</h1>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted">
+            Your setup is golf-only, so AthletiGolf will focus on rounds, practice, competitions and golf analytics. You can still build a training board manually whenever you want.
+          </p>
+          <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
+            <Button type="button" variant="golf" onClick={() => navigate("/golf")}>
+              Open Golf
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => navigate("/workouts")}>
+              Open Training Board
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const saveGeneratedSplit = async () => {
     setSaving(true);
@@ -195,14 +251,16 @@ export default function GymQuiz({ onComplete }: { onComplete: () => void }) {
               Performance Lab Setup
             </p>
             <h1 className="mt-2 text-3xl font-semibold text-dark">
-              Build a training board that fits golf
+              {gymOnly ? "Build a gym split that fits your week" : "Build an athletic performance split"}
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-muted">
-              Answer a few practical questions, preview the generated week, then save it as your active Training Board.
+              {gymOnly
+                ? "Answer a few practical questions, preview the generated week, then save it as your active Training Board."
+                : "Build strength, speed, mobility and stability without turning every session into a generic gym plan."}
             </p>
           </div>
           <div className="rounded-full border border-line px-3 py-1 text-sm font-semibold text-muted">
-            {Math.min(step + 1, steps.length)} / {steps.length}
+            {Math.min(step + 1, activeSteps.length)} / {activeSteps.length}
           </div>
         </div>
 
@@ -318,18 +376,27 @@ export default function GymQuiz({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-function buildTrainingPlan(data: TrainingData) {
-  const days = buildSplitDays(data);
+type SplitBuilderMode = "gym" | "athletic";
+
+function buildTrainingPlan(data: TrainingData, mode: SplitBuilderMode) {
+  const days = buildSplitDays(data, mode);
   const trainingDays = days.filter((day) => day.focus !== "Rest");
+  const modeLabel = mode === "gym" ? "gym" : "athletic performance";
 
   return {
-    title: `${trainingDays.length}-day ${data.goal || "performance"} split`,
-    summary: `${data.goal || "Strength"} focus with golf transfer for ${data.golfPriority || "athletic performance"}. Built for ${data.equipment || "your equipment"} and ${data.sessionLength || "realistic"} sessions.`,
+    title: `${trainingDays.length}-day ${data.goal || modeLabel} split`,
+    summary:
+      mode === "gym"
+        ? `${data.goal || "Strength"} focus built for ${data.equipment || "your equipment"} and ${data.sessionLength || "realistic"} sessions.`
+        : `${data.goal || "Strength"} focus with performance carryover for ${data.golfPriority || "rotation, stability and speed"}. Built for ${data.equipment || "your equipment"} and ${data.sessionLength || "realistic"} sessions.`,
     notes: [
       {
         label: "Structure",
         title: `${trainingDays.length} training days`,
-        detail: `${data.experience || "Your level"} training age with enough recovery around golf practice and rounds.`,
+        detail:
+          mode === "gym"
+            ? `${data.experience || "Your level"} training age with enough recovery to keep the week repeatable.`
+            : `${data.experience || "Your level"} training age with recovery kept visible around sport practice and rounds.`,
       },
       {
         label: "Protected Rest",
@@ -338,11 +405,17 @@ function buildTrainingPlan(data: TrainingData) {
           ? "The generated week avoids these days where the session count allows it."
           : "No fixed rest days selected, so the split uses the strongest training rhythm.",
       },
-      {
-        label: "Golf Transfer",
-        title: data.golfPriority || "Athletic carryover",
-        detail: getGolfTransferNote(data.golfPriority),
-      },
+      mode === "gym"
+        ? {
+            label: "Training Bias",
+            title: data.goal || "General progression",
+            detail: getGymTrainingNote(data.goal),
+          }
+        : {
+            label: "Performance Carryover",
+            title: data.golfPriority || "Athletic carryover",
+            detail: getGolfTransferNote(data.golfPriority),
+          },
       {
         label: "Protection",
         title: data.limitation || "Recovery",
@@ -353,36 +426,36 @@ function buildTrainingPlan(data: TrainingData) {
   };
 }
 
-function buildSplitDays(data: TrainingData): GeneratedDay[] {
+function buildSplitDays(data: TrainingData, mode: SplitBuilderMode): GeneratedDay[] {
   const frequency = data.frequency || "3 days";
   const exerciseCount = data.sessionLength === "30 minutes" ? 4 : data.sessionLength === "45 minutes" ? 5 : 6;
   let trainingDays: GeneratedDay[];
 
   if (frequency === "2 days") {
     trainingDays = [
-      trainingDay("Monday", "Full Body Power", pickExercises(data, ["Lower", "Push", "Pull", "Core"], exerciseCount)),
-      trainingDay("Thursday", "Full Body Strength", pickExercises(data, ["Hinge", "Push", "Pull", "Rotation"], exerciseCount)),
+      trainingDay("Monday", "Full Body Strength", pickExercises(data, ["Lower", "Push", "Pull", "Core"], exerciseCount, mode)),
+      trainingDay("Thursday", mode === "gym" ? "Full Body Hypertrophy" : "Full Body Power", pickExercises(data, ["Hinge", "Push", "Pull", mode === "gym" ? "Core" : "Rotation"], exerciseCount, mode)),
     ];
   } else if (frequency === "4 days") {
     trainingDays = [
-      trainingDay("Monday", "Upper Strength", pickExercises(data, ["Push", "Pull", "Shoulder", "Core"], exerciseCount)),
-      trainingDay("Tuesday", "Lower Strength", pickExercises(data, ["Lower", "Hinge", "Single Leg", "Mobility"], exerciseCount)),
-      trainingDay("Thursday", "Upper Speed", pickExercises(data, ["Power", "Push", "Pull", "Rotation"], exerciseCount)),
-      trainingDay("Saturday", "Lower Athletic", pickExercises(data, ["Power", "Lower", "Hinge", "Core"], exerciseCount)),
+      trainingDay("Monday", "Upper Strength", pickExercises(data, ["Push", "Pull", "Shoulder", "Core"], exerciseCount, mode)),
+      trainingDay("Tuesday", "Lower Strength", pickExercises(data, ["Lower", "Hinge", "Single Leg", "Mobility"], exerciseCount, mode)),
+      trainingDay("Thursday", mode === "gym" ? "Upper Volume" : "Upper Speed", pickExercises(data, ["Power", "Push", "Pull", mode === "gym" ? "Shoulder" : "Rotation"], exerciseCount, mode)),
+      trainingDay("Saturday", mode === "gym" ? "Lower Volume" : "Lower Athletic", pickExercises(data, ["Power", "Lower", "Hinge", "Core"], exerciseCount, mode)),
     ];
   } else if (frequency === "5 days") {
     trainingDays = [
-      trainingDay("Monday", "Push Strength", pickExercises(data, ["Push", "Shoulder", "Core"], exerciseCount)),
-      trainingDay("Tuesday", "Lower Strength", pickExercises(data, ["Lower", "Hinge", "Single Leg"], exerciseCount)),
-      trainingDay("Wednesday", "Pull Strength", pickExercises(data, ["Pull", "Shoulder", "Core"], exerciseCount)),
-      trainingDay("Friday", "Power + Rotation", pickExercises(data, ["Power", "Rotation", "Core", "Mobility"], exerciseCount)),
-      trainingDay("Saturday", "Golf Conditioning", pickExercises(data, ["Carry", "Single Leg", "Mobility", "Core"], exerciseCount)),
+      trainingDay("Monday", "Push Strength", pickExercises(data, ["Push", "Shoulder", "Core"], exerciseCount, mode)),
+      trainingDay("Tuesday", "Lower Strength", pickExercises(data, ["Lower", "Hinge", "Single Leg"], exerciseCount, mode)),
+      trainingDay("Wednesday", "Pull Strength", pickExercises(data, ["Pull", "Shoulder", "Core"], exerciseCount, mode)),
+      trainingDay("Friday", mode === "gym" ? "Power + Conditioning" : "Power + Rotation", pickExercises(data, ["Power", mode === "gym" ? "Core" : "Rotation", "Core", "Mobility"], exerciseCount, mode)),
+      trainingDay("Saturday", mode === "gym" ? "Accessories + Conditioning" : "Athletic Conditioning", pickExercises(data, ["Carry", "Single Leg", "Mobility", "Core"], exerciseCount, mode)),
     ];
   } else {
     trainingDays = [
-      trainingDay("Monday", "Strength Base", pickExercises(data, ["Lower", "Push", "Pull"], exerciseCount)),
-      trainingDay("Wednesday", "Athletic Upper", pickExercises(data, ["Push", "Pull", "Rotation", "Core"], exerciseCount)),
-      trainingDay("Friday", "Lower + Power", pickExercises(data, ["Power", "Hinge", "Single Leg", "Mobility"], exerciseCount)),
+      trainingDay("Monday", "Strength Base", pickExercises(data, ["Lower", "Push", "Pull"], exerciseCount, mode)),
+      trainingDay("Wednesday", mode === "gym" ? "Upper + Core" : "Athletic Upper", pickExercises(data, ["Push", "Pull", mode === "gym" ? "Core" : "Rotation", "Core"], exerciseCount, mode)),
+      trainingDay("Friday", "Lower + Power", pickExercises(data, ["Power", "Hinge", "Single Leg", "Mobility"], exerciseCount, mode)),
     ];
   }
 
@@ -419,8 +492,8 @@ function applyProtectedRestDays(trainingDays: GeneratedDay[], restDays: string[]
   });
 }
 
-function pickExercises(data: TrainingData, blocks: string[], count: number) {
-  const library = getExerciseLibrary(data);
+function pickExercises(data: TrainingData, blocks: string[], count: number, mode: SplitBuilderMode) {
+  const library = getExerciseLibrary(data, mode);
   const picked: string[] = [];
 
   blocks.forEach((block) => {
@@ -429,7 +502,7 @@ function pickExercises(data: TrainingData, blocks: string[], count: number) {
     if (next) picked.push(next);
   });
 
-  getPriorityExercises(data).forEach((exercise) => {
+  getPriorityExercises(data, mode).forEach((exercise) => {
     if (picked.length < count && !picked.includes(exercise)) picked.push(exercise);
   });
 
@@ -440,7 +513,7 @@ function pickExercises(data: TrainingData, blocks: string[], count: number) {
   return picked.slice(0, count);
 }
 
-function getExerciseLibrary(data: TrainingData): Record<string, string[]> {
+function getExerciseLibrary(data: TrainingData, mode: SplitBuilderMode): Record<string, string[]> {
   if (data.equipment === "Bodyweight only") {
     return {
       Push: ["Push Ups", "Pike Push Ups", "Close-Grip Push Ups"],
@@ -450,7 +523,7 @@ function getExerciseLibrary(data: TrainingData): Record<string, string[]> {
       "Single Leg": ["Reverse Lunges", "Step Ups", "Single-Leg Glute Bridge"],
       Shoulder: ["Pike Push Ups", "Wall Slides", "Prone Y Raises"],
       Core: ["Plank", "Side Plank", "Dead Bug"],
-      Rotation: ["Open Books", "Plank Shoulder Taps", "Rotational Dead Bug"],
+      Rotation: mode === "gym" ? ["Dead Bug Rotation", "Plank Shoulder Taps", "Side Plank Reach"] : ["Open Books", "Plank Shoulder Taps", "Rotational Dead Bug"],
       Power: ["Squat Jumps", "Skater Bounds", "Fast Push Ups"],
       Mobility: ["Hip Flow", "Thoracic Rotations", "90/90 Switches"],
       Carry: ["Suitcase Hold", "Marching Plank", "Bear Crawl"],
@@ -466,8 +539,8 @@ function getExerciseLibrary(data: TrainingData): Record<string, string[]> {
       "Single Leg": ["DB Reverse Lunge", "DB Step Up", "Split Squat"],
       Shoulder: ["DB Lateral Raise", "DB Shoulder Press", "Band Face Pull"],
       Core: ["Pallof Press", "Dead Bug", "Side Plank"],
-      Rotation: ["Band Rotations", "Pallof Press", "Cable-Style Chop"],
-      Power: ["DB Jump Squat", "Med Ball Slam", "Band Speed Rotation"],
+      Rotation: mode === "gym" ? ["Band Core Rotation", "Pallof Press", "Cable-Style Chop"] : ["Band Rotations", "Pallof Press", "Cable-Style Chop"],
+      Power: mode === "gym" ? ["DB Jump Squat", "Med Ball Slam", "Fast DB Press"] : ["DB Jump Squat", "Med Ball Slam", "Band Speed Rotation"],
       Mobility: ["Hip Flow", "Thoracic Rotations", "Couch Stretch"],
       Carry: ["Suitcase Carry", "Farmer Carry", "Front Rack Carry"],
     };
@@ -481,34 +554,45 @@ function getExerciseLibrary(data: TrainingData): Record<string, string[]> {
     "Single Leg": ["Bulgarian Split Squat", "Walking Lunge", "Step Up"],
     Shoulder: ["Shoulder Press", "Lateral Raise", "Face Pull"],
     Core: ["Cable Crunch", "Pallof Press", "Side Plank"],
-    Rotation: ["Cable Wood Chop", "Landmine Rotation", "Pallof Press"],
-    Power: ["Med Ball Rotational Throw", "Trap Bar Jump", "Kettlebell Swing"],
+    Rotation: mode === "gym" ? ["Cable Core Rotation", "Pallof Press", "Dead Bug"] : ["Cable Wood Chop", "Landmine Rotation", "Pallof Press"],
+    Power: mode === "gym" ? ["Kettlebell Swing", "Trap Bar Jump", "Sled Push"] : ["Med Ball Rotational Throw", "Trap Bar Jump", "Kettlebell Swing"],
     Mobility: ["Thoracic Rotations", "Hip Airplanes", "Couch Stretch"],
     Carry: ["Farmer Carry", "Suitcase Carry", "Sled Push"],
   };
 }
 
-function getPriorityExercises(data: TrainingData) {
+function getPriorityExercises(data: TrainingData, mode: SplitBuilderMode) {
   const priorities: string[] = [];
   if (data.goal === "Strength") priorities.push("Bench Press", "Squat", "RDL");
   if (data.goal === "Muscle") priorities.push("Incline DB Press", "Lat Pulldown", "Leg Press");
-  if (data.goal === "Speed / power") priorities.push("Med Ball Rotational Throw", "Kettlebell Swing", "Trap Bar Jump");
+  if (data.goal === "Speed / power") priorities.push(mode === "gym" ? "Kettlebell Swing" : "Med Ball Rotational Throw", "Kettlebell Swing", "Trap Bar Jump");
   if (data.goal === "Mobility") priorities.push("Thoracic Rotations", "Hip Airplanes", "Pallof Press");
-  if (data.golfPriority === "Driving distance") priorities.push("Med Ball Rotational Throw", "RDL", "Cable Wood Chop");
-  if (data.golfPriority === "Rotation speed") priorities.push("Landmine Rotation", "Cable Wood Chop", "Pallof Press");
-  if (data.golfPriority === "Stability") priorities.push("Pallof Press", "Suitcase Carry", "Side Plank");
-  if (data.weakLink === "Core / rotation") priorities.push("Cable Wood Chop", "Pallof Press", "Side Plank");
+  if (mode === "athletic") {
+    if (data.golfPriority === "Speed / distance" || data.golfPriority === "Driving distance") priorities.push("Med Ball Rotational Throw", "RDL", "Cable Wood Chop");
+    if (data.golfPriority === "Rotation speed") priorities.push("Landmine Rotation", "Cable Wood Chop", "Pallof Press");
+    if (data.golfPriority === "Stability") priorities.push("Pallof Press", "Suitcase Carry", "Side Plank");
+  }
+  if (data.weakLink === "Core / rotation") priorities.push(mode === "gym" ? "Cable Core Rotation" : "Cable Wood Chop", "Pallof Press", "Side Plank");
   if (data.weakLink === "Mobility") priorities.push("Thoracic Rotations", "Hip Flow", "90/90 Switches");
   return priorities;
 }
 
+function getGymTrainingNote(goal: string) {
+  if (goal === "Strength") return "Main lifts stay first, then accessories fill gaps without golf-specific work.";
+  if (goal === "Muscle") return "Volume and balanced muscle coverage take priority over sport carryover.";
+  if (goal === "Speed / power") return "Power stays general: jumps, swings, sleds and fast controlled lifts.";
+  if (goal === "Mobility") return "Mobility supports better lifting positions and recovery, not a golf swing model.";
+  if (goal === "Fat loss") return "Repeatable sessions and conditioning matter more than complex exercise selection.";
+  return "The split stays focused on normal gym progression.";
+}
+
 function getGolfTransferNote(priority: string) {
-  if (priority === "Driving distance") return "Bias power, hinge strength and rotation work so distance changes can be compared with golf stats.";
+  if (priority === "Speed / distance" || priority === "Driving distance") return "Bias power, hinge strength and rotation work so speed changes can be compared with performance stats.";
   if (priority === "Rotation speed") return "Use rotational power and anti-rotation control so speed comes with stability.";
   if (priority === "Stability") return "Single-leg, carry and core work should make your swing base less noisy.";
   if (priority === "Injury prevention") return "Keep the plan balanced with mobility, posterior-chain work and controlled volume.";
-  if (priority === "Late-round energy") return "Conditioning and carries help you keep swing quality late in the round.";
-  return "Track lifts consistently so the app can connect training changes with golf outcomes.";
+  if (priority === "Endurance" || priority === "Late-round energy") return "Conditioning and carries help you keep output quality late in sessions and rounds.";
+  return "Track lifts consistently so the app can connect training changes with performance outcomes.";
 }
 
 function getProtectionNote(limitation: string) {

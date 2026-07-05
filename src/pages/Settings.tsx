@@ -14,6 +14,12 @@ const THEMES = [
   { value: "dark", label: "Dark" },
 ];
 
+const visibleSportModes: [SportMode, string][] = [
+  ["both", sportModeLabels.both],
+  ["golf", sportModeLabels.golf],
+  ["training", sportModeLabels.training],
+];
+
 export default function Settings() {
   const [, navigate] = useLocation();
 
@@ -79,7 +85,7 @@ export default function Settings() {
         main_goal: data.main_goal || "",
         distance_unit: data.distance_unit || "yards",
         weight_unit: data.weight_unit || "kg",
-        primary_sport: existingOnboarding?.mainSport || "both",
+        primary_sport: existingOnboarding?.mainSport === "other" ? "both" : existingOnboarding?.mainSport || "both",
         theme,
         notifications_enabled: data.notifications_enabled ?? false,
         default_live_visibility: existingOnboarding?.privacy?.defaultLiveVisibility || "friends",
@@ -378,7 +384,7 @@ export default function Settings() {
             </p>
 
             <div className="grid gap-3 md:grid-cols-2">
-              {(Object.entries(sportModeLabels) as [SportMode, string][]).map(([value, label]) => (
+              {visibleSportModes.map(([value, label]) => (
                 <button
                   key={value}
                   type="button"
@@ -725,5 +731,5 @@ function getSportModeDetail(mode: SportMode) {
   if (mode === "training") return "Hide golf clutter and focus the app around fitness tracking, wellness, nutrition and social performance.";
   if (mode === "golf") return "Prioritise golf tracking, practice, competitions and golf-specific reports.";
   if (mode === "other") return "Use AthletiGolf as a general athletic performance platform while future sport modules grow.";
-  return "Use the full golf, fitness tracking, wellness and AthletiAI relationship view.";
+  return "Track everything: golf, training, wellness, nutrition, social and AthletiAI relationship insights.";
 }

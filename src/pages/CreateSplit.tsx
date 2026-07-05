@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { Archive, Dumbbell, GripVertical, Info, Plus, Trash2, Wand2, X } from "lucide-react";
 import { useLocation } from "wouter";
 import { supabase } from "@/lib/supabase";
+import ExercisePicker from "@/components/ExercisePicker";
 import { Button, ConfirmDialog, FieldLabel, PageHeader, Surface, TextInput } from "@/components/ui";
-import { getExerciseGuide } from "@/lib/exerciseLibrary";
-import type { SplitDay } from "@/lib/types";
+import { getExerciseGuideFromList, slugifyExerciseName } from "@/lib/exerciseLibrary";
+import { useExerciseLibrary } from "@/hooks/useExerciseLibrary";
+import { isTrainingOnlyMode } from "@/lib/sportMode";
+import type { OnboardingData, SplitDay } from "@/lib/types";
 
 type SplitDayState = {
   id?: string;
@@ -35,6 +38,7 @@ const defaultSplit: SplitDayState[] = [
 
 export default function CreateSplit() {
   const [, navigate] = useLocation();
+  const { exercises: libraryExercises } = useExerciseLibrary();
   const [split, setSplit] = useState<SplitDayState[]>(defaultSplit);
   const [hasActiveSplit, setHasActiveSplit] = useState(false);
   const [showCreateChoice, setShowCreateChoice] = useState(false);
@@ -44,6 +48,7 @@ export default function CreateSplit() {
   const [busyAction, setBusyAction] = useState("");
   const [selectedExercise, setSelectedExercise] = useState("");
   const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
+  const [allowGolfSpecific, setAllowGolfSpecific] = useState(true);
 
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editFocus, setEditFocus] = useState("");
@@ -61,6 +66,9 @@ export default function CreateSplit() {
       .select("*")
       .is("archived_at", null)
       .order("created_at", { ascending: true });
+    const { data: profile } = await supabase.from("profiles").select("onboarding_data").maybeSingle();
+    const onboarding = (profile?.onboarding_data as OnboardingData | null) || null;
+    setAllowGolfSpecific(!isTrainingOnlyMode(onboarding?.mainSport));
 
     if (data && data.length > 0) {
       setSplit((data as SplitDay[]).map(toSplitDayState));
@@ -213,7 +221,7 @@ export default function CreateSplit() {
   };
 
   const editingDay = editingIndex !== null ? split[editingIndex] : null;
-  const selectedExerciseGuide = selectedExercise ? getExerciseGuide(selectedExercise) : null;
+  const selectedExerciseGuide = selectedExercise ? getExerciseGuideFromList(selectedExercise, libraryExercises) : null;
   const hasBoardContent = split.some((day) => day.focus.trim() || day.exercises.length > 0);
   const showBoard = hasBoardContent || !showCreateChoice;
   const canSaveBoard = showBoard && !showCreateChoice;
@@ -319,7 +327,7 @@ export default function CreateSplit() {
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          setSelectedExercise(exercise);
+                          navigate(`/exercises/${slugifyExerciseName(exercise)}`);
                         }}
                         className="flex w-full items-center gap-2 rounded-lg border border-line bg-steel/5 px-3 py-2 text-left transition hover:border-pulse/40 hover:bg-pulse/10"
                       >
@@ -467,13 +475,16 @@ export default function CreateSplit() {
                     >
                       <GripVertical className="h-5 w-5" />
                     </button>
-                    <input
-                      value={exercise}
-                      onChange={(e) => updateExercise(index, e.target.value)}
-                      placeholder="Exercise name"
-                      className="flex-1 rounded-lg border border-transparent px-3 py-2 outline-none focus:border-pulse"
-                    />
-
+                    <div className="flex-1">
+                      <ExercisePicker
+                        label=""
+                        value={exercise}
+                        exercises={libraryExercises}
+                        allowGolfSpecific={allowGolfSpecific}
+                        onChange={(value) => updateExercise(index, value)}
+                        placeholder="Exercise name"
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={() => setSelectedExercise(exercise)}
