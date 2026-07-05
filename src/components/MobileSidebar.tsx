@@ -29,6 +29,7 @@ import { Button, StatusPill } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { getSportModeLabel, isGolfEnabledMode, isTrainingOnlyMode } from "@/lib/sportMode";
 import type { AppNotification, OnboardingData } from "@/lib/types";
+import athletiGolfLogo from "@/assets/athletigolf-logo-transparent.png";
 
 type NavItem = {
   href: string;
@@ -260,7 +261,12 @@ function NavContent({
       <div className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
         <div>
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-pulse" />
+            <img
+              src={athletiGolfLogo}
+              alt=""
+              className="h-8 w-8 object-contain"
+              aria-hidden="true"
+            />
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-pulse">AthletiGolf</p>
           </div>
           <h2 className="mt-2 text-xl font-semibold">Performance Platform</h2>
