@@ -32,7 +32,8 @@ Deno.serve(async (request) => {
     if (!response.ok) return json({ error: payload.message || "Could not connect Strava." }, response.status);
 
     const scope = String(payload.scope || "");
-    if (!scope.split(/[,\s]+/).includes("activity:read")) {
+    const scopeParts = scope.split(/[,\s]+/);
+    if (!scopeParts.includes("activity:read") && !scopeParts.includes("activity:read_all")) {
       return json({ error: "Strava activity read permission was not granted." }, 400);
     }
 
