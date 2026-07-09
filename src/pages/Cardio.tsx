@@ -134,7 +134,7 @@ export default function Cardio() {
       return;
     }
 
-    setStravaMessage("Strava connected. Importing recent runs and walks...");
+    setStravaMessage("Strava connected. Importing recent runs, walks and hikes...");
     await importStravaActivities();
     setSyncingStrava(false);
   }
@@ -152,7 +152,16 @@ export default function Cardio() {
     }
 
     const imported = typeof data?.imported === "number" ? data.imported : 0;
-    setStravaMessage(imported ? `Imported ${imported} recent Strava activities.` : "No new Strava runs or walks found.");
+    const scanned = typeof data?.scanned === "number" ? data.scanned : 0;
+    const skippedUnsupported = typeof data?.skippedUnsupported === "number" ? data.skippedUnsupported : 0;
+    const activityTypes = Array.isArray(data?.activityTypes) ? data.activityTypes.filter(Boolean).join(", ") : "";
+    if (imported) {
+      setStravaMessage(`Imported ${imported} recent Strava run/walk/hike activities.`);
+    } else if (scanned > 0 && skippedUnsupported > 0) {
+      setStravaMessage(`Strava returned ${scanned} recent activities, but none were runs, walks or hikes${activityTypes ? ` (${activityTypes})` : ""}.`);
+    } else {
+      setStravaMessage("No recent Strava runs, walks or hikes were returned. If your activities are private, disconnect and reconnect Strava so AthletiGolf can request private activity read access.");
+    }
     await Promise.all([loadSessions(), loadStravaConnection()]);
     setSyncingStrava(false);
   }
@@ -200,7 +209,7 @@ export default function Cardio() {
       <PageHeader
         eyebrow="Performance Lab"
         title="Cardio"
-        description="Track running and walking volume, import private Strava runs/walks, and keep aerobic work visible."
+        description="Track running and walking volume, import private Strava runs/walks/hikes, and keep aerobic work visible."
         tone="text-lab"
         actions={
           stravaConnection ? (
@@ -283,7 +292,7 @@ export default function Cardio() {
                   {stravaConnection ? "Connected device sync" : "Device sync layer"}
                 </h2>
                 <p className="mt-3 text-sm leading-relaxed text-white/65">
-                  Strava can import runs and walks from watches. Imported data stays private to the connected user and is not used for AthletiAI, social sharing or cross-user analytics.
+                  Strava can import runs, walks and hikes from watches. Imported data stays private to the connected user and is not used for AthletiAI, social sharing or cross-user analytics.
                 </p>
               </div>
             </div>
@@ -302,7 +311,7 @@ export default function Cardio() {
 
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               <DarkCard title="Consent" detail="Users connect with OAuth and can disconnect or request deletion." />
-              <DarkCard title="Scope" detail="Request only activity read access needed for run and walk imports." />
+              <DarkCard title="Scope" detail="Request activity read access needed for private run, walk and hike imports." />
               <DarkCard title="Privacy" detail="Imported Strava data is shown only to the connected user." />
             </div>
 
@@ -510,7 +519,7 @@ function getStravaAuthorizeUrl() {
     response_type: "code",
     redirect_uri: redirect,
     approval_prompt: "auto",
-    scope: "activity:read",
+    scope: "read,activity:read_all",
     state: "athletigolf-cardio",
   });
 

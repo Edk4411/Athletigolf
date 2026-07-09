@@ -20,10 +20,10 @@ Deno.serve(async (request) => {
     if (!connection) return json({ error: "Strava is not connected." }, 400);
 
     const tokens = await getFreshTokens(admin, connection);
-    const after = Math.floor((Date.now() - 45 * 24 * 60 * 60 * 1000) / 1000).toString();
+    const after = Math.floor((Date.now() - 90 * 24 * 60 * 60 * 1000) / 1000).toString();
     const url = new URL("https://www.strava.com/api/v3/athlete/activities");
     url.searchParams.set("after", after);
-    url.searchParams.set("per_page", "30");
+    url.searchParams.set("per_page", "100");
     url.searchParams.set("page", "1");
 
     const response = await fetch(url, {
@@ -32,9 +32,14 @@ Deno.serve(async (request) => {
     const activities = await response.json();
     if (!response.ok) return json({ error: activities.message || "Could not import Strava activities." }, response.status);
 
-    const rows = (Array.isArray(activities) ? activities : [])
-      .map((activity: any) => mapActivity(user.id, activity))
-      .filter(Boolean);
+    const activityList = Array.isArray(activities) ? activities : [];
+    const mapped = activityList.map((activity: any) => ({
+      activity,
+      row: mapActivity(user.id, activity),
+    }));
+    const rows = mapped.map((item) => item.row).filter(Boolean);
+    const skippedUnsupported = mapped.filter((item) => !item.row).length;
+    const activityTypes = [...new Set(activityList.map((activity: any) => String(activity.sport_type || activity.type || "unknown")))];
 
     if (rows.length) {
       const { error: upsertError } = await admin
@@ -48,7 +53,13 @@ Deno.serve(async (request) => {
       .update({ last_imported_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq("user_id", user.id);
 
-    return json({ imported: rows.length });
+    return json({
+      imported: rows.length,
+      scanned: activityList.length,
+      skippedUnsupported,
+      activityTypes,
+      windowDays: 90,
+    });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : "Strava import failed." }, 500);
   }
@@ -92,7 +103,7 @@ async function getFreshTokens(admin: any, connection: any) {
 function mapActivity(userId: string, activity: any) {
   const sport = String(activity.sport_type || activity.type || "").toLowerCase();
   const isRun = sport.includes("run");
-  const isWalk = sport.includes("walk");
+  const isWalk = sport.includes("walk") || sport.includes("hike");
   if (!isRun && !isWalk) return null;
 
   return {

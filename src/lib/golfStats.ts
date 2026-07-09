@@ -11,7 +11,9 @@ const average = (values: number[]) =>
     : null;
 
 export function getGolfStats(rounds: Round[]) {
-  const scoredRounds = rounds.filter((round) => hasValue(round.score));
+  const scoredRoundValues = rounds
+    .map(getComparableRoundScore)
+    .filter(hasValue);
   const fairwayRounds = rounds.filter((round) => hasValue(round.fairways_hit));
   const girRounds = rounds.filter((round) => hasValue(round.greens_in_regulation));
   const puttingRounds = rounds.filter((round) => hasValue(round.putts));
@@ -41,10 +43,10 @@ export function getGolfStats(rounds: Round[]) {
   );
 
   return {
-    avgScore: average(scoredRounds.map((round) => round.score as number)),
+    avgScore: average(scoredRoundValues),
     bestScore:
-      scoredRounds.length > 0
-        ? Math.min(...scoredRounds.map((round) => round.score as number))
+      scoredRoundValues.length > 0
+        ? Math.min(...scoredRoundValues)
         : null,
     avgFairwayPercent:
       fairwaysPossible > 0 ? Math.round((fairwaysHit / fairwaysPossible) * 100) : null,
@@ -71,6 +73,14 @@ export function getGolfStats(rounds: Round[]) {
         ? Math.max(...longestDriveRounds.map((round) => round.longest_drive as number))
         : null,
   };
+}
+
+export function getComparableRoundScore(round: Round) {
+  if (!hasValue(round.score)) return null;
+  const holesPlayed = round.holes_played ?? 18;
+  if (holesPlayed === 18) return round.score;
+  if (holesPlayed === 9) return round.score * 2;
+  return null;
 }
 
 export function getShortGameStats(holes: RoundHole[]) {

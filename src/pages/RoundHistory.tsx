@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import type { FairwayResult, Round, RoundHole, TeeShotLocation } from "@/lib/types";
 
 type RoundForm = {
+  round_name: string;
   course: string;
   date: string;
   score: string;
@@ -23,6 +24,7 @@ type RoundForm = {
   chip_shots: string;
   greenside_bunker_shots: string;
   is_competition: boolean;
+  playing_partners: string;
   notes: string;
 };
 
@@ -42,6 +44,7 @@ type HoleForm = {
 };
 
 const emptyForm: RoundForm = {
+  round_name: "",
   course: "",
   date: "",
   score: "",
@@ -58,6 +61,7 @@ const emptyForm: RoundForm = {
   chip_shots: "",
   greenside_bunker_shots: "",
   is_competition: false,
+  playing_partners: "",
   notes: "",
 };
 
@@ -146,6 +150,7 @@ export default function RoundHistory() {
     const { error } = await supabase
       .from("rounds")
       .update({
+        round_name: editForm.round_name || null,
         course: editForm.course || null,
         date: editForm.date || null,
         score: hasHoleScores ? holeStats.totalScore : parseNumber(editForm.score),
@@ -163,6 +168,7 @@ export default function RoundHistory() {
         greenside_bunker_shots: hasHoleScores ? holeStats.bunkers : parseNumber(editForm.greenside_bunker_shots),
         scramble_percentage: hasHoleScores ? holeStats.scramblePercent : editingRound.scramble_percentage,
         is_competition: editForm.is_competition,
+        playing_partners: editForm.playing_partners || null,
         notes: editForm.notes || null,
       })
       .eq("id", editingRound.id);
@@ -248,8 +254,8 @@ export default function RoundHistory() {
 
         <section className="mb-5 grid gap-4 md:grid-cols-4">
           <StatCard label="Rounds Logged" value={rounds.length} />
-          <StatCard label="Average Score" value={formatAverage(golfStats.avgScore)} />
-          <StatCard label="Best Round" value={golfStats.bestScore === null ? "-" : golfStats.bestScore} />
+          <StatCard label="Average Score" value={formatAverage(golfStats.avgScore)} sub="18-hole equivalent" />
+          <StatCard label="Best Round" value={golfStats.bestScore === null ? "-" : golfStats.bestScore} sub="9s doubled, partials ignored" />
           <StatCard label="Avg Drive" value={golfStats.avgDrivingDistance === null ? "-" : `${Math.round(golfStats.avgDrivingDistance)} yd`} />
         </section>
 
@@ -282,14 +288,16 @@ export default function RoundHistory() {
                 <div className="grid gap-4 lg:grid-cols-[1fr_92px_92px_92px_110px_110px_112px] lg:items-center">
                   <div>
                     <div className="mb-2 flex flex-wrap items-center gap-2">
-                      <h2 className="text-xl font-semibold text-dark">{round.course || "Unknown Course"}</h2>
+                      <h2 className="text-xl font-semibold text-dark">{round.round_name || round.course || "Unknown Course"}</h2>
                       <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${round.is_competition ? "bg-gold/15 text-gold" : "bg-golf/10 text-golf"}`}>
                         {round.is_competition ? "Competition" : "General"}
                       </span>
                     </div>
                     <p className="text-sm text-muted">
+                      {round.course && round.round_name ? `${round.course} / ` : ""}
                       {round.date || new Date(round.created_at).toLocaleDateString("en-GB")}
                       {round.tee_colour ? ` / ${round.tee_colour} tees` : ""}
+                      {round.playing_partners ? ` / With ${round.playing_partners}` : ""}
                     </p>
                   </div>
 
@@ -326,7 +334,7 @@ export default function RoundHistory() {
           holes={editHoles}
           selectedHoleIndex={selectedHoleIndex}
           saving={saving}
-          title={editingRound.course || "Golf Round"}
+          title={editingRound.round_name || editingRound.course || "Golf Round"}
           setForm={setEditForm}
           setSelectedHoleIndex={setSelectedHoleIndex}
           updateHole={updateHole}
@@ -373,10 +381,11 @@ function RoundDetailsDrawer({
     <div className="fixed inset-0 z-50 flex justify-end">
       <button onClick={onClose} className="absolute inset-0 bg-black/50" aria-label="Close round details" />
       <aside className="relative z-10 h-full w-full max-w-4xl overflow-y-auto border-l border-line bg-panel p-6 shadow-2xl">
-        <DrawerHeader eyebrow="Round Details" title={round.course || "Unknown Course"} onClose={onClose} />
+        <DrawerHeader eyebrow="Round Details" title={round.round_name || round.course || "Unknown Course"} onClose={onClose} />
 
         <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <DetailTile label="Score" value={round.score?.toString() || "-"} />
+          <DetailTile label="Holes" value={(round.holes_played ?? 18).toString()} />
           <DetailTile label="FIR" value={`${round.fairways_hit ?? "-"}/${round.fairways_possible ?? "-"}`} />
           <DetailTile label="GIR" value={`${round.greens_in_regulation ?? "-"}/${round.holes_played ?? 18}`} />
           <DetailTile label="Scramble" value={round.scramble_percentage === null ? "-" : `${round.scramble_percentage}%`} />
@@ -385,6 +394,13 @@ function RoundDetailsDrawer({
           <DetailTile label="Putts" value={round.putts?.toString() || "-"} />
           <DetailTile label="Penalties" value={(round.penalty_shots ?? 0).toString()} danger={(round.penalty_shots ?? 0) > 0} />
         </div>
+
+        {(round.course || round.playing_partners) && (
+          <div className="mb-5 rounded-xl border border-line bg-steel/5 p-4">
+            {round.course && <p className="text-sm text-muted"><span className="font-semibold text-dark">Course:</span> {round.course}</p>}
+            {round.playing_partners && <p className="mt-1 text-sm text-muted"><span className="font-semibold text-dark">Played with:</span> {round.playing_partners}</p>}
+          </div>
+        )}
 
         {holes.length > 0 && (
           <div className="overflow-x-auto rounded-xl border border-line">
@@ -481,9 +497,11 @@ function RoundEditDrawer({
         </div>
 
         <div className="mb-5 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Field label="Round name" value={form.round_name} onChange={(value) => setField("round_name", value)} />
           <Field label="Course" value={form.course} onChange={(value) => setField("course", value)} />
           <Field label="Date" type="date" value={form.date} onChange={(value) => setField("date", value)} />
           <Field label="Tees Played" value={form.tee_colour} onChange={(value) => setField("tee_colour", value)} />
+          <Field label="Playing partners" value={form.playing_partners} onChange={(value) => setField("playing_partners", value)} />
           <Field label="Average Driving Distance" type="number" value={form.average_driving_distance} onChange={(value) => setField("average_driving_distance", value)} />
           <Field label="Longest Drive" type="number" value={form.longest_drive} onChange={(value) => setField("longest_drive", value)} />
           <Field label="Tee Shot Quality" value={form.tee_shot_quality} onChange={(value) => setField("tee_shot_quality", value)} />
@@ -641,6 +659,7 @@ function SelectField({
 
 function toRoundForm(round: Round): RoundForm {
   return {
+    round_name: round.round_name || "",
     course: round.course || "",
     date: round.date || "",
     score: round.score?.toString() || "",
@@ -657,6 +676,7 @@ function toRoundForm(round: Round): RoundForm {
     chip_shots: round.chip_shots?.toString() || "",
     greenside_bunker_shots: round.greenside_bunker_shots?.toString() || "",
     is_competition: round.is_competition,
+    playing_partners: round.playing_partners || "",
     notes: round.notes || "",
   };
 }

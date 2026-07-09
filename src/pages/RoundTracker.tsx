@@ -50,9 +50,11 @@ export default function RoundTracker() {
   const { user } = useAuth();
   const [step, setStep] = useState<Step>("setup");
   const [holesPlayed, setHolesPlayed] = useState<9 | 18>(18);
+  const [roundName, setRoundName] = useState("");
   const [course, setCourse] = useState("");
   const [competition, setCompetition] = useState(false);
   const [teeColour, setTeeColour] = useState("");
+  const [playingPartners, setPlayingPartners] = useState("");
   const [averageDrivingDistance, setAverageDrivingDistance] = useState("");
   const [longestDrive, setLongestDrive] = useState("");
   const [teeShotQuality, setTeeShotQuality] = useState("");
@@ -192,6 +194,7 @@ export default function RoundTracker() {
       .from("rounds")
       .insert({
         user_id: user.id,
+        round_name: roundName || null,
         course: course || null,
         date: date || null,
         score: stats.totalScore || null,
@@ -207,6 +210,7 @@ export default function RoundTracker() {
         average_driving_distance: parseOptionalNumber(averageDrivingDistance),
         longest_drive: parseOptionalNumber(longestDrive),
         tee_shot_quality: teeShotQuality || null,
+        playing_partners: playingPartners || null,
         scramble_percentage: stats.scramblePercent,
         is_competition: competition,
         notes: notes || null,
@@ -250,9 +254,11 @@ export default function RoundTracker() {
   };
 
   const resetRound = () => {
+    setRoundName("");
     setCourse("");
     setCompetition(false);
     setTeeColour("");
+    setPlayingPartners("");
     setAverageDrivingDistance("");
     setLongestDrive("");
     setTeeShotQuality("");
@@ -329,9 +335,11 @@ export default function RoundTracker() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Round name" value={roundName} onChange={setRoundName} placeholder="Saturday medal, evening 9..." />
               <Field label="Course name" value={course} onChange={setCourse} />
               <Field label="Tees played" value={teeColour} onChange={setTeeColour} />
               <Field label="Date" value={date} onChange={setDate} type="date" />
+              <Field label="Playing partners" value={playingPartners} onChange={setPlayingPartners} placeholder="Sam, Jack, Dad..." />
               <Field
                 label="Average driving distance"
                 value={averageDrivingDistance}
@@ -358,6 +366,9 @@ export default function RoundTracker() {
                 />
                 <span className="font-medium">Competition round</span>
               </label>
+              <p className="rounded-lg border border-golf/20 bg-golf/8 px-4 py-3 text-sm leading-relaxed text-muted md:col-span-2">
+                For alpha, playing partners are saved as names only. Other players' scorecards can become a group or premium feature later.
+              </p>
               <div className="md:col-span-2">
                 <label className="mb-2 block text-sm text-black/50">Round notes</label>
                 <textarea
@@ -711,11 +722,13 @@ function Field({
   value,
   onChange,
   type = "text",
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
+  placeholder?: string;
 }) {
   return (
     <div>
@@ -725,6 +738,7 @@ function Field({
         min={type === "number" ? 0 : undefined}
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
         className="w-full rounded-lg border border-line px-4 py-3 outline-none focus:border-golf"
       />
     </div>

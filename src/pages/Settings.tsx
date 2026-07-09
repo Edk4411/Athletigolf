@@ -251,18 +251,18 @@ export default function Settings() {
   }
 
   return (
-    <div className="min-h-screen bg-cream p-8 text-ink md:p-12">
-      <div className="mx-auto max-w-6xl">
+    <div className="min-h-screen overflow-x-hidden bg-cream px-4 py-5 text-ink sm:px-6 md:p-12">
+      <div className="mx-auto max-w-6xl min-w-0">
 
         {/* PAGE HEADER */}
-        <div className="mb-12 max-w-3xl">
+        <div className="mb-8 max-w-3xl md:mb-12">
           <p className="mb-4 text-xs font-semibold uppercase tracking-[0.25em] text-muted">
             Settings
           </p>
-          <h1 className="mb-4 text-5xl font-semibold text-dark">
+          <h1 className="mb-4 text-3xl font-semibold leading-tight text-dark sm:text-4xl md:text-5xl">
             Manage your AthletiGolf account
           </h1>
-          <p className="text-lg leading-relaxed text-muted">
+          <p className="text-base leading-relaxed text-muted md:text-lg">
             Control your account, preferences and app experience from one place.
           </p>
         </div>
@@ -276,11 +276,11 @@ export default function Settings() {
               Update your name, handicap, goals and personal details.
             </p>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid min-w-0 gap-4 md:grid-cols-2">
               <div className="flex flex-col gap-1">
                 <label className="text-sm text-muted">Full name</label>
                 <input
-                  className="rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
+                  className="w-full rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
                   placeholder="e.g. Jamie Wilson"
                   value={profile.full_name}
                   onChange={(e) => set("full_name", e.target.value)}
@@ -290,7 +290,7 @@ export default function Settings() {
               <div className="flex flex-col gap-1">
                 <label className="text-sm text-muted">Username</label>
                 <input
-                  className="rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
+                  className="w-full rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
                   placeholder="e.g. jamie_golf"
                   value={profile.username}
                   onChange={(e) => set("username", normalizeUsername(e.target.value))}
@@ -301,7 +301,7 @@ export default function Settings() {
               <div className="flex flex-col gap-1">
                 <label className="text-sm text-muted">Golf handicap</label>
                 <input
-                  className="rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
+                  className="w-full rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
                   placeholder="e.g. 12.4"
                   type="number"
                   step="0.1"
@@ -313,7 +313,7 @@ export default function Settings() {
               <div className="flex flex-col gap-1">
                 <label className="text-sm text-muted">Height</label>
                 <input
-                  className="rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
+                  className="w-full rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
                   placeholder="e.g. 180cm"
                   value={profile.height}
                   onChange={(e) => set("height", e.target.value)}
@@ -323,7 +323,7 @@ export default function Settings() {
               <div className="flex flex-col gap-1">
                 <label className="text-sm text-muted">Weight</label>
                 <input
-                  className="rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
+                  className="w-full rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
                   placeholder="e.g. 80kg"
                   value={profile.weight}
                   onChange={(e) => set("weight", e.target.value)}
@@ -333,7 +333,7 @@ export default function Settings() {
               <div className="flex flex-col gap-1 md:col-span-2">
                 <label className="text-sm text-muted">Main goal</label>
                 <input
-                  className="rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
+                  className="w-full rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
                   placeholder="e.g. Break 80, Improve strength, Lose 5kg"
                   value={profile.main_goal}
                   onChange={(e) => set("main_goal", e.target.value)}
@@ -349,11 +349,11 @@ export default function Settings() {
               Switch between yards/metres and kg/lbs.
             </p>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid min-w-0 gap-4 md:grid-cols-2">
               <div className="flex flex-col gap-1">
                 <label className="text-sm text-muted">Distance unit</label>
                 <select
-                  className="rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
+                  className="w-full rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
                   value={profile.distance_unit}
                   onChange={(e) => set("distance_unit", e.target.value)}
                 >
@@ -365,7 +365,7 @@ export default function Settings() {
               <div className="flex flex-col gap-1">
                 <label className="text-sm text-muted">Weight unit</label>
                 <select
-                  className="rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
+                  className="w-full rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
                   value={profile.weight_unit}
                   onChange={(e) => set("weight_unit", e.target.value)}
                 >
@@ -383,7 +383,7 @@ export default function Settings() {
               Choose whether AthletiGolf should behave like a golf platform, fitness tracking platform, or full combined setup.
             </p>
 
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid min-w-0 gap-3 md:grid-cols-2">
               {visibleSportModes.map(([value, label]) => (
                 <button
                   key={value}
@@ -501,7 +501,7 @@ export default function Settings() {
             </div>
 
             <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-              <div className="space-y-5">
+              <div className="min-w-0 space-y-5">
                 <div>
                   <label className="mb-2 block text-sm text-muted">Default live check-in visibility</label>
                   <select
@@ -516,14 +516,14 @@ export default function Settings() {
 
                 <div className="rounded-xl border border-pulse/20 bg-pulse/8 p-4">
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Your username</p>
-                  <div className="mt-2 flex items-center gap-2">
+                  <div className="mt-2 flex min-w-0 items-center gap-2">
                     <code className="min-w-0 flex-1 truncate rounded-lg bg-white/70 px-3 py-2 text-xs font-semibold text-dark">
                       @{profile.username || "set_username"}
                     </code>
                     <button
                       type="button"
                       onClick={() => navigator.clipboard?.writeText(profile.username ? `@${profile.username}` : "")}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-line bg-white text-dark transition hover:border-pulse/40"
+                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line bg-white text-dark transition hover:border-pulse/40"
                       disabled={!profile.username}
                     >
                       <Copy className="h-4 w-4" />
@@ -544,14 +544,14 @@ export default function Settings() {
 
                 <div className="rounded-xl border border-line bg-white/70 p-4">
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Backup friend code</p>
-                  <div className="mt-2 flex items-center gap-2">
+                  <div className="mt-2 flex min-w-0 items-center gap-2">
                     <code className="min-w-0 flex-1 truncate rounded-lg bg-cream px-3 py-2 text-xs font-semibold text-dark">
                       {userId || "Loading..."}
                     </code>
                     <button
                       type="button"
                       onClick={() => navigator.clipboard?.writeText(userId)}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-line bg-white text-dark transition hover:border-pulse/40"
+                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line bg-white text-dark transition hover:border-pulse/40"
                       disabled={!userId}
                     >
                       <Copy className="h-4 w-4" />
@@ -568,7 +568,7 @@ export default function Settings() {
                 </button>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid min-w-0 gap-3 md:grid-cols-2">
                 <PrivacyNote title="Golf rounds" detail="Private to your account." />
                 <PrivacyNote title="Training logs" detail="Private to your account." />
                 <PrivacyNote title="Wellness logs" detail="Private to your account." />
@@ -599,7 +599,7 @@ export default function Settings() {
                 </p>
               </div>
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex min-w-0 flex-wrap gap-3">
               <button
                 type="button"
                 onClick={requestAccountDataExport}
@@ -671,15 +671,15 @@ export default function Settings() {
         </section>
 
         {/* ACCOUNT CONTROLS */}
-        <section className="mt-10 rounded-xl bg-dark p-8 text-white shadow-2xl">
+        <section className="mt-10 rounded-xl bg-dark p-5 text-white shadow-2xl sm:p-8">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.25em] text-[#D4AF37]">
             Account
           </p>
 
-          <h2 className="mb-4 text-3xl font-semibold">Account controls</h2>
+          <h2 className="mb-4 text-2xl font-semibold sm:text-3xl">Account controls</h2>
 
           <p className="mb-1 text-white/60">Signed in as:</p>
-          <p className="mb-6 font-semibold">{email}</p>
+          <p className="mb-6 break-all font-semibold">{email}</p>
 
           <div className="flex flex-wrap gap-4">
             <button
@@ -733,3 +733,4 @@ function getSportModeDetail(mode: SportMode) {
   if (mode === "other") return "Use AthletiGolf as a general athletic performance platform while future sport modules grow.";
   return "Track everything: golf, training, wellness, nutrition, social and AthletiAI relationship insights.";
 }
+

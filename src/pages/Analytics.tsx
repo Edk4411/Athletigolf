@@ -9,6 +9,7 @@ import {
   formatPercent,
   getGolfStats,
   getShortGameStats,
+  getComparableRoundScore,
   lowerIsBetterControl,
 } from "@/lib/golfStats";
 import {
@@ -66,7 +67,7 @@ export default function Analytics() {
   const shortGameStats = getShortGameStats(roundHoles);
   const penaltyControl = lowerIsBetterControl(golfStats.avgPenaltyShots, 0, 4);
   const puttingControl = lowerIsBetterControl(golfStats.avgPutts, 30, 42);
-  const roundsWithScores = rounds.filter((r) => r.score !== null);
+  const roundsWithScores = rounds.filter((round) => getComparableRoundScore(round) !== null);
   const recentScoreRounds = roundsWithScores.slice(0, 12).reverse();
   const workoutsThisWeek = (() => {
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -392,7 +393,7 @@ function ReportKpi({
 }
 
 function ScoreLineChart({ rounds }: { rounds: Round[] }) {
-  const scores = rounds.map((round) => round.score || 0);
+  const scores = rounds.map((round) => getComparableRoundScore(round) || 0);
   const bestScore = Math.min(...scores);
   const worstScore = Math.max(...scores);
   const lower = Math.max(0, Math.floor(bestScore - 2));
@@ -405,8 +406,9 @@ function ScoreLineChart({ rounds }: { rounds: Round[] }) {
   const plotHeight = height - padding.top - padding.bottom;
   const points = rounds.map((round, index) => {
     const x = rounds.length === 1 ? padding.left + plotWidth / 2 : padding.left + (index / (rounds.length - 1)) * plotWidth;
-    const y = padding.top + ((upper - (round.score || 0)) / range) * plotHeight;
-    return { x, y, score: round.score || 0, round };
+    const score = getComparableRoundScore(round) || 0;
+    const y = padding.top + ((upper - score) / range) * plotHeight;
+    return { x, y, score, round };
   });
   const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
   const averageY = padding.top + ((upper - average) / range) * plotHeight;

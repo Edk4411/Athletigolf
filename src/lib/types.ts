@@ -64,6 +64,7 @@ export type OnboardingData = {
 export type Round = {
   id: string;
   user_id: string;
+  round_name?: string | null;
   course: string | null;
   date: string | null;
   score: number | null;
@@ -79,6 +80,7 @@ export type Round = {
   average_driving_distance?: number | null;
   longest_drive?: number | null;
   tee_shot_quality?: string | null;
+  playing_partners?: string | null;
   scramble_percentage: number | null;
   is_competition: boolean;
   notes: string | null;
