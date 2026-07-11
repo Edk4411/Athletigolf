@@ -6,25 +6,30 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "app:sync": "npm run build && npx cap sync",
+    "app:android": "npm run app:sync && npx cap open android"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.23.24",
+    "lucide-react": "^0.545.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "wouter": "^3.3.5",
-    "lucide-react": "^0.545.0",
-    "framer-motion": "^12.23.24",
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^3.3.1"
+    "tailwind-merge": "^3.3.1",
+    "wouter": "^3.3.5"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@tailwindcss/vite": "^4.1.14",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.4",
-    "@tailwindcss/vite": "^4.1.14",
     "tailwindcss": "^4.1.14",
-    "vite": "^7.3.2",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "vite": "^7.3.2"
   }
 }
