@@ -5,16 +5,28 @@ import { supabase } from "@/lib/supabase";
 import type { FoodSearchResult, NutritionEntry, OnboardingData, PracticeSession, Round, SavedFood, WellnessLog, Workout } from "@/lib/types";
 import { defaultWellnessTargets, getWellnessTargets, type WellnessTargets } from "@/lib/wellnessTargets";
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const toLocalIso = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const parseLocalIso = (value: string) => {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, (month || 1) - 1, day || 1);
+};
+
+const todayIso = () => toLocalIso(new Date());
 const offsetIso = (days: number) => {
   const date = new Date();
   date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  return toLocalIso(date);
 };
 const shiftIso = (value: string, days: number) => {
-  const date = new Date(`${value}T00:00:00`);
+  const date = parseLocalIso(value);
   date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  return toLocalIso(date);
 };
 
 const blankForm = {
@@ -2268,7 +2280,7 @@ function formatNumber(value: number | null | undefined) {
 }
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("en-GB", {
+  return parseLocalIso(value).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
   });
@@ -2283,8 +2295,9 @@ function mealSkipKey(date: string, meal: NutritionEntry["meal_type"]) {
 }
 
 function formatShortDay(value: string) {
-  return new Date(value).toLocaleDateString("en-GB", {
+  return parseLocalIso(value).toLocaleDateString("en-GB", {
     weekday: "short",
   });
 }
+
 
