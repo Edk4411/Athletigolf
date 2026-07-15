@@ -3,6 +3,7 @@ import { Switch, Route, Redirect, useLocation } from "wouter";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import MobileSidebar from "@/components/MobileSidebar";
+import AppDock from "@/components/AppDock";
 import Landing from "@/pages/Landing";
 import AuthPage from "@/pages/Auth";
 import Privacy from "@/pages/Privacy";
@@ -27,6 +28,7 @@ import GolfQuiz from "@/pages/GolfQuiz";
 import RoundTracker from "@/pages/RoundTracker";
 import ComingSoon from "@/pages/ComingSoon";
 import { applyTextAutoFormatToField } from "@/lib/textFormatting";
+import { isNativeApp } from "@/lib/nativeApp";
 import { applyTheme, getStoredTheme } from "@/lib/theme";
 import PracticeSession from "./pages/PracticeSession";
 import PracticePlan from "./pages/PracticePlan";
@@ -55,6 +57,8 @@ function AppShell() {
   const [location, navigate] = useLocation();
   const { user } = useAuth();
   const hideSidebar = location === "/" || location === "/auth" || location === "/onboarding";
+  const nativeApp = isNativeApp();
+  const showAppDock = nativeApp && !hideSidebar;
 
   useEffect(() => {
     applyTheme(getStoredTheme());
@@ -106,8 +110,16 @@ function AppShell() {
     className="min-h-screen bg-cream font-sans text-ink"
     onBlurCapture={(event) => applyTextAutoFormatToField(event.target)}
   >
-    {!hideSidebar && <MobileSidebar />}
-    <div className={!hideSidebar ? "min-h-screen pt-20 lg:pl-72" : ""}>
+    {!hideSidebar && !nativeApp && <MobileSidebar />}
+    <div
+      className={
+        hideSidebar
+          ? ""
+          : nativeApp
+          ? "min-h-screen pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
+          : "min-h-screen pt-20 lg:pl-72"
+      }
+    >
       <Switch>
       <Route path="/coming-soon">
         <ComingSoon />
@@ -286,6 +298,7 @@ function AppShell() {
         </Route>
       </Switch>
     </div>
+    {showAppDock && <AppDock />}
     </div>
   );
 }
