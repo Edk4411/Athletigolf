@@ -67,6 +67,9 @@ export type Round = {
   status?: "draft" | "unfinished" | "completed";
   target_holes?: number | null;
   round_name?: string | null;
+  golf_course_id?: string | null;
+  golf_course_external_id?: number | null;
+  golf_course_tee_id?: string | null;
   course: string | null;
   date: string | null;
   score: number | null;
@@ -79,6 +82,12 @@ export type Round = {
   greenside_bunker_shots?: number | null;
   holes_played?: number | null;
   tee_colour?: string | null;
+  tee_name?: string | null;
+  course_rating?: number | null;
+  slope_rating?: number | null;
+  total_yards?: number | null;
+  total_meters?: number | null;
+  par_total?: number | null;
   average_driving_distance?: number | null;
   longest_drive?: number | null;
   tee_shot_quality?: string | null;
@@ -117,6 +126,9 @@ export type RoundHole = {
   tee_shot_location?: TeeShotLocation | null;
   gir: boolean;
   putts: number | null;
+  yardage?: number | null;
+  meters?: number | null;
+  handicap?: number | null;
   penalty_shots: number | null;
   chip_shots: number | null;
   greenside_bunker_shots: number | null;
@@ -340,6 +352,43 @@ export type FriendConnectionProfile = FriendConnection & {
   other_user_id: string;
   other_username: string | null;
   other_display_name: string | null;
+};
+
+export type GolfCourseSearchResult = {
+  id: number;
+  clubName: string;
+  courseName: string;
+  location: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+};
+
+export type GolfCourseHole = {
+  holeNumber: number;
+  par: number | null;
+  yardage: number | null;
+  meters: number | null;
+  handicap: number | null;
+};
+
+export type GolfCourseTee = {
+  id: string;
+  gender: string;
+  teeName: string;
+  courseRating: number | null;
+  slopeRating: number | null;
+  bogeyRating: number | null;
+  totalYards: number | null;
+  totalMeters: number | null;
+  numberOfHoles: number | null;
+  parTotal: number | null;
+  holes: GolfCourseHole[];
+};
+
+export type GolfCourseDetail = GolfCourseSearchResult & {
+  cachedCourseId: string | null;
+  tees: GolfCourseTee[];
 };
 
 export type FriendProfileSummary = {

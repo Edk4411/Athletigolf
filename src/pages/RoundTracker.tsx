@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { ArrowLeft, CheckCircle2, Flag, Save } from "lucide-react";
+import GolfCoursePicker from "@/components/GolfCoursePicker";
 import { Button, Card, PageHeader, StatCard } from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
 import { todayIso } from "@/lib/dates";
 import { supabase } from "@/lib/supabase";
-import type { FairwayResult, Round, RoundHole, TeeShotLocation } from "@/lib/types";
+import type { FairwayResult, GolfCourseDetail, GolfCourseTee, Round, RoundHole, TeeShotLocation } from "@/lib/types";
 
 type Step = "setup" | "holes" | "review" | "saved";
 
 type Hole = {
   par: number;
+  yardage: number | null;
+  meters: number | null;
+  handicap: number | null;
   score: string;
   fairway: FairwayResult;
   teeShotLocation: "" | TeeShotLocation;
@@ -25,6 +29,9 @@ type Hole = {
 const createHoles = (count: number): Hole[] =>
   Array.from({ length: count }, () => ({
     par: 4,
+    yardage: null,
+    meters: null,
+    handicap: null,
     score: "",
     fairway: "na",
     teeShotLocation: "",
@@ -56,6 +63,8 @@ export default function RoundTracker() {
   const [holesPlayed, setHolesPlayed] = useState<9 | 18>(18);
   const [roundName, setRoundName] = useState("");
   const [course, setCourse] = useState("");
+  const [selectedCourse, setSelectedCourse] = useState<GolfCourseDetail | null>(null);
+  const [selectedTee, setSelectedTee] = useState<GolfCourseTee | null>(null);
   const [competition, setCompetition] = useState(false);
   const [teeColour, setTeeColour] = useState("");
   const [playingPartners, setPlayingPartners] = useState("");
@@ -92,8 +101,40 @@ export default function RoundTracker() {
       setHolesPlayed(targetHoles);
       setRoundName(loadedRound.round_name || "");
       setCourse(loadedRound.course || "");
+      setSelectedCourse(
+        loadedRound.golf_course_external_id
+          ? {
+              id: loadedRound.golf_course_external_id,
+              cachedCourseId: loadedRound.golf_course_id || null,
+              clubName: loadedRound.course || "Saved course",
+              courseName: loadedRound.course || "Saved course",
+              location: null,
+              city: null,
+              state: null,
+              country: null,
+              tees: [],
+            }
+          : null
+      );
+      setSelectedTee(
+        loadedRound.golf_course_tee_id || loadedRound.tee_name
+          ? {
+              id: loadedRound.golf_course_tee_id || "saved-tee",
+              gender: "unknown",
+              teeName: loadedRound.tee_name || loadedRound.tee_colour || "Saved tee",
+              courseRating: loadedRound.course_rating ?? null,
+              slopeRating: loadedRound.slope_rating ?? null,
+              bogeyRating: null,
+              totalYards: loadedRound.total_yards ?? null,
+              totalMeters: loadedRound.total_meters ?? null,
+              numberOfHoles: loadedRound.target_holes || null,
+              parTotal: loadedRound.par_total ?? null,
+              holes: [],
+            }
+          : null
+      );
       setCompetition(loadedRound.is_competition);
-      setTeeColour(loadedRound.tee_colour || "");
+      setTeeColour(loadedRound.tee_name || loadedRound.tee_colour || "");
       setPlayingPartners(loadedRound.playing_partners || "");
       setAverageDrivingDistance(loadedRound.average_driving_distance?.toString() || "");
       setLongestDrive(loadedRound.longest_drive?.toString() || "");
@@ -127,8 +168,64 @@ export default function RoundTracker() {
     }
   };
 
+  const applyTeeToHoles = (tee: GolfCourseTee | null, nextHolesPlayed = holesPlayed) => {
+    if (!tee?.holes?.length) return;
+    setHoles((prev) => {
+      const base = prev.length === nextHolesPlayed ? prev : createHoles(nextHolesPlayed);
+      return base.map((hole, index) => {
+        const courseHole = tee.holes.find((item) => item.holeNumber === index + 1);
+        if (!courseHole) return hole;
+        return {
+          ...hole,
+          par: courseHole.par || hole.par,
+          yardage: courseHole.yardage,
+          meters: courseHole.meters,
+          handicap: courseHole.handicap,
+          fairway: (courseHole.par || hole.par) === 3 ? "na" : hole.fairway,
+          teeShotLocation: (courseHole.par || hole.par) === 3 ? "" : hole.teeShotLocation,
+        };
+      });
+    });
+  };
+
+  const handleCourseSelected = (courseDetail: GolfCourseDetail, tee: GolfCourseTee | null) => {
+    setSelectedCourse(courseDetail);
+    setCourse(courseDetail.courseName || courseDetail.clubName);
+    setSelectedTee(tee);
+    if (tee) {
+      setTeeColour(tee.teeName);
+      applyTeeToHoles(tee);
+    }
+  };
+
+  const handleTeeSelected = (tee: GolfCourseTee | null) => {
+    setSelectedTee(tee);
+    if (tee) {
+      setTeeColour(tee.teeName);
+      applyTeeToHoles(tee);
+    }
+  };
+
   const startRound = () => {
-    setHoles(createHoles(holesPlayed));
+    const nextHoles = createHoles(holesPlayed);
+    if (selectedTee?.holes?.length) {
+      setHoles(
+        nextHoles.map((hole, index) => {
+          const courseHole = selectedTee.holes.find((item) => item.holeNumber === index + 1);
+          if (!courseHole) return hole;
+          return {
+            ...hole,
+            par: courseHole.par || hole.par,
+            yardage: courseHole.yardage,
+            meters: courseHole.meters,
+            handicap: courseHole.handicap,
+            fairway: (courseHole.par || hole.par) === 3 ? "na" : hole.fairway,
+          };
+        })
+      );
+    } else {
+      setHoles(nextHoles);
+    }
     setCurrentHoleIndex(0);
     setSaveError("");
     setStep("holes");
@@ -245,6 +342,9 @@ export default function RoundTracker() {
         target_holes: holesPlayed,
         completed_at: status === "completed" ? new Date().toISOString() : null,
         round_name: roundName || null,
+        golf_course_id: selectedCourse?.cachedCourseId || null,
+        golf_course_external_id: selectedCourse?.id || null,
+        golf_course_tee_id: selectedTee?.id?.startsWith("saved-") || selectedTee?.id?.startsWith("api-") ? null : selectedTee?.id || null,
         course: course || null,
         date: date || todayIso(),
         score: stats.totalScore || null,
@@ -257,6 +357,12 @@ export default function RoundTracker() {
         greenside_bunker_shots: stats.greensideBunkerShots,
         holes_played: stats.holesCompleted,
         tee_colour: teeColour || null,
+        tee_name: selectedTee?.teeName || teeColour || null,
+        course_rating: selectedTee?.courseRating ?? null,
+        slope_rating: selectedTee?.slopeRating ?? null,
+        total_yards: selectedTee?.totalYards ?? null,
+        total_meters: selectedTee?.totalMeters ?? null,
+        par_total: selectedTee?.parTotal ?? stats.totalPar ?? null,
         average_driving_distance: parseOptionalNumber(averageDrivingDistance),
         longest_drive: parseOptionalNumber(longestDrive),
         tee_shot_quality: teeShotQuality || null,
@@ -288,6 +394,9 @@ export default function RoundTracker() {
         tee_shot_location: hole.par === 3 ? null : hole.teeShotLocation || null,
         gir: hole.gir,
         putts: parseStat(hole.putts),
+        yardage: hole.yardage,
+        meters: hole.meters,
+        handicap: hole.handicap,
         penalty_shots: parseStat(hole.penaltyShots),
         chip_shots: parseStat(hole.chipShots),
         greenside_bunker_shots: parseStat(hole.greensideBunkerShots),
@@ -319,6 +428,8 @@ export default function RoundTracker() {
   const resetRound = () => {
     setRoundName("");
     setCourse("");
+    setSelectedCourse(null);
+    setSelectedTee(null);
     setCompetition(false);
     setTeeColour("");
     setPlayingPartners("");
@@ -406,7 +517,23 @@ export default function RoundTracker() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Round name" value={roundName} onChange={setRoundName} placeholder="Saturday medal, evening 9..." />
-              <Field label="Course name" value={course} onChange={setCourse} />
+              <GolfCoursePicker
+                selectedCourse={selectedCourse}
+                selectedTee={selectedTee}
+                onCourseSelected={handleCourseSelected}
+                onTeeSelected={handleTeeSelected}
+              />
+              <Field
+                label="Course name"
+                value={course}
+                onChange={(value) => {
+                  setCourse(value);
+                  if (selectedCourse && value !== selectedCourse.courseName) {
+                    setSelectedCourse(null);
+                    setSelectedTee(null);
+                  }
+                }}
+              />
               <Field label="Tees played" value={teeColour} onChange={setTeeColour} />
               <Field label="Date" value={date} onChange={setDate} type="date" />
               <Field label="Playing partners" value={playingPartners} onChange={setPlayingPartners} placeholder="Sam, Jack, Dad..." />
@@ -485,6 +612,13 @@ export default function RoundTracker() {
                     <p className="mt-2 text-sm text-muted">
                       Enter the hole details, skip ahead, or finish when you are ready to review.
                     </p>
+                    {(currentHole.yardage || currentHole.handicap) && (
+                      <p className="mt-3 text-sm font-semibold text-golf">
+                        {currentHole.yardage ? `${currentHole.yardage} yd` : ""}
+                        {currentHole.yardage && currentHole.handicap ? " / " : ""}
+                        {currentHole.handicap ? `SI ${currentHole.handicap}` : ""}
+                      </p>
+                    )}
                   </div>
 
                   <div className="-mx-1 flex max-w-full gap-2 overflow-x-auto px-1 pb-1 lg:flex-wrap lg:overflow-visible">
@@ -656,6 +790,8 @@ export default function RoundTracker() {
                       <tr>
                         <th className="p-4">Hole</th>
                         <th className="p-4">Par</th>
+                        <th className="p-4">Yards</th>
+                        <th className="p-4">SI</th>
                         <th className="p-4">Score</th>
                         <th className="p-4">Fairway</th>
                         <th className="p-4">Tee lie</th>
@@ -671,6 +807,8 @@ export default function RoundTracker() {
                         <tr key={index} className="border-t border-line">
                           <td className="p-4 font-semibold">{index + 1}</td>
                           <td className="p-4">{hole.par}</td>
+                          <td className="p-4">{hole.yardage || "-"}</td>
+                          <td className="p-4">{hole.handicap || "-"}</td>
                           <td className="p-4">
                             {hole.score ? (
                               hole.score
@@ -862,6 +1000,9 @@ function toDraftHoles(count: 9 | 18, rows: RoundHole[]): Hole[] {
     if (index < 0 || index >= holes.length) return;
     holes[index] = {
       par: row.par || 4,
+      yardage: row.yardage ?? null,
+      meters: row.meters ?? null,
+      handicap: row.handicap ?? null,
       score: row.score === null || row.score === undefined ? "" : row.score.toString(),
       fairway: row.fairway_result || "na",
       teeShotLocation: row.tee_shot_location || "",
