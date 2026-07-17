@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { ArrowRight, Mail, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/lib/supabase";
 import { Button, FieldLabel, TextInput } from "@/components/ui";
 import { isValidUsername, normalizeUsername, usernameRules } from "@/lib/usernames";
 import { isNativeApp } from "@/lib/nativeApp";
@@ -9,7 +10,7 @@ import { cn } from "@/lib/utils";
 import athletiGolfLogo from "@/assets/athletigolf-logo-transparent.png";
 
 export default function AuthPage() {
-  const { signUp, signIn } = useAuth();
+  const { user, signUp, signIn } = useAuth();
   const [, navigate] = useLocation();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -19,6 +20,24 @@ export default function AuthPage() {
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
   const nativeApp = isNativeApp();
+
+  useEffect(() => {
+    if (!user) return;
+    const params = new URLSearchParams(window.location.search);
+    const errorDescription = params.get("error_description");
+    if (errorDescription) {
+      setError(errorDescription);
+      return;
+    }
+    supabase
+      .from("profiles")
+      .select("onboarding_completed")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        navigate(data?.onboarding_completed ? "/dashboard" : "/onboarding");
+      });
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
