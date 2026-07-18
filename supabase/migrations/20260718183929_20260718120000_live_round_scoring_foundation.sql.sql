@@ -1,10 +1,56 @@
 /*
-  AthletiGolf live round scoring foundation.
+# AthletiGolf live round scoring foundation
 
-  Add this as a new Supabase migration in:
-  supabase/migrations/20260718120000_live_round_scoring_foundation.sql
+1. Purpose
+- Adds the data layer for live, multi-player golf rounds with real-time scoring,
+  side games, spectator following, comments, reactions, and media.
+- Intentionally additive: existing `rounds` and `round_holes` keep working, so old
+  scorecards, dashboard, history, and analytics do not break.
 
-  This is intentionally additive. Existing rounds and round_holes keep working.
+2. Modified Tables
+- `rounds`: adds `visibility` (private/friends/team/public, default private),
+  `live_status` (not_started/live/paused/finished, default not_started),
+  `started_at`, `finished_at`, and `share_token` (uuid, for shareable live links).
+  CHECK constraints enforce the allowed enum values.
+
+3. New Tables
+- `round_sides`: pairs/teams grouping for a round (individual/pair/team).
+- `round_players`: one row per player in a round (owner/friend/guest), with
+  handicap, course/playing handicap, tee, order, edit permissions.
+- `round_player_holes`: per-player per-hole gross/net/stableford scores, strokes
+  received, picked_up/conceded flags, notes. Unique on (round_player_id, hole_number).
+- `round_games`: side games (stroke_play, stableford, match_play, skins, nassau,
+  four_ball, foursomes, scramble, greensomes, custom) with scoring basis,
+  handicap mode, and status.
+- `round_game_holes`: per-hole results for a side game (winner, carryover, points,
+  match state). Unique on (round_game_id, hole_number).
+- `round_game_results`: final results for a side game per player/side.
+- `round_watchers`: followers/coaches/team/admins watching a live round. Unique on
+  (round_id, watcher_user_id).
+- `round_comments`: hole-scoped or round-scoped comments, coach notes, and
+  post-round reviews.
+- `round_reactions`: like/fire/poop reactions targetable to round/hole/player_hole/
+  comment/media. Unique on (round_id, author, target, reaction).
+- `round_media`: image/video media attached to a round or hole.
+
+4. Indexes
+- `rounds` (visibility, live_status, created_at desc) and (share_token).
+- Foreign-key lookups on every child table (round_id, round_player_id,
+  round_game_id, tee_id) and watcher_user_id.
+- Created_at desc indexes on comments, reactions, media for feed ordering.
+
+5. Security
+- RLS enabled on all 10 new tables.
+- `can_view_round(target_round_id)` security-definer function: true if the user owns
+  the round, it's public, they're a watcher, or it's friends-visible and they're an
+  accepted friend of the owner (uses friend_connections.receiver_id).
+- `owns_round(target_round_id)` security-definer function: true if the user owns the
+  round.
+- SELECT policies use `can_view_round` for all viewable tables.
+- Write policies: owner can write sides/players/games/game-holes/game-results;
+  players can write their own `round_player_holes` when `can_edit_scores = true`;
+  watchers/media/comments/reactions have author-scoped write policies.
+- `anon` revoked on both helper functions; `authenticated` granted execute.
 */
 
 alter table public.rounds
