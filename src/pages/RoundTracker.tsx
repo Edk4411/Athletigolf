@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, CheckCircle2, Flag, Flame, MessageCircle, Save, Trophy, UserPlus, Users } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Flag, Flame, Handshake, MessageCircle, Save, Trophy, UserPlus, Users } from "lucide-react";
 import GolfCoursePicker from "@/components/GolfCoursePicker";
 import { Button, Card, PageHeader, StatCard } from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,7 +15,21 @@ type LivePlayer = {
   name: string;
   handicap: string;
   type: "friend" | "guest";
+  team: "A" | "B";
 };
+
+type LiveParticipant = {
+  id: string;
+  name: string;
+  handicap: string;
+  type: "owner" | "friend" | "guest";
+  team: "A" | "B";
+};
+
+type MatchDecision = {
+  label: string;
+  hole: number;
+} | null;
 
 type LiveGame =
   | "stroke_play"
@@ -26,6 +40,42 @@ type LiveGame =
   | "four_ball_stroke"
   | "four_ball_match"
   | "foursomes";
+
+type LiveSideRow = {
+  round_id: string;
+  name: string | null;
+  side_type: "individual" | "pair" | "team";
+  side_order: number;
+};
+
+type LivePlayerHoleRow = {
+  round_id: string;
+  round_player_id: string;
+  side_id: string | null;
+  hole_number: number;
+  gross_score: number;
+  net_score: number;
+  stableford_points: number | null;
+  strokes_received: number;
+  picked_up: boolean;
+  conceded: boolean;
+  notes: null;
+};
+
+type LiveGameResultRow = {
+  round_game_id: string;
+  round_id: string;
+  round_player_id: string | null;
+  side_id: string | null;
+  position: number | null;
+  total_gross: number | null;
+  total_net: number | null;
+  total_points: number | null;
+  holes_won: number | null;
+  skins_won: number | null;
+  result_label: string;
+  result_payload: Record<string, unknown>;
+};
 
 const liveGameOptions: Array<{ id: LiveGame; label: string; detail: string }> = [
   { id: "stroke_play", label: "Stroke play", detail: "Gross total" },
@@ -96,6 +146,9 @@ export default function RoundTracker() {
   const [newPlayerName, setNewPlayerName] = useState("");
   const [newPlayerHandicap, setNewPlayerHandicap] = useState("");
   const [selectedGames, setSelectedGames] = useState<LiveGame[]>(["stroke_play"]);
+  const [roundIntent, setRoundIntent] = useState<"casual" | "competition">("casual");
+  const [matchDecision, setMatchDecision] = useState<MatchDecision>(null);
+  const [matchContinuedAfterCloseout, setMatchContinuedAfterCloseout] = useState(false);
   const [playerHoleScores, setPlayerHoleScores] = useState<Record<string, string[]>>({});
   const [course, setCourse] = useState("");
   const [selectedCourse, setSelectedCourse] = useState<GolfCourseDetail | null>(null);
@@ -249,6 +302,7 @@ export default function RoundTracker() {
       name,
       handicap: newPlayerHandicap.trim(),
       type: "guest",
+      team: livePlayers.length % 2 === 0 ? "B" : "A",
     };
     setLivePlayers((prev) => [...prev, player]);
     setPlayerHoleScores((prev) => ({
@@ -275,6 +329,12 @@ export default function RoundTracker() {
     });
   };
 
+  const updatePlayerTeam = (playerId: string, team: "A" | "B") => {
+    setLivePlayers((prev) =>
+      prev.map((player) => (player.id === playerId ? { ...player, team } : player))
+    );
+  };
+
   const toggleGame = (game: LiveGame) => {
     setSelectedGames((prev) => {
       if (prev.includes(game)) {
@@ -296,6 +356,18 @@ export default function RoundTracker() {
   };
 
   const startRound = () => {
+    if (hasMatchGame && liveParticipants.length < 2) {
+      setSaveError("Add at least one opponent before starting match play.");
+      return;
+    }
+    if (hasMatchGame && (!teamCounts.A || !teamCounts.B)) {
+      setSaveError("Match games need players assigned to both Team A and Team B before you start.");
+      return;
+    }
+    if (hasTeamGame && (teamCounts.A !== 2 || teamCounts.B !== 2)) {
+      setSaveError("4BBB and foursomes need two players on Team A and two players on Team B.");
+      return;
+    }
     const nextHoles = createHoles(holesPlayed);
     setPlayerHoleScores(
       livePlayers.reduce<Record<string, string[]>>((acc, player) => {
@@ -323,6 +395,8 @@ export default function RoundTracker() {
     }
     setCurrentHoleIndex(0);
     setSaveError("");
+    setMatchDecision(null);
+    setMatchContinuedAfterCloseout(false);
     setStep("holes");
   };
 
@@ -391,6 +465,30 @@ export default function RoundTracker() {
   const currentHole = holes[currentHoleIndex];
   const currentHoleScore =
     currentHole && currentHole.score !== "" ? Number(currentHole.score) - currentHole.par : null;
+  const liveParticipants = useMemo<LiveParticipant[]>(
+    () => [
+      { id: "owner", name: "You", handicap: ownHandicap, type: "owner", team: "A" },
+      ...livePlayers,
+    ],
+    [livePlayers, ownHandicap]
+  );
+  const hasTeamGame = selectedGames.some((game) =>
+    ["four_ball_stroke", "four_ball_match", "foursomes"].includes(game)
+  );
+  const hasMatchGame = selectedGames.some((game) =>
+    ["match_play", "four_ball_match", "foursomes"].includes(game)
+  );
+  const teamCounts = useMemo(
+    () =>
+      liveParticipants.reduce(
+        (acc, player) => {
+          acc[player.team] += 1;
+          return acc;
+        },
+        { A: 0, B: 0 }
+      ),
+    [liveParticipants]
+  );
   const liveLeaderboard = useMemo(() => {
     const ownerCompleted = holes.filter((hole) => hole.score !== "");
     const ownerScore = ownerCompleted.reduce((sum, hole) => sum + Number(hole.score), 0);
@@ -426,9 +524,18 @@ export default function RoundTracker() {
       return a.score - b.score;
     });
   }, [holes, livePlayers, playerHoleScores]);
+  const matchState = useMemo(
+    () => calculateMatchState(holes, liveParticipants, playerHoleScores, holesPlayed),
+    [holes, liveParticipants, playerHoleScores, holesPlayed]
+  );
   const selectedGameLabels = selectedGames
     .map((game) => liveGameOptions.find((option) => option.id === game)?.label || game)
     .join(", ");
+
+  useEffect(() => {
+    if (!hasMatchGame || !matchState.closeout || matchContinuedAfterCloseout || step !== "holes") return;
+    setMatchDecision({ label: matchState.closeout, hole: matchState.holesPlayed });
+  }, [hasMatchGame, matchContinuedAfterCloseout, matchState.closeout, matchState.holesPlayed, step]);
 
   const goToNextHole = () => {
     setSaveError("");
@@ -476,6 +583,8 @@ export default function RoundTracker() {
       players: livePlayers,
       playerScores: playerHoleScores,
       holes,
+      matchState,
+      roundIntent,
     });
 
     const roundPayload = {
@@ -560,10 +669,31 @@ export default function RoundTracker() {
     }
 
     const { error: holesError } = await supabase.from("round_holes").insert(holeRows);
-    setSaving(false);
 
     if (holesError) {
+      setSaving(false);
       setSaveError(holesError.message);
+      return;
+    }
+
+    const liveError = await saveLiveRoundData({
+      roundId: round.id,
+      userId: user.id,
+      status,
+      holes,
+      holesPlayed,
+      liveParticipants,
+      playerHoleScores,
+      selectedGames,
+      roundIntent,
+      teeName: selectedTee?.teeName || teeColour || null,
+      matchState,
+    });
+
+    setSaving(false);
+
+    if (liveError) {
+      setSaveError(liveError);
       return;
     }
 
@@ -579,6 +709,9 @@ export default function RoundTracker() {
     setNewPlayerName("");
     setNewPlayerHandicap("");
     setSelectedGames(["stroke_play"]);
+    setRoundIntent("casual");
+    setMatchDecision(null);
+    setMatchContinuedAfterCloseout(false);
     setPlayerHoleScores({});
     setCourse("");
     setSelectedCourse(null);
@@ -689,6 +822,74 @@ export default function RoundTracker() {
                 <Field label="Your handicap" value={ownHandicap} onChange={setOwnHandicap} type="number" placeholder="Optional" />
               </div>
 
+              {hasMatchGame && (
+                <div className="mt-5 rounded-2xl border border-gold/25 bg-gold/10 p-4">
+                  <div className="mb-4 flex items-start gap-3">
+                    <Handshake className="mt-1 h-5 w-5 shrink-0 text-gold" />
+                    <div>
+                      <h3 className="font-semibold text-dark">Match setup</h3>
+                      <p className="mt-1 text-sm text-muted">
+                        Pick whether this is casual or competitive, then lock in sides before the round starts.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mb-4 grid gap-2 sm:grid-cols-2">
+                    {(["casual", "competition"] as const).map((intent) => (
+                      <button
+                        key={intent}
+                        type="button"
+                        onClick={() => {
+                          setRoundIntent(intent);
+                          setCompetition(intent === "competition");
+                        }}
+                        className={`rounded-xl border px-4 py-3 text-left font-semibold capitalize transition ${
+                          roundIntent === intent
+                            ? "border-gold bg-gold text-dark"
+                            : "border-line bg-panel text-dark hover:border-gold/40"
+                        }`}
+                      >
+                        {intent} matchplay
+                      </button>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    {liveParticipants.map((player) => (
+                      <div key={player.id} className="grid gap-2 rounded-xl bg-panel p-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                        <div>
+                          <p className="font-semibold text-dark">{player.name}</p>
+                          <p className="text-xs text-muted">
+                            {player.type === "owner" ? "You" : "Guest"}{player.handicap ? ` / HCP ${player.handicap}` : ""}
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {(["A", "B"] as const).map((team) => (
+                            <button
+                              key={team}
+                              type="button"
+                              disabled={player.id === "owner" && team === "B"}
+                              onClick={() => updatePlayerTeam(player.id, team)}
+                              className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
+                                player.team === team
+                                  ? team === "A"
+                                    ? "bg-golf text-white"
+                                    : "bg-pulse text-white"
+                                  : "bg-steel/10 text-muted hover:bg-steel/15 disabled:opacity-40"
+                              }`}
+                            >
+                              Team {team}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs font-semibold text-muted">
+                    Team A: {teamCounts.A} player{teamCounts.A === 1 ? "" : "s"} / Team B: {teamCounts.B} player{teamCounts.B === 1 ? "" : "s"}
+                    {hasTeamGame ? " - 4BBB and foursomes need 2 vs 2." : ""}
+                  </p>
+                </div>
+              )}
+
               <div className="mt-5 rounded-2xl border border-line bg-panel p-4">
                 <div className="mb-4 flex items-center gap-2">
                   <Users className="h-5 w-5 text-golf" />
@@ -713,7 +914,8 @@ export default function RoundTracker() {
                       onClick={() => removeLivePlayer(player.id)}
                       className="rounded-full bg-golf/10 px-3 py-1 text-xs font-bold text-golf transition hover:bg-golf/15"
                     >
-                      {player.name}{player.handicap ? ` / HCP ${player.handicap}` : ""} x
+                      {player.name}{player.handicap ? ` / HCP ${player.handicap}` : ""}
+                      {hasMatchGame ? ` / Team ${player.team}` : ""} x
                     </button>
                   ))}
                   {!livePlayers.length && <span className="text-sm text-muted">Add guests now. Friend search can plug into this later.</span>}
@@ -910,8 +1112,22 @@ export default function RoundTracker() {
                       <h3 className="font-semibold text-dark">Live round feed</h3>
                     </div>
                     <p className="text-sm leading-relaxed text-muted">
-                      V1 keeps this round friends-only and saves the live setup with the round. Comments, photos and reactions can plug into the live round tables once Bolt applies the social scoring migrations.
+                      V1 keeps this round friends-only and now saves the live player/game data so friends can follow the card.
                     </p>
+                    {hasMatchGame && (
+                      <div className="mt-4 rounded-xl border border-golf/20 bg-panel p-3">
+                        <p className="text-xs font-bold uppercase tracking-[0.14em] text-golf">Match status</p>
+                        <h4 className="mt-2 text-2xl font-semibold text-dark">{matchState.label}</h4>
+                        <p className="mt-1 text-xs text-muted">
+                          {matchState.holesPlayed} holes counted / {matchState.holesRemaining} to play
+                        </p>
+                        <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                          <span className="rounded-lg bg-golf/10 px-2 py-2 font-bold text-golf">{matchState.teamAWins} Team A</span>
+                          <span className="rounded-lg bg-steel/10 px-2 py-2 font-bold text-muted">{matchState.halved} Halved</span>
+                          <span className="rounded-lg bg-pulse/10 px-2 py-2 font-bold text-pulse">{matchState.teamBWins} Team B</span>
+                        </div>
+                      </div>
+                    )}
                     <div className="mt-4 flex flex-wrap gap-2">
                       {selectedGames.map((game) => (
                         <span key={game} className="rounded-full bg-dark px-3 py-1 text-xs font-bold text-white">
@@ -1183,6 +1399,53 @@ export default function RoundTracker() {
               </div>
             )}
 
+            {matchDecision && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+                <button
+                  className="absolute inset-0 bg-black/45"
+                  onClick={() => {
+                    setMatchContinuedAfterCloseout(true);
+                    setMatchDecision(null);
+                  }}
+                  aria-label="Keep scoring after match closeout"
+                />
+                <div className="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+                  <div className="mb-4 flex items-start gap-3">
+                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gold text-dark">
+                      <AlertTriangle className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-gold">Match closed</p>
+                      <h2 className="mt-2 text-2xl font-semibold text-dark">{matchDecision.label}</h2>
+                    </div>
+                  </div>
+                  <p className="text-sm leading-relaxed text-muted">
+                    The match result is decided on hole {matchDecision.hole}. You can stop the match here, or keep entering the remaining holes for normal round stats.
+                  </p>
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setMatchContinuedAfterCloseout(true);
+                        setMatchDecision(null);
+                      }}
+                    >
+                      Keep Playing
+                    </Button>
+                    <Button
+                      variant="golf"
+                      onClick={() => {
+                        setMatchDecision(null);
+                        setStep("review");
+                      }}
+                    >
+                      Finish Match Now
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {saveError && (
               <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-700">
                 {saveError}
@@ -1263,6 +1526,8 @@ function buildLiveRoundSummary({
   players,
   playerScores,
   holes,
+  matchState,
+  roundIntent,
 }: {
   visibility: "private" | "friends";
   ownHandicap: string;
@@ -1270,12 +1535,16 @@ function buildLiveRoundSummary({
   players: LivePlayer[];
   playerScores: Record<string, string[]>;
   holes: Hole[];
+  matchState: ReturnType<typeof calculateMatchState>;
+  roundIntent: "casual" | "competition";
 }) {
   const lines = [
     "Live round setup",
     `Visibility: ${visibility}`,
     `Games: ${games || "Stroke play"}`,
+    `Match type: ${roundIntent}`,
     ownHandicap ? `Your handicap: ${ownHandicap}` : "",
+    matchState.holesPlayed ? `Match status: ${matchState.label}` : "",
   ].filter(Boolean);
 
   if (players.length) {
@@ -1289,11 +1558,330 @@ function buildLiveRoundSummary({
         })
         .filter(Boolean)
         .join(", ");
-      lines.push(`- ${player.name}${player.handicap ? `, HCP ${player.handicap}` : ""}${scores ? ` / ${scores}` : ""}`);
+      lines.push(`- ${player.name}${player.handicap ? `, HCP ${player.handicap}` : ""}, Team ${player.team}${scores ? ` / ${scores}` : ""}`);
     });
   }
 
   return lines.join("\n");
+}
+
+function calculateMatchState(
+  holes: Hole[],
+  players: LiveParticipant[],
+  playerScores: Record<string, string[]>,
+  holesPlayed: number
+) {
+  let teamAWins = 0;
+  let teamBWins = 0;
+  let halved = 0;
+  const holeResults: Array<{
+    hole: number;
+    label: string;
+    leader: "A" | "B" | "AS";
+    teamAScore: number | null;
+    teamBScore: number | null;
+    matchLabel: string;
+  }> = [];
+
+  holes.forEach((hole, index) => {
+    const teamAScore = getTeamHoleScore("A", index, holes, players, playerScores);
+    const teamBScore = getTeamHoleScore("B", index, holes, players, playerScores);
+    if (teamAScore === null || teamBScore === null) return;
+
+    let leader: "A" | "B" | "AS" = "AS";
+    let label = "Halved";
+    if (teamAScore < teamBScore) {
+      teamAWins += 1;
+      leader = "A";
+      label = "Team A wins";
+    } else if (teamBScore < teamAScore) {
+      teamBWins += 1;
+      leader = "B";
+      label = "Team B wins";
+    } else {
+      halved += 1;
+    }
+    const lead = teamAWins - teamBWins;
+    holeResults.push({
+      hole: index + 1,
+      label,
+      leader,
+      teamAScore,
+      teamBScore,
+      matchLabel: formatMatchLabel(lead),
+    });
+  });
+
+  const lead = teamAWins - teamBWins;
+  const countedHoles = holeResults.length;
+  const holesRemaining = Math.max(holesPlayed - countedHoles, 0);
+  const leaderName = lead > 0 ? "Team A" : lead < 0 ? "Team B" : "";
+  const closeout =
+    Math.abs(lead) > holesRemaining && countedHoles > 0
+      ? `${leaderName} wins ${Math.abs(lead)}&${holesRemaining}`
+      : null;
+
+  return {
+    label: closeout || formatMatchLabel(lead),
+    closeout,
+    teamAWins,
+    teamBWins,
+    halved,
+    holesPlayed: countedHoles,
+    holesRemaining,
+    holeResults,
+  };
+}
+
+function getTeamHoleScore(
+  team: "A" | "B",
+  holeIndex: number,
+  holes: Hole[],
+  players: LiveParticipant[],
+  playerScores: Record<string, string[]>
+) {
+  const scores = players
+    .filter((player) => player.team === team)
+    .map((player) => getParticipantScore(player.id, holeIndex, holes, playerScores))
+    .filter((score): score is number => score !== null);
+
+  return scores.length ? Math.min(...scores) : null;
+}
+
+function getParticipantScore(
+  playerId: string,
+  holeIndex: number,
+  holes: Hole[],
+  playerScores: Record<string, string[]>
+) {
+  const rawScore = playerId === "owner" ? holes[holeIndex]?.score : playerScores[playerId]?.[holeIndex];
+  if (rawScore === undefined || rawScore === "") return null;
+  const score = Number(rawScore);
+  return Number.isFinite(score) ? score : null;
+}
+
+function formatMatchLabel(lead: number) {
+  if (lead === 0) return "All square";
+  return `${lead > 0 ? "Team A" : "Team B"} ${Math.abs(lead)} Up`;
+}
+
+function calculateStablefordPoints(score: number | null, par: number) {
+  if (score === null) return null;
+  const toPar = score - par;
+  if (toPar <= -3) return 5;
+  if (toPar === -2) return 4;
+  if (toPar === -1) return 3;
+  if (toPar === 0) return 2;
+  if (toPar === 1) return 1;
+  return 0;
+}
+
+async function saveLiveRoundData({
+  roundId,
+  userId,
+  status,
+  holes,
+  holesPlayed,
+  liveParticipants,
+  playerHoleScores,
+  selectedGames,
+  roundIntent,
+  teeName,
+  matchState,
+}: {
+  roundId: string;
+  userId: string;
+  status: "completed" | "unfinished";
+  holes: Hole[];
+  holesPlayed: 9 | 18;
+  liveParticipants: LiveParticipant[];
+  playerHoleScores: Record<string, string[]>;
+  selectedGames: LiveGame[];
+  roundIntent: "casual" | "competition";
+  teeName: string | null;
+  matchState: ReturnType<typeof calculateMatchState>;
+}) {
+  const cleanupTables = ["round_game_results", "round_game_holes", "round_games", "round_player_holes", "round_players", "round_sides"];
+  for (const table of cleanupTables) {
+    const { error } = await supabase.from(table).delete().eq("round_id", roundId);
+    if (error) return error.message;
+  }
+
+  const hasTeamFormat = selectedGames.some((game) =>
+    ["four_ball_stroke", "four_ball_match", "foursomes"].includes(game)
+  );
+  const sideRows: LiveSideRow[] = hasTeamFormat || selectedGames.some((game) => ["match_play"].includes(game))
+    ? [
+        { round_id: roundId, name: "Team A", side_type: hasTeamFormat ? "pair" : "team", side_order: 1 },
+        { round_id: roundId, name: "Team B", side_type: hasTeamFormat ? "pair" : "team", side_order: 2 },
+      ]
+    : liveParticipants.map((player, index) => ({
+        round_id: roundId,
+        name: player.name,
+        side_type: "individual",
+        side_order: index + 1,
+      }));
+
+  const { data: sides, error: sideError } = await supabase.from("round_sides").insert(sideRows).select("id,name,side_order");
+  if (sideError || !sides) return sideError?.message || "Could not save live sides.";
+
+  const sideIdByParticipant = new Map<string, string>();
+  liveParticipants.forEach((player, index) => {
+    const side = hasTeamFormat || selectedGames.includes("match_play")
+      ? sides.find((row) => row.name === `Team ${player.team}`)
+      : sides[index];
+    if (side?.id) sideIdByParticipant.set(player.id, side.id);
+  });
+
+  const playerRows = liveParticipants.map((player, index) => ({
+    round_id: roundId,
+    side_id: sideIdByParticipant.get(player.id) || null,
+    user_id: player.type === "owner" ? userId : null,
+    invited_by: player.type === "owner" ? null : userId,
+    player_type: player.type,
+    display_name: player.name,
+    handicap: parseOptionalNumber(player.handicap),
+    course_handicap: parseOptionalNumber(player.handicap),
+    playing_handicap: parseOptionalNumber(player.handicap),
+    tee_name: teeName,
+    tee_colour: teeName,
+    player_order: index + 1,
+    is_owner: player.type === "owner",
+    can_edit_scores: player.type === "owner",
+  }));
+
+  const { data: savedPlayers, error: playerError } = await supabase.from("round_players").insert(playerRows).select("id,display_name,player_order");
+  if (playerError || !savedPlayers) return playerError?.message || "Could not save live players.";
+
+  const playerIdByLocalId = new Map<string, string>();
+  liveParticipants.forEach((player, index) => {
+    const saved = savedPlayers.find((row) => row.player_order === index + 1);
+    if (saved?.id) playerIdByLocalId.set(player.id, saved.id);
+  });
+
+  const playerHoleRows: LivePlayerHoleRow[] = liveParticipants.flatMap((player) =>
+    holes.map((hole, index) => {
+      const score = getParticipantScore(player.id, index, holes, playerHoleScores);
+      const savedPlayerId = playerIdByLocalId.get(player.id);
+      if (score === null) return null;
+      if (!savedPlayerId) return null;
+      return {
+        round_id: roundId,
+        round_player_id: savedPlayerId,
+        side_id: sideIdByParticipant.get(player.id) || null,
+        hole_number: index + 1,
+        gross_score: score,
+        net_score: score,
+        stableford_points: calculateStablefordPoints(score, hole.par),
+        strokes_received: 0,
+        picked_up: false,
+        conceded: false,
+        notes: null,
+      };
+    }).filter((row): row is LivePlayerHoleRow => row !== null)
+  );
+
+  if (playerHoleRows.length) {
+    const { error } = await supabase.from("round_player_holes").insert(playerHoleRows);
+    if (error) return error.message;
+  }
+
+  const gameRows = selectedGames.map((game) => ({
+    round_id: roundId,
+    created_by: userId,
+    game_type: game,
+    scoring_basis: game === "stableford" ? "points" : game.includes("match") || game === "foursomes" ? "holes" : game === "skins" ? "skins" : "gross",
+    handicap_mode: liveParticipants.some((player) => player.handicap.trim()) ? "manual" : "none",
+    name: liveGameOptions.find((option) => option.id === game)?.label || game,
+    settings: {
+      roundIntent,
+      teams: liveParticipants.map((player) => ({ name: player.name, team: player.team, type: player.type })),
+      holesPlayed,
+    },
+    status: status === "completed" ? "finished" : "active",
+  }));
+
+  const { data: savedGames, error: gameError } = await supabase.from("round_games").insert(gameRows).select("id,game_type");
+  if (gameError || !savedGames) return gameError?.message || "Could not save live games.";
+
+  const sideAId = sides.find((row) => row.name === "Team A")?.id || null;
+  const sideBId = sides.find((row) => row.name === "Team B")?.id || null;
+
+  const gameHoleRows = savedGames.flatMap((game) => {
+    if (!["match_play", "four_ball_match", "foursomes", "skins"].includes(game.game_type)) return [];
+    return matchState.holeResults.map((result) => ({
+      round_game_id: game.id,
+      round_id: roundId,
+      hole_number: result.hole,
+      winning_player_id: null,
+      winning_side_id: result.leader === "A" ? sideAId : result.leader === "B" ? sideBId : null,
+      result_label: result.label,
+      carryover_count: result.leader === "AS" && game.game_type === "skins" ? 1 : 0,
+      points: { teamAScore: result.teamAScore, teamBScore: result.teamBScore },
+      match_state: { label: result.matchLabel, leader: result.leader },
+    }));
+  });
+
+  if (gameHoleRows.length) {
+    const { error } = await supabase.from("round_game_holes").insert(gameHoleRows);
+    if (error) return error.message;
+  }
+
+  const resultRows: LiveGameResultRow[] = [];
+  savedGames.forEach((game) => {
+    const ownerTotal = holes.reduce((sum, hole) => sum + (hole.score === "" ? 0 : Number(hole.score)), 0);
+    if (["match_play", "four_ball_match", "foursomes"].includes(game.game_type)) {
+      resultRows.push(
+        {
+          round_game_id: game.id,
+          round_id: roundId,
+          round_player_id: null,
+          side_id: sideAId,
+          position: matchState.teamAWins >= matchState.teamBWins ? 1 : 2,
+          total_gross: null,
+          total_net: null,
+          total_points: null,
+          holes_won: matchState.teamAWins,
+          skins_won: null,
+          result_label: matchState.label,
+          result_payload: { team: "A", roundIntent, closeout: matchState.closeout },
+        },
+        {
+          round_game_id: game.id,
+          round_id: roundId,
+          round_player_id: null,
+          side_id: sideBId,
+          position: matchState.teamBWins > matchState.teamAWins ? 1 : 2,
+          total_gross: null,
+          total_net: null,
+          total_points: null,
+          holes_won: matchState.teamBWins,
+          skins_won: null,
+          result_label: matchState.label,
+          result_payload: { team: "B", roundIntent, closeout: matchState.closeout },
+        }
+      );
+      return;
+    }
+
+    resultRows.push({
+      round_game_id: game.id,
+      round_id: roundId,
+      round_player_id: playerIdByLocalId.get("owner") || null,
+      side_id: sideIdByParticipant.get("owner") || null,
+      position: 1,
+      total_gross: ownerTotal || null,
+      total_net: ownerTotal || null,
+      total_points: game.game_type === "stableford" ? holes.reduce((sum, hole) => sum + (calculateStablefordPoints(hole.score === "" ? null : Number(hole.score), hole.par) || 0), 0) : null,
+      holes_won: null,
+      skins_won: game.game_type === "skins" ? matchState.teamAWins : null,
+      result_label: game.game_type === "stableford" ? "Stableford summary" : "Stroke summary",
+      result_payload: { roundIntent },
+    });
+  });
+
+  const { error: resultError } = await supabase.from("round_game_results").insert(resultRows);
+  return resultError?.message || null;
 }
 
 function formatToParValue(score: number) {

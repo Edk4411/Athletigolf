@@ -20,6 +20,7 @@ const pageLabels: Array<{ match: RegExp; title: string; eyebrow: string }> = [
   { match: /^\/golf\/practice$/, title: "Practice", eyebrow: "Golf" },
   { match: /^\/golf\/practice-plan$/, title: "Practice Plan", eyebrow: "Golf" },
   { match: /^\/golf\/practice-history$/, title: "Practice History", eyebrow: "Golf" },
+  { match: /^\/golf\/rounds\//, title: "Live Round", eyebrow: "Golf" },
   { match: /^\/golf$/, title: "Round History", eyebrow: "Golf" },
   { match: /^\/workouts\/submit$/, title: "Start Workout", eyebrow: "Quick Add" },
   { match: /^\/workouts\/archive$/, title: "Archived Splits", eyebrow: "Gym" },

@@ -29,6 +29,7 @@ import Cardio from "@/pages/Cardio";
 import GymQuiz from "@/pages/GymQuiz";
 import GolfQuiz from "@/pages/GolfQuiz";
 import RoundTracker from "@/pages/RoundTracker";
+import LiveRound from "@/pages/LiveRound";
 import ComingSoon from "@/pages/ComingSoon";
 import AppIntro from "@/pages/AppIntro";
 import AppMore from "@/pages/AppMore";
@@ -212,6 +213,12 @@ function AppShell() {
         <Route path="/golf/submit">
           <ProtectedRoute>
             <RoundTracker />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/golf/rounds/:roundId">
+          <ProtectedRoute>
+            <LiveRound />
           </ProtectedRoute>
         </Route>
 

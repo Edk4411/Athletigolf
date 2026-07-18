@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
-import { Activity, BarChart3, Dumbbell, Flag, HeartPulse, Target } from "lucide-react";
+import { Activity, BarChart3, Dumbbell, Flag, HeartPulse, Swords, Target } from "lucide-react";
 import { Button, EmptyState, SectionTitle, Surface } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import {
@@ -10,15 +10,48 @@ import {
   getGolfStats,
   getShortGameStats,
 } from "@/lib/golfStats";
-import type { CardioSession, Round, RoundHole, WellnessLog, Workout } from "@/lib/types";
+import type { CardioSession, Round, RoundGame, RoundGameHole, RoundGameResult, RoundHole, WellnessLog, Workout } from "@/lib/types";
 
-type AnalyticsTab = "golf" | "gym" | "wellness";
+type AnalyticsTab = "golf" | "matchplay" | "gym" | "wellness";
+
+type MatchplayRecentResult = {
+  id: string;
+  gameName: string;
+  label: string;
+  roundIntent: string;
+  created: string;
+};
+
+type MatchplayHoleOutcome = {
+  index: number;
+  hole: number;
+  label: string;
+  leader: "A" | "B" | "AS";
+};
+
+type MatchplayStats = {
+  matches: number;
+  competitive: number;
+  casual: number;
+  wins: number;
+  losses: number;
+  halves: number;
+  holesWon: number;
+  holesLost: number;
+  holesHalved: number;
+  closeouts: string[];
+  recentResults: MatchplayRecentResult[];
+  holeOutcomes: MatchplayHoleOutcome[];
+};
 
 export default function Analytics() {
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<AnalyticsTab>("golf");
   const [rounds, setRounds] = useState<Round[]>([]);
   const [roundHoles, setRoundHoles] = useState<RoundHole[]>([]);
+  const [roundGames, setRoundGames] = useState<RoundGame[]>([]);
+  const [roundGameHoles, setRoundGameHoles] = useState<RoundGameHole[]>([]);
+  const [roundGameResults, setRoundGameResults] = useState<RoundGameResult[]>([]);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [cardio, setCardio] = useState<CardioSession[]>([]);
   const [wellness, setWellness] = useState<WellnessLog[]>([]);
@@ -30,9 +63,12 @@ export default function Analytics() {
 
   const loadData = async () => {
     setLoading(true);
-    const [roundsResult, holesResult, workoutsResult, cardioResult, wellnessResult] = await Promise.all([
+    const [roundsResult, holesResult, gamesResult, gameHolesResult, gameResultsResult, workoutsResult, cardioResult, wellnessResult] = await Promise.all([
       supabase.from("rounds").select("*").order("created_at", { ascending: false }),
       supabase.from("round_holes").select("*").order("created_at", { ascending: false }),
+      supabase.from("round_games").select("*").order("created_at", { ascending: false }),
+      supabase.from("round_game_holes").select("*").order("created_at", { ascending: false }),
+      supabase.from("round_game_results").select("*").order("created_at", { ascending: false }),
       supabase.from("workouts").select("*").order("created_at", { ascending: false }),
       supabase.from("cardio_sessions").select("*").order("session_date", { ascending: false }),
       supabase.from("daily_wellness_logs").select("*").order("log_date", { ascending: false }),
@@ -40,6 +76,9 @@ export default function Analytics() {
 
     setRounds((roundsResult.data as Round[]) || []);
     setRoundHoles((holesResult.data as RoundHole[]) || []);
+    setRoundGames((gamesResult.data as RoundGame[]) || []);
+    setRoundGameHoles((gameHolesResult.data as RoundGameHole[]) || []);
+    setRoundGameResults((gameResultsResult.data as RoundGameResult[]) || []);
     setWorkouts((workoutsResult.data as Workout[]) || []);
     setCardio((cardioResult.data as CardioSession[]) || []);
     setWellness((wellnessResult.data as WellnessLog[]) || []);
@@ -52,6 +91,10 @@ export default function Analytics() {
   const recentScoreRounds = scoredRounds.slice(0, 10).reverse();
   const lastFiveRounds = scoredRounds.slice(0, 5);
   const completedHoles = roundHoles.filter((hole) => hole.score !== null);
+  const matchplayStats = useMemo(
+    () => getMatchplayStats(roundGames, roundGameHoles, roundGameResults),
+    [roundGameHoles, roundGameResults, roundGames]
+  );
 
   const gymStats = useMemo(() => {
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -117,8 +160,9 @@ export default function Analytics() {
         </div>
       </section>
 
-      <div className="mb-5 grid grid-cols-3 gap-2 rounded-2xl border border-line bg-panel p-2">
+      <div className="mb-5 grid grid-cols-2 gap-2 rounded-2xl border border-line bg-panel p-2 sm:grid-cols-4">
         <TabButton active={activeTab === "golf"} icon={<Flag className="h-4 w-4" />} label="Golf" onClick={() => setActiveTab("golf")} />
+        <TabButton active={activeTab === "matchplay"} icon={<Swords className="h-4 w-4" />} label="Match" onClick={() => setActiveTab("matchplay")} />
         <TabButton active={activeTab === "gym"} icon={<Dumbbell className="h-4 w-4" />} label="Gym" onClick={() => setActiveTab("gym")} />
         <TabButton active={activeTab === "wellness"} icon={<HeartPulse className="h-4 w-4" />} label="Wellness" onClick={() => setActiveTab("wellness")} />
       </div>
@@ -181,6 +225,63 @@ export default function Analytics() {
               <CompactStat label="Water / OB" value={completedHoles.filter((hole) => hole.tee_shot_location === "water" || hole.tee_shot_location === "out_of_bounds").length.toString()} />
             </div>
           </Surface>
+        </div>
+      )}
+
+      {activeTab === "matchplay" && (
+        <div className="space-y-5">
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <ReportKpi label="Matches" value={matchplayStats.matches} sub={`${matchplayStats.competitive} competitive / ${matchplayStats.casual} casual`} tone="golf" />
+            <ReportKpi label="Record" value={`${matchplayStats.wins}-${matchplayStats.losses}-${matchplayStats.halves}`} sub="wins-losses-halves" tone="gold" />
+            <ReportKpi label="Holes Won" value={matchplayStats.holesWon} sub={`${matchplayStats.holesLost} lost / ${matchplayStats.holesHalved} halved`} tone="pulse" />
+            <ReportKpi label="Closeouts" value={matchplayStats.closeouts.length} sub={matchplayStats.closeouts[0] || "none yet"} tone="golf" />
+          </section>
+
+          <section className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+            <Surface>
+              <SectionTitle eyebrow="Matchplay" title="Recent results" action={<Swords className="h-5 w-5 text-muted" />} />
+              {matchplayStats.recentResults.length ? (
+                <div className="space-y-3">
+                  {matchplayStats.recentResults.map((result) => (
+                    <div key={result.id} className="rounded-2xl border border-line bg-white/70 p-4 dark:bg-panel">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-dark">{result.gameName}</p>
+                          <p className="mt-1 text-xs capitalize text-muted">{result.roundIntent} / {result.created}</p>
+                        </div>
+                        <span className="rounded-full bg-golf/10 px-3 py-1 text-xs font-bold text-golf">{result.label}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  title="No matchplay yet"
+                  description="Start a matchplay round to build a separate match record."
+                  action={<Button variant="golf" onClick={() => navigate("/golf/submit")}>Start Match</Button>}
+                />
+              )}
+            </Surface>
+
+            <Surface>
+              <SectionTitle eyebrow="Hole Outcomes" title="Won, lost and halved holes" />
+              {matchplayStats.holeOutcomes.length ? (
+                <div className="grid gap-2">
+                  {matchplayStats.holeOutcomes.slice(0, 18).map((hole) => (
+                    <div key={`${hole.hole}-${hole.index}`} className="grid grid-cols-[52px_1fr_auto] items-center gap-3 rounded-xl bg-white/70 px-3 py-2 dark:bg-panel">
+                      <span className="text-xs font-bold text-muted">H{hole.hole}</span>
+                      <div className="h-2 overflow-hidden rounded-full bg-steel/10">
+                        <div className={`h-full ${hole.leader === "A" ? "bg-golf" : hole.leader === "B" ? "bg-pulse" : "bg-gold"}`} style={{ width: "100%" }} />
+                      </div>
+                      <span className="text-xs font-bold text-dark">{hole.label}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState title="No hole results yet" description="Hole-by-hole match outcomes will appear once match games are saved." />
+              )}
+            </Surface>
+          </section>
         </div>
       )}
 
@@ -433,6 +534,74 @@ function countHoleValue<T extends keyof RoundHole>(holes: RoundHole[], key: T, v
 
 function formatDistance(value: number | null) {
   return value === null ? "-" : `${Math.round(value)} yd`;
+}
+
+function getMatchplayStats(games: RoundGame[], gameHoles: RoundGameHole[], results: RoundGameResult[]): MatchplayStats {
+  const matchTypes = new Set(["match_play", "four_ball_match", "foursomes"]);
+  const matchGames = games.filter((game) => matchTypes.has(game.game_type) || game.scoring_basis === "holes");
+  const matchGameIds = new Set(matchGames.map((game) => game.id));
+  const relevantHoles = gameHoles.filter((hole) => matchGameIds.has(hole.round_game_id));
+  const relevantResults = results.filter((result) => matchGameIds.has(result.round_game_id));
+  const teamAResults = relevantResults.filter((result) => result.result_payload?.team === "A");
+
+  const wins = teamAResults.filter((result) => {
+    const label = `${result.result_label || ""} ${result.result_payload?.closeout || ""}`.toLowerCase();
+    return label.includes("team a wins");
+  }).length;
+  const losses = teamAResults.filter((result) => {
+    const label = `${result.result_label || ""} ${result.result_payload?.closeout || ""}`.toLowerCase();
+    return label.includes("team b wins");
+  }).length;
+  const halves = Math.max(0, matchGames.length - wins - losses);
+
+  const holeOutcomes: MatchplayHoleOutcome[] = relevantHoles
+    .slice()
+    .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.hole_number - b.hole_number)
+    .map((hole, index) => {
+      const leader = typeof hole.match_state?.leader === "string" ? hole.match_state.leader : "AS";
+      return {
+        index,
+        hole: hole.hole_number,
+        label: hole.result_label || "Halved",
+        leader: leader === "A" || leader === "B" ? leader : "AS",
+      };
+    });
+
+  const closeouts = teamAResults
+    .map((result) => {
+      const closeout = result.result_payload?.closeout;
+      return typeof closeout === "string" && closeout ? closeout : result.result_label || "";
+    })
+    .filter(Boolean)
+    .slice(0, 4);
+
+  const recentResults: MatchplayRecentResult[] = matchGames.slice(0, 5).map((game) => {
+    const settings = game.settings || {};
+    const result = teamAResults.find((item) => item.round_game_id === game.id) || relevantResults.find((item) => item.round_game_id === game.id);
+    const roundIntent = typeof settings.roundIntent === "string" ? settings.roundIntent : "casual";
+    return {
+      id: game.id,
+      gameName: game.name || game.game_type.replaceAll("_", " "),
+      label: result?.result_label || (game.status === "finished" ? "Finished" : "In progress"),
+      roundIntent,
+      created: formatRoundDate(game.created_at),
+    };
+  });
+
+  return {
+    matches: matchGames.length,
+    competitive: matchGames.filter((game) => game.settings?.roundIntent === "competition").length,
+    casual: matchGames.filter((game) => game.settings?.roundIntent !== "competition").length,
+    wins,
+    losses,
+    halves,
+    holesWon: holeOutcomes.filter((hole) => hole.leader === "A").length,
+    holesLost: holeOutcomes.filter((hole) => hole.leader === "B").length,
+    holesHalved: holeOutcomes.filter((hole) => hole.leader === "AS").length,
+    closeouts,
+    recentResults,
+    holeOutcomes,
+  };
 }
 
 function average(values: number[]) {

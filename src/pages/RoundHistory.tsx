@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { Edit3, Eye, Flag, Play, Trash2, X } from "lucide-react";
+import { Edit3, Eye, Flag, MessageCircle, Play, Trash2, X } from "lucide-react";
 import { Button, ConfirmDialog, EmptyState, FieldLabel, PageHeader, StatCard, Surface, TextArea, TextInput } from "@/components/ui";
 import { formatAverage, getGolfStats, isCompleteScoringRound } from "@/lib/golfStats";
 import { supabase } from "@/lib/supabase";
@@ -280,7 +280,7 @@ export default function RoundHistory() {
           />
         ) : (
           <Surface className="overflow-hidden p-0">
-            <div className="hidden grid-cols-[1fr_92px_92px_92px_110px_110px_112px] gap-4 border-b border-line bg-steel/5 px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-muted lg:grid">
+            <div className="hidden grid-cols-[1fr_92px_92px_92px_110px_110px_180px] gap-4 border-b border-line bg-steel/5 px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-muted lg:grid">
               <span>Round</span>
               <span>Score</span>
               <span>FIR</span>
@@ -292,7 +292,7 @@ export default function RoundHistory() {
 
             {rounds.map((round) => (
               <article key={round.id} className="border-b border-line p-5 last:border-b-0 hover:bg-steel/5">
-                <div className="grid gap-4 lg:grid-cols-[1fr_92px_92px_92px_110px_110px_112px] lg:items-center">
+                <div className="grid gap-4 lg:grid-cols-[1fr_92px_92px_92px_110px_110px_180px] lg:items-center">
                   <div>
                     <div className="mb-2 flex flex-wrap items-center gap-2">
                       <h2 className="text-xl font-semibold text-dark">{round.round_name || round.course || "Unknown Course"}</h2>
@@ -320,8 +320,9 @@ export default function RoundHistory() {
                   <Metric label="Scramble" value={round.scramble_percentage === null ? "-" : `${round.scramble_percentage}%`} />
                   <Metric label="Pens" value={(round.penalty_shots ?? 0).toString()} danger={(round.penalty_shots ?? 0) > 0} />
 
-                  <div className="flex gap-2 lg:justify-end">
+                  <div className="flex flex-wrap gap-2 lg:justify-end">
                     <Button variant="secondary" onClick={() => setSelectedRound(round)}><Eye className="h-4 w-4" />Details</Button>
+                    <Button variant="secondary" onClick={() => navigate(`/golf/rounds/${round.id}`)}><MessageCircle className="h-4 w-4" />Live</Button>
                     {!isCompleteScoringRound(round) && (
                       <Button variant="golf" onClick={() => navigate(`/golf/submit?resume=${round.id}`)}><Play className="h-4 w-4" />Resume</Button>
                     )}
