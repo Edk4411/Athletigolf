@@ -115,12 +115,12 @@ export default function AppDock() {
 
           <button type="button" aria-label="Close menu backdrop" className="absolute inset-0" onClick={closeMenu} />
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-[calc(6.9rem+env(safe-area-inset-bottom))] mx-auto flex max-w-[520px] flex-col items-center px-4">
+          <div className="pointer-events-none absolute inset-x-0 bottom-[calc(6.9rem+env(safe-area-inset-bottom))] mx-auto flex max-w-[620px] flex-col items-center px-4">
             <p className="pointer-events-auto mb-4 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white/72">
               {menu === "activity" ? "Activity" : "Quick Add"}
             </p>
 
-            <div className="pointer-events-auto relative h-[17rem] w-full">
+            <div className="pointer-events-auto relative h-[18rem] w-full">
               {(menu === "activity" ? filteredActivityItems : filteredCreateItems).map((item, index, items) => (
                 <ArcButton
                   key={item.label}
@@ -173,10 +173,10 @@ function ArcButton({
   onClick: () => void;
 }) {
   const Icon = item.icon;
-  const spread = menu === "create" ? 180 : menu === "activity" ? 204 : 190;
+  const spread = menu === "create" ? 232 : menu === "activity" ? 244 : 206;
   const angle = total === 1 ? 90 : 90 + spread / 2 - (index * spread) / (total - 1);
-  const radius = menu === "create" ? 132 : total > 6 ? 148 : 136;
-  const top = menu === "create" ? "11.6rem" : "12.1rem";
+  const radius = menu === "create" ? 146 : total > 6 ? 158 : 148;
+  const top = menu === "create" ? "12.6rem" : "12.9rem";
   const x = Math.cos((angle * Math.PI) / 180) * radius;
   const y = -Math.sin((angle * Math.PI) / 180) * radius;
 
@@ -184,7 +184,7 @@ function ArcButton({
     <button
       type="button"
       onClick={onClick}
-      className="absolute left-1/2 flex w-[6rem] -translate-x-1/2 flex-col items-center gap-2 text-center transition active:scale-95"
+      className="absolute left-1/2 flex w-[5.8rem] -translate-x-1/2 flex-col items-center gap-2 text-center transition active:scale-95"
       style={{ top, transform: `translate(calc(-50% + ${x}px), ${y}px)` }}
     >
       <span className={`inline-flex h-14 w-14 items-center justify-center rounded-2xl border text-white shadow-xl ${toneClass(item.tone, active)}`}>

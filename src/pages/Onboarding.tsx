@@ -16,17 +16,17 @@ const primaryUseOptions: { value: NonNullable<OnboardingData["mainSport"]>; labe
   {
     value: "both",
     label: "Athletic Performance",
-    detail: "Track everything: golf, training, wellness, nutrition, social and insights.",
+    detail: "The full app: golf, gym, wellness, nutrition, social and AthletiAI coaching.",
   },
   {
     value: "golf",
     label: "Golf Focus",
-    detail: "Prioritise scorecards, practice, competitions and golf reports.",
+    detail: "Golf-first setup for scorecards, practice, competitions and playing history.",
   },
   {
     value: "training",
     label: "Fitness Tracking Only",
-    detail: "Use training, wellness, nutrition and social without golf setup.",
+    detail: "Gym, wellness, nutrition and social without golf pages getting in the way.",
   },
 ];
 
@@ -302,10 +302,10 @@ export default function Onboarding() {
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-pulse">AthletiGolf Setup</p>
               <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight md:text-5xl">
-                Build your performance profile.
+                Build the app around how you train and play.
               </h1>
               <p className="mt-4 max-w-2xl leading-relaxed text-white/64">
-                Give AthletiGolf enough context to make the dashboard, training board and practice recommendations feel personal from day one.
+                AthletiGolf works for golfers, gym users, or both. Pick the route that fits now, and the dashboard, app navigation and AthletiAI coach will shape themselves around it.
               </p>
             </div>
             <div className="rounded-xl border border-white/10 bg-white/8 p-4">
@@ -365,6 +365,11 @@ export default function Onboarding() {
                     options={primaryUseOptions}
                     onChange={(value) => update("mainSport", value as OnboardingData["mainSport"])}
                   />
+                  <div className="rounded-xl border border-pulse/20 bg-pulse/8 p-4 md:col-span-2">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-pulse">Your app route</p>
+                    <h3 className="mt-2 font-semibold text-dark">{getModePreview(data.mainSport || "both").title}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-muted">{getModePreview(data.mainSport || "both").detail}</p>
+                  </div>
                   <label className="flex items-center gap-3 rounded-lg border border-line bg-white/70 px-4 py-3 text-sm font-semibold text-dark md:col-span-2">
                     <input
                       type="checkbox"
@@ -723,6 +728,28 @@ function TargetPreview({ label, value }: { label: string; value: string }) {
       <p className="mt-2 text-2xl font-semibold text-dark">{value}</p>
     </div>
   );
+}
+
+function getModePreview(mode: OnboardingData["mainSport"]) {
+  if (mode === "training") {
+    return {
+      title: "Gym-first app experience",
+      detail:
+        "Golf setup is skipped, the app opens around training, wellness, nutrition, social and AthletiAI coaching.",
+    };
+  }
+  if (mode === "golf") {
+    return {
+      title: "Golf-first app experience",
+      detail:
+        "The app prioritises live rounds, score history, practice, competitions and golf analytics, with training still available if you want it.",
+    };
+  }
+  return {
+    title: "Full athletic performance experience",
+    detail:
+      "You get the complete flow: golf, training, wellness, nutrition, social features and cross-area AthletiAI coaching.",
+  };
 }
 
 function buildRecommendation(data: OnboardingData) {

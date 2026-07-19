@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { Activity, Check, Copy, Dumbbell, Flag, MapPin, Pencil, ShieldCheck, UserPlus, Users, X } from "lucide-react";
-import { Button, EmptyState, FieldLabel, PageHeader, SelectInput, Surface, TextArea, TextInput } from "@/components/ui";
+import { Activity, Check, Copy, Dumbbell, Flag, MapPin, MessageCircle, Pencil, ShieldCheck, Sparkles, UserPlus, Users, X } from "lucide-react";
+import { Button, EmptyState, FieldLabel, SelectInput, Surface, TextArea, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { FriendConnection, FriendConnectionProfile, FriendSearchResult, LiveActivity, OnboardingData } from "@/lib/types";
 import { normalizeUsername } from "@/lib/usernames";
@@ -277,6 +277,12 @@ export default function Social() {
     () => connections.filter((connection) => connection.status === "pending").length,
     [connections]
   );
+  const friendFeedCount = friendActivities.length;
+  const hasRequests = incomingRequests.length > 0 || outgoingRequests.length > 0;
+
+  function jumpToSocialSection(sectionId: string) {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   if (loading) {
     return (
@@ -288,21 +294,55 @@ export default function Social() {
 
   return (
     <main className="min-h-screen bg-cream px-4 py-5 text-ink md:px-8 md:py-7">
-      <PageHeader
-        eyebrow="Social"
-        title="Live activity"
-        description="Check in, add friends, and see who is training, practicing or on course."
-        tone="text-pulse"
-      />
+      <section className="mb-5 overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(18,184,214,0.22),transparent_36%),linear-gradient(135deg,#0f2636,#07131d)] p-5 text-white shadow-sm md:p-7">
+        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-pulse">
+                <Sparkles className="h-3.5 w-3.5" />
+                Social hub
+              </span>
+              {profileUsername && (
+                <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1.5 text-sm font-semibold text-white/72">
+                  @{profileUsername}
+                </span>
+              )}
+            </div>
+            <h1 className="mt-4 text-4xl font-semibold tracking-tight md:text-5xl">
+              See who is moving today.
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/66 md:text-base">
+              Check in, find friends, and follow live sessions without making your private training, golf or wellness data public.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button type="button" onClick={() => jumpToSocialSection("social-checkin")} className="rounded-full bg-pulse px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-pulse/90">
+                Check in
+              </button>
+              <button type="button" onClick={() => jumpToSocialSection("social-add-friend")} className="rounded-full border border-white/12 bg-white/10 px-4 py-2 text-sm font-bold text-white transition hover:bg-white/15">
+                Add friend
+              </button>
+              <button type="button" onClick={() => jumpToSocialSection("social-feed")} className="rounded-full border border-white/12 bg-white/10 px-4 py-2 text-sm font-bold text-white transition hover:bg-white/15">
+                Live feed
+              </button>
+            </div>
+          </div>
 
-      <section className="mb-5 grid gap-4 md:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            <SocialHeroStat icon={Activity} label="Status" value={activeActivity ? getActivityLabel(activeActivity.activity_type) : "Offline"} />
+            <SocialHeroStat icon={Users} label="Friends" value={acceptedCount} />
+            <SocialHeroStat icon={MessageCircle} label="Live now" value={friendFeedCount} />
+          </div>
+        </div>
+      </section>
+
+      <section className="mb-5 grid gap-3 sm:grid-cols-3">
         <SocialMetric icon={Activity} label="Current status" value={activeActivity ? getActivityLabel(activeActivity.activity_type) : "Offline"} />
         <SocialMetric icon={Users} label="Friends" value={acceptedCount} />
-        <SocialMetric icon={UserPlus} label="Pending" value={pendingCount} />
+        <SocialMetric icon={UserPlus} label={hasRequests ? "Requests waiting" : "Pending"} value={pendingCount} />
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-        <Surface>
+        <Surface id="social-checkin" className="scroll-mt-6">
           <div className="mb-5 flex items-center gap-3">
             <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-pulse/10 text-pulse">
               <MapPin className="h-5 w-5" />
@@ -386,7 +426,7 @@ export default function Social() {
             )}
           </Surface>
 
-          <Surface>
+          <Surface id="social-feed" className="scroll-mt-6">
             <div className="mb-5 flex items-center gap-3">
               <Users className="h-5 w-5 text-pulse" />
               <h2 className="text-xl font-semibold text-dark">Friends live feed</h2>
@@ -405,7 +445,7 @@ export default function Social() {
       </section>
 
       <section className="mt-5 grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">
-        <Surface>
+        <Surface id="social-add-friend" className="scroll-mt-6">
           <div className="mb-5 flex items-center gap-3">
             <UserPlus className="h-5 w-5 text-pulse" />
             <h2 className="text-xl font-semibold text-dark">Add friend</h2>
@@ -495,7 +535,7 @@ export default function Social() {
           </details>
         </Surface>
 
-        <Surface>
+        <Surface id="social-friends" className="scroll-mt-6">
           <div className="mb-5 flex items-center gap-3">
             <Users className="h-5 w-5 text-pulse" />
             <h2 className="text-xl font-semibold text-dark">Friends and requests</h2>
@@ -609,6 +649,22 @@ function SocialMetric({ icon: Icon, label, value }: { icon: React.ComponentType<
       </span>
       <p className="mt-4 text-sm font-medium text-muted">{label}</p>
       <h2 className="mt-2 text-2xl font-semibold text-dark">{value}</h2>
+    </div>
+  );
+}
+
+function SocialHeroStat({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
+      <div className="flex items-center gap-3">
+        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/12 text-pulse">
+          <Icon className="h-5 w-5" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/48">{label}</p>
+          <p className="mt-1 truncate text-lg font-semibold text-white">{value}</p>
+        </div>
+      </div>
     </div>
   );
 }

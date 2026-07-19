@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { Brain, CheckCircle2, Dumbbell, Flag, Lightbulb, Target, Zap } from "lucide-react";
-import { Button, EmptyState, PageHeader, SectionTitle, Surface } from "@/components/ui";
+import { BarChart3, Brain, CheckCircle2, Dumbbell, Flag, HeartPulse, Lightbulb, Target, Zap } from "lucide-react";
+import { Button, EmptyState, SectionTitle, Surface } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import {
   getCoachNotes,
@@ -73,22 +73,39 @@ export default function AthletiAI() {
 
   return (
     <main className="min-h-screen bg-cream px-4 py-5 text-ink md:px-8 md:py-7">
-      <PageHeader
-        eyebrow="Insight Engine"
-        title="AthletiAI"
-        description={
-          trainingOnly
-            ? "A single review surface for training progression, recovery context, nutrition habits and next actions."
-            : "A single review surface for golf trends, training signals, recovery context and next actions."
-        }
-        tone="text-pulse"
-      />
+      <section className="mb-5 overflow-hidden rounded-2xl border border-pulse/20 bg-dark text-white shadow-sm">
+        <div className="relative p-5 md:p-7">
+          <div className="absolute right-[-80px] top-[-90px] h-56 w-56 rounded-full bg-pulse/20 blur-3xl" />
+          <div className="relative grid gap-5 md:grid-cols-[1fr_auto] md:items-start">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-pulse">AthletiAI Coach</p>
+              <h1 className="mt-3 max-w-3xl text-4xl font-semibold tracking-tight md:text-5xl">
+                Your personal read on what to do next.
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65">
+                {trainingOnly
+                  ? "AthletiAI turns training, wellness and nutrition logs into practical next steps without needing golf setup."
+                  : "AthletiAI connects golf, training, recovery and nutrition so every player gets coaching that fits their own route."}
+              </p>
+            </div>
+            <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-pulse/15 text-pulse">
+              <Brain className="h-6 w-6" />
+            </span>
+          </div>
+          <div className="relative mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <CoachAction label="Raw stats" icon={BarChart3} onClick={() => navigate("/analytics")} />
+            <CoachAction label="Log workout" icon={Dumbbell} onClick={() => navigate("/workouts/submit")} />
+            {!trainingOnly && <CoachAction label="Practice plan" icon={Target} onClick={() => navigate(recommendedPracticeHref)} />}
+            <CoachAction label="Wellness" icon={HeartPulse} onClick={() => navigate("/wellness")} />
+          </div>
+        </div>
+      </section>
 
       <section className="mb-5 grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
         <Surface className="bg-dark text-white">
           <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-start">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-pulse">Best Move</p>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-pulse">Today&apos;s Read</p>
               <h2 className="mt-2 text-3xl font-semibold tracking-tight">
                 {trainingOnly ? getTrainingOnlyHeadline(trainingIntel, workouts.length) : performanceInsights[0]?.title || "Build the first signal"}
               </h2>
@@ -137,7 +154,7 @@ export default function AthletiAI() {
 
       <section className="mb-5 grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
         <Surface>
-          <SectionTitle eyebrow="Signals" title="Priority insights" action={<Lightbulb className="h-5 w-5 text-pulse" />} />
+          <SectionTitle eyebrow="Coach Feed" title="Priority insights" action={<Lightbulb className="h-5 w-5 text-pulse" />} />
           {visiblePerformanceInsights.length ? (
             <div className="grid gap-3 md:grid-cols-2">
               {visiblePerformanceInsights.map((insight) => (
@@ -150,7 +167,7 @@ export default function AthletiAI() {
         </Surface>
 
         {!trainingOnly && <Surface className="bg-dark text-white">
-          <SectionTitle eyebrow="Golf x Training" title="Relationship watch" action={<Zap className="h-5 w-5 text-pulse" />} />
+          <SectionTitle eyebrow="Pattern Watch" title="Cross-area read" action={<Zap className="h-5 w-5 text-pulse" />} />
           <div className="space-y-3">
             {relationshipInsights.map((insight) => (
               <RelationshipCard key={insight.title} insight={insight} />
@@ -244,6 +261,27 @@ function CoachNote({
       </div>
       <p className="text-sm leading-relaxed text-muted">{text}</p>
     </div>
+  );
+}
+
+function CoachAction({
+  label,
+  icon: Icon,
+  onClick,
+}: {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/8 px-4 py-3 text-left text-sm font-semibold text-white transition hover:border-pulse/40 hover:bg-white/12 hover:text-white"
+    >
+      <Icon className="h-4 w-4 text-pulse" />
+      {label}
+    </button>
   );
 }
 

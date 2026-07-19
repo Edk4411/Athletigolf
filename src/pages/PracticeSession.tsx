@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { Button, FieldLabel, SelectInput, TextArea, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { PracticeDrill } from "@/lib/types";
@@ -144,9 +144,17 @@ export default function PracticeSession() {
 
   const focusOptions = focusOptionsMap[practiceType];
   const drillOptions = drillOptionsMap[practiceType];
+  const practiceIntent = getPracticeIntent(practiceType);
 
   const addDrill = () => {
     setDrills((prev) => [...prev, { name: "", distance: "", attempts: "", successes: "" }]);
+  };
+
+  const addPresetDrill = (name: string) => {
+    setDrills((prev) => {
+      if (prev.some((drill) => drill.name === name)) return prev;
+      return [...prev, { name, distance: "", attempts: "", successes: "" }];
+    });
   };
 
   const updateDrill = (index: number, key: keyof PracticeDrillForm, value: string) => {
@@ -165,17 +173,46 @@ export default function PracticeSession() {
     <div className="min-h-screen bg-cream p-5 text-ink md:p-7">
       <div className="mx-auto max-w-4xl">
         <div className="mb-7 border-b border-line pb-6">
-          <Link href="/dashboard">
-            <button className="mb-4 text-sm font-medium text-muted transition hover:text-dark">
-              Back to Dashboard
-            </button>
-          </Link>
+          <button
+            type="button"
+            onClick={() => (window.history.length > 1 ? window.history.back() : navigate("/golf"))}
+            className="mb-4 text-sm font-medium text-muted transition hover:text-dark"
+          >
+            Back
+          </button>
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-golf">Golf Practice</p>
           <h1 className="mb-3 text-4xl font-semibold tracking-tight text-dark">Log Practice</h1>
           <p className="text-muted">Track your range, sim, putting, chipping and short game sessions.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="rounded-xl border border-line bg-panel p-6 shadow-sm">
+          <div className="mb-6 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-2xl border border-golf/20 bg-golf/8 p-5">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-golf">{practiceIntent.eyebrow}</p>
+              <h2 className="mt-2 text-2xl font-semibold text-dark">{practiceIntent.title}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted">{practiceIntent.detail}</p>
+            </div>
+            <div className="rounded-2xl border border-line bg-white/60 p-5">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">Quick focus</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {focusOptions.slice(0, 6).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setFocusArea(option)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                      focusArea === option
+                        ? "bg-dark text-white"
+                        : "bg-white text-muted ring-1 ring-line hover:text-dark"
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {initialPlan.loadedFromPlan && (
             <div className="mb-6 rounded-xl border border-golf/25 bg-golf/10 p-4">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-golf">
@@ -253,6 +290,19 @@ export default function PracticeSession() {
               <Button type="button" variant="secondary" onClick={addDrill}>
                 {drills.length === 0 ? "+ Add drill" : "+ Add another drill"}
               </Button>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {drillOptions.slice(0, 5).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => addPresetDrill(option)}
+                  className="rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-bold text-muted transition hover:border-golf/40 hover:text-dark"
+                >
+                  + {option}
+                </button>
+              ))}
             </div>
 
             {drills.length > 0 && (
@@ -360,6 +410,47 @@ function toPracticeDrill(drill: PracticeDrillForm): PracticeDrill {
     distance: drill.distance.trim() || null,
     attempts: drill.attempts === "" ? null : Number(drill.attempts),
     successes: drill.successes === "" ? null : Number(drill.successes),
+  };
+}
+
+function getPracticeIntent(type: PracticeType) {
+  if (type === "Sim Work") {
+    return {
+      eyebrow: "Simulator session",
+      title: "Treat the sim like structured practice.",
+      detail:
+        "Log gapping, shot shapes, virtual rounds or on-course reps so indoor work still feeds your golf profile.",
+    };
+  }
+  if (type === "On Course") {
+    return {
+      eyebrow: "On-course reps",
+      title: "Track decisions, routines and scoring skills.",
+      detail:
+        "Use this for practice holes, strategy work and real playing lessons where the score is less important than the pattern.",
+    };
+  }
+  if (type === "Putting") {
+    return {
+      eyebrow: "Putting block",
+      title: "Capture pace, start line and pressure.",
+      detail:
+        "Short putts, lag work and green reading all show up differently, so keep the focus tight.",
+    };
+  }
+  if (type === "Chipping" || type === "Short Game") {
+    return {
+      eyebrow: "Scoring zone",
+      title: "Make missed greens cheaper.",
+      detail:
+        "Track the shots that turn bogeys into pars: landing spots, bunker saves, pitches and up-and-down ladders.",
+    };
+  }
+  return {
+    eyebrow: "Range session",
+    title: "Choose one theme before you hit balls.",
+    detail:
+      "Driver, irons, wedges or shot shape work will all become more useful when the session has a clear purpose.",
   };
 }
 

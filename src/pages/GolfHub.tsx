@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { useLocation } from "wouter";
 import {
   Activity,
@@ -10,10 +10,14 @@ import {
   MessageCircle,
   NotebookPen,
   Shield,
+  Sparkles,
   Trophy,
   Users,
 } from "lucide-react";
 import { Button, Card, StatusPill } from "@/components/ui";
+import { isCompleteScoringRound } from "@/lib/golfStats";
+import { supabase } from "@/lib/supabase";
+import type { Round } from "@/lib/types";
 
 type GolfHubItem = {
   label: string;
@@ -63,6 +67,44 @@ const golfItems: GolfHubItem[] = [
 
 export default function GolfHub() {
   const [, navigate] = useLocation();
+  const [rounds, setRounds] = useState<Round[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRounds() {
+      setLoading(true);
+      const { data } = await supabase.from("rounds").select("*").order("created_at", { ascending: false }).limit(12);
+      if (!cancelled) {
+        setRounds((data as Round[]) || []);
+        setLoading(false);
+      }
+    }
+
+    loadRounds();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const unfinishedRounds = useMemo(
+    () => rounds.filter((round) => !isCompleteScoringRound(round)).slice(0, 3),
+    [rounds]
+  );
+  const recentCourses = useMemo(() => {
+    const seen = new Set<string>();
+    return rounds
+      .map((round) => round.course || round.round_name || "")
+      .filter(Boolean)
+      .filter((course) => {
+        const key = course.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 4);
+  }, [rounds]);
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 pb-6 sm:px-6">
@@ -101,6 +143,77 @@ export default function GolfHub() {
         </div>
       </section>
 
+      <section className="grid gap-3 lg:grid-cols-[1.05fr_0.95fr]">
+        <Card className="border-golf/20 bg-golf/7 dark:border-emerald-200/10 dark:bg-emerald-300/8">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-golf/12 text-golf dark:bg-emerald-300/12 dark:text-emerald-100">
+              <Activity className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-dark dark:text-white">Live and unfinished rounds</h2>
+                <StatusPill tone="golf">{loading ? "Loading" : `${unfinishedRounds.length} open`}</StatusPill>
+              </div>
+              <p className="mt-2 text-sm leading-relaxed text-muted dark:text-white/60">
+                Pick up rounds that are live, paused or missing holes before they count fully in your golf record.
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {unfinishedRounds.length ? (
+                  unfinishedRounds.map((round) => (
+                    <button
+                      key={round.id}
+                      type="button"
+                      onClick={() => navigate(`/golf/submit?resume=${round.id}`)}
+                      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-white/70 px-3 py-3 text-left transition active:scale-[0.99] dark:border-white/10 dark:bg-white/7"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-dark dark:text-white">{round.round_name || round.course || "Unfinished round"}</p>
+                        <p className="mt-0.5 text-xs text-muted dark:text-white/52">
+                          {getRoundStatusLabel(round)} / {round.date || formatDate(round.created_at)}
+                        </p>
+                      </div>
+                      <ChevronRight className="h-5 w-5 shrink-0 text-muted dark:text-white/42" />
+                    </button>
+                  ))
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-line bg-white/45 px-3 py-4 text-sm text-muted dark:border-white/10 dark:bg-white/5 dark:text-white/55">
+                    No open rounds right now. Start a round when you get to the first tee.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gold/12 text-gold">
+              <Sparkles className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-semibold text-dark dark:text-white">Recent course memory</h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted dark:text-white/60">
+                Your recent courses sit here so the app can become faster at round setup.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {recentCourses.length ? (
+                  recentCourses.map((course) => (
+                    <span key={course} className="rounded-full bg-steel/8 px-3 py-1.5 text-xs font-semibold text-dark dark:bg-white/8 dark:text-white/72">
+                      {course}
+                    </span>
+                  ))
+                ) : (
+                  <span className="rounded-full bg-steel/8 px-3 py-1.5 text-xs font-semibold text-muted dark:bg-white/8 dark:text-white/52">
+                    Courses will appear after your first saved round
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+      </section>
+
       <section className="grid gap-3 sm:grid-cols-2">
         {golfItems.map((item) => {
           const Icon = item.icon;
@@ -132,9 +245,9 @@ export default function GolfHub() {
             <Users className="h-5 w-5" />
           </span>
           <div>
-            <h2 className="text-lg font-semibold text-dark dark:text-white">Live round layer coming next</h2>
+            <h2 className="text-lg font-semibold text-dark dark:text-white">Friends-only round following</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted dark:text-white/60">
-              The database is ready for followers, partners, comments, reactions, media and multiple games. Next step is the live scorecard UI that uses it.
+              Live rounds can now use the scoring foundation for partners, games, comments, reactions and media. Keep this private or friends-only until team/coach mode is ready.
             </p>
             <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-muted dark:text-white/52">
               <span className="inline-flex items-center gap-1 rounded-full bg-white/60 px-3 py-1 dark:bg-white/8">
@@ -151,4 +264,17 @@ export default function GolfHub() {
       </Card>
     </div>
   );
+}
+
+function getRoundStatusLabel(round: Round) {
+  if (round.live_status === "live") return "Live";
+  if (round.live_status === "paused") return "Paused";
+  if (round.status === "draft") return "Draft";
+  if (round.status === "unfinished") return "Unfinished";
+  return "Open";
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "No date";
+  return new Date(value).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
 }
