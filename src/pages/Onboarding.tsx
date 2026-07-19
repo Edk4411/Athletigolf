@@ -4,10 +4,11 @@ import { ArrowRight, Check, Droplets, Dumbbell, Flag, Target } from "lucide-reac
 import { Button, FieldLabel, Surface, TextArea, TextInput } from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
-import type { OnboardingData } from "@/lib/types";
+import type { OnboardingData, WellnessTrackingPreferences } from "@/lib/types";
 import { isValidUsername, normalizeUsername, usernameRules } from "@/lib/usernames";
 import {
   defaultWellnessSetup,
+  defaultWellnessTracking,
   withCalculatedWellnessTargets,
 } from "@/lib/wellnessTargets";
 
@@ -61,6 +62,15 @@ const defaultData: OnboardingData = {
     restDays: [],
   },
 };
+
+const wellnessTrackingOptions: Array<{ key: keyof WellnessTrackingPreferences; label: string; detail: string }> = [
+  { key: "food", label: "Food", detail: "Calories, macros and meal logging." },
+  { key: "water", label: "Water", detail: "Hydration targets and quick water logging." },
+  { key: "sleep", label: "Sleep", detail: "Sleep time, energy and recovery notes." },
+  { key: "body", label: "Body composition", detail: "Weight and body-composition signals." },
+  { key: "heartRate", label: "Heart rate", detail: "Manual resting heart-rate tracking." },
+  { key: "bloodPressure", label: "Blood pressure", detail: "Manual blood-pressure records." },
+];
 
 export default function Onboarding() {
   const { user } = useAuth();
@@ -123,6 +133,10 @@ export default function Onboarding() {
   const preparedData = useMemo(() => withCalculatedWellnessTargets(data), [data]);
   const recommendation = useMemo(() => buildRecommendation(preparedData), [preparedData]);
   const wellnessTargets = preparedData.wellness?.targets;
+  const wellnessTracking: WellnessTrackingPreferences = {
+    ...defaultWellnessTracking,
+    ...(data.wellness?.tracking || {}),
+  };
   const fitnessOnly = data.mainSport === "training";
   const setupSteps = fitnessOnly
     ? [
@@ -566,6 +580,37 @@ export default function Onboarding() {
                   <TargetPreview label="Protein" value={`${wellnessTargets?.proteinGrams ?? 140} g`} />
                   <TargetPreview label="Water" value={`${wellnessTargets?.waterLitres ?? 2.5} L`} />
                   <TargetPreview label="Sleep" value={`${wellnessTargets?.sleepHours ?? 8} h`} />
+                </div>
+
+                <div className="mt-5 rounded-xl border border-line bg-white/70 p-4">
+                  <p className="text-sm font-bold uppercase tracking-[0.16em] text-muted">Choose what to track</p>
+                  <p className="mt-2 text-sm leading-relaxed text-muted">
+                    You can change this later in Settings. Food, water and sleep are switched on by default.
+                  </p>
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    {wellnessTrackingOptions.map((option) => (
+                      <label
+                        key={option.key}
+                        className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-panel p-4 transition hover:border-pulse/35 hover:bg-pulse/5"
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 accent-pulse"
+                          checked={wellnessTracking[option.key]}
+                          onChange={(event) =>
+                            updateWellness("tracking", {
+                              ...wellnessTracking,
+                              [option.key]: event.target.checked,
+                            })
+                          }
+                        />
+                        <span>
+                          <span className="block font-semibold text-dark">{option.label}</span>
+                          <span className="mt-1 block text-sm leading-relaxed text-muted">{option.detail}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </SetupStep>
             )}

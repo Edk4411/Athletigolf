@@ -30,6 +30,7 @@ export type OnboardingData = {
     sex: string;
     activityLevel: string;
     targetBodyweight: string;
+    tracking?: WellnessTrackingPreferences;
     targets?: {
       calories: number;
       proteinGrams: number;
@@ -395,6 +396,15 @@ export type Competition = {
   updated_at?: string | null;
 };
 
+export type WellnessTrackingPreferences = {
+  food: boolean;
+  water: boolean;
+  sleep: boolean;
+  body: boolean;
+  heartRate: boolean;
+  bloodPressure: boolean;
+};
+
 export type WellnessLog = {
   id: string;
   user_id: string;
@@ -406,6 +416,9 @@ export type WellnessLog = {
   fats_grams: number | null;
   bodyweight: number | null;
   sleep_hours: number | null;
+  resting_heart_rate?: number | null;
+  blood_pressure_systolic?: number | null;
+  blood_pressure_diastolic?: number | null;
   energy_rating: number | null;
   notes: string | null;
   created_at: string;

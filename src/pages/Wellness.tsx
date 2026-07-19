@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, CalendarDays, ChevronLeft, ChevronRight, Copy, Database, Flame, Moon, MoreVertical, Pencil, Plus, Scale, Search, Trash2, Utensils, Zap } from "lucide-react";
+import { Activity, Bed, CalendarDays, ChevronLeft, ChevronRight, Copy, Database, Droplets, Flame, Gauge, HeartPulse, Moon, Pencil, Plus, Scale, Search, Trash2, Utensils, Zap, type LucideIcon } from "lucide-react";
 import { Button, EmptyState, FieldLabel, SelectInput, Surface, TextArea, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
-import type { FoodSearchResult, NutritionEntry, OnboardingData, PracticeSession, Round, SavedFood, WellnessLog, Workout } from "@/lib/types";
-import { defaultWellnessTargets, getWellnessTargets, type WellnessTargets } from "@/lib/wellnessTargets";
+import type { FoodSearchResult, NutritionEntry, OnboardingData, PracticeSession, Round, SavedFood, WellnessLog, WellnessTrackingPreferences, Workout } from "@/lib/types";
+import { defaultWellnessTargets, defaultWellnessTracking, getWellnessTargets, getWellnessTracking, type WellnessTargets } from "@/lib/wellnessTargets";
 
 const toLocalIso = (date: Date) => {
   const year = date.getFullYear();
@@ -39,6 +39,9 @@ const blankForm = {
   bodyweight: "",
   sleep_hours: "",
   energy_rating: "",
+  resting_heart_rate: "",
+  blood_pressure_systolic: "",
+  blood_pressure_diastolic: "",
   notes: "",
 };
 
@@ -73,6 +76,8 @@ const mealTypes: Array<{ value: NutritionEntry["meal_type"]; label: string }> = 
   { value: "snack", label: "Snacks" },
 ];
 
+type WellnessPanel = "home" | "food" | "water" | "sleep" | "body" | "heartRate" | "bloodPressure";
+
 export default function Wellness() {
   const [logs, setLogs] = useState<WellnessLog[]>([]);
   const [nutritionEntries, setNutritionEntries] = useState<NutritionEntry[]>([]);
@@ -81,6 +86,8 @@ export default function Wellness() {
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [practices, setPractices] = useState<PracticeSession[]>([]);
   const [targets, setTargets] = useState<WellnessTargets>(defaultWellnessTargets);
+  const [tracking, setTracking] = useState<WellnessTrackingPreferences>(defaultWellnessTracking);
+  const [activePanel, setActivePanel] = useState<WellnessPanel>("home");
   const [selectedLog, setSelectedLog] = useState<WellnessLog | null>(null);
   const [form, setForm] = useState(blankForm);
   const [foodForm, setFoodForm] = useState(blankFoodForm);
@@ -149,6 +156,7 @@ export default function Wellness() {
     const loadedLogs = (data as WellnessLog[]) || [];
     const onboarding = (profile?.onboarding_data as OnboardingData | null) || null;
     setTargets(getWellnessTargets(onboarding));
+    setTracking(getWellnessTracking(onboarding));
     setLogs(loadedLogs);
     setNutritionEntries((entries as NutritionEntry[]) || []);
     setSavedFoods((foods as SavedFood[]) || []);
@@ -213,6 +221,9 @@ export default function Wellness() {
       bodyweight: toNumber(form.bodyweight),
       sleep_hours: toNumber(form.sleep_hours),
       energy_rating: toInteger(form.energy_rating),
+      resting_heart_rate: toInteger(form.resting_heart_rate),
+      blood_pressure_systolic: toInteger(form.blood_pressure_systolic),
+      blood_pressure_diastolic: toInteger(form.blood_pressure_diastolic),
       notes: form.notes.trim() || null,
       updated_at: new Date().toISOString(),
     };
@@ -814,6 +825,80 @@ export default function Wellness() {
     [weekLogs, targets, nutritionTotals, rounds, workouts, practices]
   );
   const nutritionStatus = useMemo(() => buildNutritionStatus(displayNutrition, targets), [displayNutrition, targets]);
+  const wellnessCards = useMemo(
+    () =>
+      [
+        {
+          key: "food" as const,
+          enabled: tracking.food,
+          icon: Utensils,
+          title: "Food",
+          value: formatNumber(displayNutrition.calories),
+          unit: "kcal",
+          target: `${targets.calories.toLocaleString()} kcal target`,
+          progress: getProgress(displayNutrition.calories, targets.calories),
+          tone: "bg-white",
+        },
+        {
+          key: "water" as const,
+          enabled: tracking.water,
+          icon: Droplets,
+          title: "Water",
+          value: formatLitres(todayLog?.water_litres),
+          unit: "logged",
+          target: `${targets.waterLitres} L target`,
+          progress: getProgress(todayLog?.water_litres, targets.waterLitres),
+          tone: "bg-white",
+        },
+        {
+          key: "sleep" as const,
+          enabled: tracking.sleep,
+          icon: Bed,
+          title: "Sleep",
+          value: formatHours(todayLog?.sleep_hours),
+          unit: "last night",
+          target: `${targets.sleepHours} h target`,
+          progress: getProgress(todayLog?.sleep_hours, targets.sleepHours),
+          tone: "bg-[#211f5f] text-white",
+        },
+        {
+          key: "body" as const,
+          enabled: tracking.body,
+          icon: Scale,
+          title: "Body composition",
+          value: todayLog?.bodyweight ? `${todayLog.bodyweight} kg` : "-",
+          unit: "weight",
+          target: "Weight and body signals",
+          progress: todayLog?.bodyweight ? 72 : 0,
+          tone: "bg-[#25b8ee] text-white",
+        },
+        {
+          key: "bloodPressure" as const,
+          enabled: tracking.bloodPressure,
+          icon: Gauge,
+          title: "Blood pressure",
+          value: todayLog?.blood_pressure_systolic && todayLog?.blood_pressure_diastolic
+            ? `${todayLog.blood_pressure_systolic}/${todayLog.blood_pressure_diastolic}`
+            : "-",
+          unit: "mmHg",
+          target: "Manual health check",
+          progress: todayLog?.blood_pressure_systolic ? 55 : 0,
+          tone: "bg-[#f06f94] text-white",
+        },
+        {
+          key: "heartRate" as const,
+          enabled: tracking.heartRate,
+          icon: HeartPulse,
+          title: "Heart rate",
+          value: todayLog?.resting_heart_rate ? `${todayLog.resting_heart_rate}` : "-",
+          unit: "bpm",
+          target: "Resting heart rate",
+          progress: todayLog?.resting_heart_rate ? 65 : 0,
+          tone: "bg-[#ee668b] text-white",
+        },
+      ].filter((card) => card.enabled),
+    [displayNutrition.calories, targets, todayLog, tracking]
+  );
 
   if (loading) {
     return (
@@ -829,7 +914,7 @@ export default function Wellness() {
         <div className="mb-5 flex items-center justify-between gap-3">
           <button
             type="button"
-            onClick={() => window.history.length > 1 ? window.history.back() : undefined}
+            onClick={() => activePanel === "home" ? (window.history.length > 1 ? window.history.back() : undefined) : setActivePanel("home")}
             className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#101d2b] shadow-sm"
             aria-label="Go back"
           >
@@ -837,15 +922,9 @@ export default function Wellness() {
           </button>
           <div className="text-center">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-pulse">Wellness</p>
-            <h1 className="text-3xl font-black tracking-tight text-[#101d2b]">Food</h1>
+            <h1 className="text-3xl font-black tracking-tight text-[#101d2b]">{getWellnessPanelTitle(activePanel)}</h1>
           </div>
-          <button
-            type="button"
-            className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#101d2b] shadow-sm"
-            aria-label="Wellness options"
-          >
-            <MoreVertical className="h-6 w-6" />
-          </button>
+          <span className="h-12 w-12" aria-hidden="true" />
         </div>
 
         <div className="mb-5 flex items-center justify-center gap-5">
@@ -875,6 +954,36 @@ export default function Wellness() {
         </div>
       </section>
 
+      {activePanel === "home" && (
+        <section className="mb-5">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.18em] text-black/35">Daily health</p>
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-[#101d2b]">Track what matters today</h2>
+            </div>
+            <span className="rounded-full bg-white px-4 py-2 text-sm font-bold text-black/45 shadow-sm">
+              {formatDate(activeNutritionDate)}
+            </span>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {wellnessCards.map((card) => (
+              <WellnessHubCard
+                key={card.key}
+                icon={card.icon}
+                title={card.title}
+                value={card.value}
+                unit={card.unit}
+                target={card.target}
+                progress={card.progress}
+                tone={card.tone}
+                onClick={() => setActivePanel(card.key)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {activePanel === "food" && (
       <section className="mb-5 grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
         <div className="rounded-[2rem] bg-white p-7 shadow-sm">
           <div className="grid gap-5 sm:grid-cols-[1fr_auto] sm:items-start">
@@ -946,15 +1055,19 @@ export default function Wellness() {
           <p className="mt-5 text-sm leading-relaxed text-black/45">{nutritionStatus.detail}</p>
         </div>
       </section>
+      )}
 
+      {activePanel !== "home" && (
       <section className="mb-5 grid gap-3 sm:grid-cols-3">
         <WellnessSummaryPill icon={Activity} label="Daily score" value={`${todayScore}%`} />
         <WellnessSummaryPill icon={Moon} label="Sleep" value={formatHours(todayLog?.sleep_hours)} />
         <WellnessSummaryPill icon={Zap} label="Energy" value={todayLog?.energy_rating ? `${todayLog.energy_rating}/10` : "-"} />
       </section>
+      )}
 
       <section className="grid gap-5 xl:grid-cols-[1.35fr_0.75fr]">
         <div className="order-1 space-y-5 xl:order-1">
+          {activePanel === "food" && (
           <Surface className="rounded-[2rem] border-0 bg-white shadow-sm">
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
@@ -1256,15 +1369,17 @@ export default function Wellness() {
               onDelete={deleteFoodEntry}
             />
           </Surface>
+          )}
 
+          {activePanel !== "home" && activePanel !== "food" && (
           <Surface className="rounded-[2rem] border-0 bg-white shadow-sm">
             <div className="mb-5 flex items-center gap-3">
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-pulse/10 text-pulse">
                 <Activity className="h-5 w-5" />
               </span>
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-black/35">Recovery details</p>
-                <h2 className="text-xl font-black text-[#101d2b]">Water, sleep and body signals</h2>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-black/35">{getWellnessPanelEyebrow(activePanel)}</p>
+                <h2 className="text-xl font-black text-[#101d2b]">{getWellnessPanelSubtitle(activePanel)}</h2>
               </div>
             </div>
 
@@ -1294,6 +1409,9 @@ export default function Wellness() {
                     ))}
                   </SelectInput>
                 </div>
+                <Field label="Resting heart rate (bpm)" type="number" value={form.resting_heart_rate} onChange={(value) => setForm((prev) => ({ ...prev, resting_heart_rate: value }))} placeholder="58" />
+                <Field label="Blood pressure systolic" type="number" value={form.blood_pressure_systolic} onChange={(value) => setForm((prev) => ({ ...prev, blood_pressure_systolic: value }))} placeholder="120" />
+                <Field label="Blood pressure diastolic" type="number" value={form.blood_pressure_diastolic} onChange={(value) => setForm((prev) => ({ ...prev, blood_pressure_diastolic: value }))} placeholder="80" />
               </div>
               <div>
                 <FieldLabel>Notes</FieldLabel>
@@ -1305,6 +1423,7 @@ export default function Wellness() {
               </Button>
             </form>
           </Surface>
+          )}
 
           <section className="grid gap-5 lg:grid-cols-[1fr_0.85fr]">
             <Surface className="rounded-[2rem] border-0 bg-white shadow-sm">
@@ -1841,6 +1960,108 @@ function QuickMealButton({ label, onClick }: { label: string; onClick: () => voi
   );
 }
 
+function WellnessHubCard({
+  icon: Icon,
+  title,
+  value,
+  unit,
+  target,
+  progress,
+  tone,
+  onClick,
+}: {
+  icon: LucideIcon;
+  title: string;
+  value: string;
+  unit: string;
+  target: string;
+  progress: number;
+  tone: string;
+  onClick: () => void;
+}) {
+  const dark = tone.includes("text-white");
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`min-h-[13rem] rounded-[2rem] p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${tone}`}
+    >
+      <div className="mb-8 flex items-start justify-between gap-3">
+        <div>
+          <p className={`text-2xl font-medium ${dark ? "text-white" : "text-[#101d2b]"}`}>{title}</p>
+          <p className={`mt-5 text-[4rem] font-black leading-none tracking-tight ${dark ? "text-white" : "text-[#101d2b]"}`}>
+            {value}
+          </p>
+          <p className={`mt-2 text-xl font-medium ${dark ? "text-white/80" : "text-black/45"}`}>{unit}</p>
+        </div>
+        <span className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${dark ? "bg-white/15 text-white" : "bg-black/[0.06] text-pulse"}`}>
+          <Icon className="h-6 w-6" />
+        </span>
+      </div>
+      <div className={`h-3 overflow-hidden rounded-full ${dark ? "bg-white/20" : "bg-black/[0.06]"}`}>
+        <div
+          className={`h-full rounded-full ${dark ? "bg-white" : "bg-pulse"}`}
+          style={{ width: `${Math.min(progress, 100)}%` }}
+        />
+      </div>
+      <p className={`mt-3 text-sm font-semibold ${dark ? "text-white/75" : "text-black/45"}`}>{target}</p>
+    </button>
+  );
+}
+
+function getWellnessPanelTitle(panel: WellnessPanel) {
+  switch (panel) {
+    case "food":
+      return "Food";
+    case "water":
+      return "Water";
+    case "sleep":
+      return "Sleep";
+    case "body":
+      return "Body composition";
+    case "heartRate":
+      return "Heart rate";
+    case "bloodPressure":
+      return "Blood pressure";
+    default:
+      return "Wellness";
+  }
+}
+
+function getWellnessPanelEyebrow(panel: WellnessPanel) {
+  switch (panel) {
+    case "water":
+      return "Hydration";
+    case "sleep":
+      return "Recovery";
+    case "body":
+      return "Body signals";
+    case "heartRate":
+      return "Cardio marker";
+    case "bloodPressure":
+      return "Health marker";
+    default:
+      return "Daily health";
+  }
+}
+
+function getWellnessPanelSubtitle(panel: WellnessPanel) {
+  switch (panel) {
+    case "water":
+      return "Log water and hit your daily target";
+    case "sleep":
+      return "Track sleep, energy and recovery notes";
+    case "body":
+      return "Record weight and body-composition signals";
+    case "heartRate":
+      return "Track resting heart rate trends";
+    case "bloodPressure":
+      return "Record blood pressure manually";
+    default:
+      return "Water, sleep and body signals";
+  }
+}
+
 function TrendDay({ log, targets }: { log: WellnessLog; targets: WellnessTargets }) {
   const score = getDailyCompletion(log, targets);
   const tone = score >= 75 ? "bg-golf" : score >= 45 ? "bg-gold" : "bg-danger";
@@ -1880,6 +2101,9 @@ function formFromLog(log: WellnessLog) {
     bodyweight: toFormValue(log.bodyweight),
     sleep_hours: toFormValue(log.sleep_hours),
     energy_rating: toFormValue(log.energy_rating),
+    resting_heart_rate: toFormValue(log.resting_heart_rate),
+    blood_pressure_systolic: toFormValue(log.blood_pressure_systolic),
+    blood_pressure_diastolic: toFormValue(log.blood_pressure_diastolic),
     notes: log.notes || "",
   };
 }

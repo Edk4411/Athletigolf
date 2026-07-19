@@ -1,4 +1,4 @@
-import type { OnboardingData } from "./types";
+import type { OnboardingData, WellnessTrackingPreferences } from "./types";
 
 export type WellnessTargets = {
   calories: number;
@@ -14,6 +14,15 @@ export const defaultWellnessTargets: WellnessTargets = {
   sleepHours: 8,
 };
 
+export const defaultWellnessTracking: WellnessTrackingPreferences = {
+  food: true,
+  water: true,
+  sleep: true,
+  body: true,
+  heartRate: false,
+  bloodPressure: false,
+};
+
 export const defaultWellnessSetup: NonNullable<OnboardingData["wellness"]> = {
   goal: "Performance / recovery",
   age: "",
@@ -22,6 +31,7 @@ export const defaultWellnessSetup: NonNullable<OnboardingData["wellness"]> = {
   sex: "Prefer not to say",
   activityLevel: "Moderate",
   targetBodyweight: "",
+  tracking: defaultWellnessTracking,
   targets: defaultWellnessTargets,
 };
 
@@ -75,6 +85,15 @@ export function getWellnessTargets(
   return onboardingData?.wellness?.targets || calculateWellnessTargets(onboardingData?.wellness);
 }
 
+export function getWellnessTracking(
+  onboardingData?: OnboardingData | null
+): WellnessTrackingPreferences {
+  return {
+    ...defaultWellnessTracking,
+    ...(onboardingData?.wellness?.tracking || {}),
+  };
+}
+
 export function withCalculatedWellnessTargets(data: OnboardingData): OnboardingData {
   const wellness = {
     ...defaultWellnessSetup,
@@ -85,6 +104,10 @@ export function withCalculatedWellnessTargets(data: OnboardingData): OnboardingD
     ...data,
     wellness: {
       ...wellness,
+      tracking: {
+        ...defaultWellnessTracking,
+        ...(wellness.tracking || {}),
+      },
       targets: calculateWellnessTargets(wellness),
     },
   };

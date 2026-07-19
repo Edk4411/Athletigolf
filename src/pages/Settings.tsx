@@ -4,8 +4,9 @@ import { Copy, Database, Mail, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { sportModeLabels, type SportMode } from "@/lib/sportMode";
 import { applyTheme, type AppTheme } from "@/lib/theme";
-import type { OnboardingData } from "@/lib/types";
+import type { OnboardingData, WellnessTrackingPreferences } from "@/lib/types";
 import { isValidUsername, normalizeUsername, usernameRules } from "@/lib/usernames";
+import { defaultWellnessSetup, defaultWellnessTracking } from "@/lib/wellnessTargets";
 
 type SaveState = "idle" | "saving" | "success" | "error";
 
@@ -18,6 +19,15 @@ const visibleSportModes: [SportMode, string][] = [
   ["both", sportModeLabels.both],
   ["golf", sportModeLabels.golf],
   ["training", sportModeLabels.training],
+];
+
+const wellnessTrackingOptions: Array<{ key: keyof WellnessTrackingPreferences; label: string; detail: string }> = [
+  { key: "food", label: "Food", detail: "Food, meals and macro tracking." },
+  { key: "water", label: "Water", detail: "Hydration targets and quick logging." },
+  { key: "sleep", label: "Sleep", detail: "Sleep, energy and recovery notes." },
+  { key: "body", label: "Body composition", detail: "Weight and body-composition signals." },
+  { key: "heartRate", label: "Heart rate", detail: "Manual resting heart-rate tracking." },
+  { key: "bloodPressure", label: "Blood pressure", detail: "Manual blood-pressure records." },
 ];
 
 export default function Settings() {
@@ -168,6 +178,61 @@ export default function Settings() {
     setSaveState("idle");
     setProfile((prev) => ({ ...prev, [key]: value }));
     if (key === "theme") applyTheme(value as AppTheme);
+  }
+
+  const currentWellnessTracking = {
+    ...defaultWellnessTracking,
+    ...(onboardingData?.wellness?.tracking || {}),
+  };
+
+  function updateWellnessTracking(key: keyof WellnessTrackingPreferences, checked: boolean) {
+    setSaveState("idle");
+    setOnboardingData((prev) => {
+      const base: OnboardingData = prev || {
+        mainSport: profile.primary_sport,
+        fullName: profile.full_name,
+        mainGoal: profile.main_goal,
+        golf: {
+          homeCourse: "",
+          handicap: profile.golf_handicap,
+          scoringGoal: "",
+          biggestWeakness: "",
+          practiceAvailability: "",
+          upcomingCompetition: "",
+        },
+        training: {
+          experience: "",
+          daysAvailable: "",
+          sessionLength: "",
+          equipment: "",
+          goal: "",
+          injuries: "",
+          restDays: [],
+        },
+        privacy: {
+          defaultLiveVisibility: profile.default_live_visibility,
+          notificationsEnabled: profile.notifications_enabled,
+        },
+        social: {
+          username: profile.username,
+          showDisplayNameInSearch: profile.show_display_name_in_search,
+        },
+        wellness: defaultWellnessSetup,
+      };
+
+      return {
+        ...base,
+        wellness: {
+          ...defaultWellnessSetup,
+          ...(base.wellness || {}),
+          tracking: {
+            ...defaultWellnessTracking,
+            ...(base.wellness?.tracking || {}),
+            [key]: checked,
+          },
+        },
+      };
+    });
   }
 
   if (loading) {
@@ -462,6 +527,34 @@ export default function Settings() {
                 {profile.notifications_enabled ? "Notifications on" : "Notifications off"}
               </span>
             </label>
+          </div>
+
+          {/* WELLNESS TRACKING */}
+          <div className="rounded-xl border border-line bg-panel p-6 shadow-sm">
+            <h2 className="mb-2 text-2xl font-semibold text-dark">Wellness tracking</h2>
+            <p className="mb-6 text-muted">
+              Choose which health areas appear on your Wellness home page.
+            </p>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              {wellnessTrackingOptions.map((option) => (
+                <label
+                  key={option.key}
+                  className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-cream/50 p-4 transition hover:border-pulse/35 hover:bg-pulse/5"
+                >
+                  <input
+                    type="checkbox"
+                    className="mt-1 h-4 w-4 accent-pulse"
+                    checked={currentWellnessTracking[option.key]}
+                    onChange={(event) => updateWellnessTracking(option.key, event.target.checked)}
+                  />
+                  <span>
+                    <span className="block font-semibold text-dark">{option.label}</span>
+                    <span className="mt-1 block text-sm leading-relaxed text-muted">{option.detail}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
           </div>
 
           {/* BETA READINESS */}
