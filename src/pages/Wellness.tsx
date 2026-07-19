@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, CalendarDays, ChevronLeft, ChevronRight, Copy, Database, Flame, Moon, Pencil, Plus, Scale, Search, Trash2, Utensils, Zap } from "lucide-react";
-import { Button, EmptyState, FieldLabel, PageHeader, SelectInput, Surface, TextArea, TextInput } from "@/components/ui";
+import { Activity, CalendarDays, ChevronLeft, ChevronRight, Copy, Database, Flame, Moon, MoreVertical, Pencil, Plus, Scale, Search, Trash2, Utensils, Zap } from "lucide-react";
+import { Button, EmptyState, FieldLabel, SelectInput, Surface, TextArea, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { FoodSearchResult, NutritionEntry, OnboardingData, PracticeSession, Round, SavedFood, WellnessLog, Workout } from "@/lib/types";
 import { defaultWellnessTargets, getWellnessTargets, type WellnessTargets } from "@/lib/wellnessTargets";
@@ -824,148 +824,144 @@ export default function Wellness() {
   }
 
   return (
-    <main className="min-h-screen bg-cream px-4 py-5 text-ink md:px-8 md:py-7">
-      <PageHeader
-        eyebrow="Wellness"
-        title="Nutrition and recovery"
-        description="Track the daily recovery signals that explain training quality, practice energy, and performance consistency."
-        tone="text-pulse"
-        actions={
-          <div className="flex items-center gap-2 rounded-xl border border-line bg-panel p-2 shadow-sm">
-            <button
-              type="button"
-              onClick={() => setActiveNutritionDate(shiftIso(activeNutritionDate, -1))}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-pulse/10 hover:text-pulse"
-              aria-label="Previous day"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveNutritionDate(todayIso())}
-              className="min-w-[128px] rounded-lg bg-pulse/10 px-4 py-2 text-sm font-bold text-pulse transition hover:bg-pulse/15"
-            >
-              {activeNutritionDate === todayIso() ? "Today" : formatDate(activeNutritionDate)}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveNutritionDate(shiftIso(activeNutritionDate, 1))}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-pulse/10 hover:text-pulse"
-              aria-label="Next day"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
+    <main className="min-h-screen bg-[#f2f5f7] px-4 py-5 text-[#101d2b] md:px-8 md:py-7">
+      <section className="mb-5">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => window.history.length > 1 ? window.history.back() : undefined}
+            className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#101d2b] shadow-sm"
+            aria-label="Go back"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+          <div className="text-center">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-pulse">Wellness</p>
+            <h1 className="text-3xl font-black tracking-tight text-[#101d2b]">Food</h1>
           </div>
-        }
-      />
+          <button
+            type="button"
+            className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#101d2b] shadow-sm"
+            aria-label="Wellness options"
+          >
+            <MoreVertical className="h-6 w-6" />
+          </button>
+        </div>
 
-      <section className="mb-5 grid gap-5 xl:grid-cols-[1fr_1.2fr]">
-        <Surface className="overflow-hidden bg-dark text-white">
-          <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-start">
+        <div className="mb-5 flex items-center justify-center gap-5">
+          <button
+            type="button"
+            onClick={() => setActiveNutritionDate(shiftIso(activeNutritionDate, -1))}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full text-black/35 transition hover:bg-white hover:text-pulse"
+            aria-label="Previous day"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveNutritionDate(todayIso())}
+            className="min-w-[178px] rounded-full bg-[#e0e2e5] px-6 py-4 text-xl font-black text-[#101d2b] transition hover:bg-white"
+          >
+            {activeNutritionDate === todayIso() ? "Today" : formatDate(activeNutritionDate)}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveNutritionDate(shiftIso(activeNutritionDate, 1))}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full text-black/25 transition hover:bg-white hover:text-pulse"
+            aria-label="Next day"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
+        </div>
+      </section>
+
+      <section className="mb-5 grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
+        <div className="rounded-[2rem] bg-white p-7 shadow-sm">
+          <div className="grid gap-5 sm:grid-cols-[1fr_auto] sm:items-start">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-pulse">Today</p>
-              <h2 className="mt-2 text-3xl font-semibold tracking-tight">Fuel and recovery score</h2>
-              <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/64">
-                A quick read on whether today is supporting training, practice and focus.
+              <p className="text-[5rem] font-black leading-none tracking-tight text-[#101d2b] sm:text-[6rem]">
+                {formatNumber(displayNutrition.calories)}
               </p>
+              <p className="mt-2 text-3xl font-medium text-[#101d2b]">kcal</p>
             </div>
-            <div className="relative h-28 w-28">
-              <div className="absolute inset-0 rounded-full bg-pulse/15" />
-              <div
-                className="absolute inset-0 rounded-full"
-                style={{
-                  background: `conic-gradient(rgb(0 180 216) ${todayScore * 3.6}deg, rgb(255 255 255 / 0.1) 0deg)`,
-                }}
-              />
-              <div className="absolute inset-3 flex items-center justify-center rounded-full bg-dark text-3xl font-semibold">
-                {todayScore}
+            <div className="space-y-4 text-lg font-bold text-black/55">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/5 text-pulse">
+                  <Flame className="h-5 w-5" />
+                </span>
+                <span>{targets.calories.toLocaleString()} kcal target</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/5 text-black/45">
+                  <Scale className="h-5 w-5" />
+                </span>
+                <span>{Math.max(targets.calories - 165, 0).toLocaleString()} - {(targets.calories + 165).toLocaleString()}</span>
               </div>
             </div>
           </div>
-          <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            <DarkMetric label="Protein" value={`${Math.round(getProgress(displayNutrition.protein, targets.proteinGrams))}%`} />
-            <DarkMetric label="Calories" value={`${Math.round(getProgress(displayNutrition.calories, targets.calories))}%`} />
-            <DarkMetric label="Sleep" value={`${Math.round(getProgress(todayLog?.sleep_hours, targets.sleepHours))}%`} />
-          </div>
-        </Surface>
 
-        <Surface>
-          <NutritionDashboard
-            nutrition={displayNutrition}
-            targets={nutrientTargets}
-            calorieDelta={calorieDelta}
-            status={nutritionStatus}
-          />
-        </Surface>
+          <div className="mt-12">
+            <div className="relative h-3 overflow-hidden rounded-full bg-black/7">
+              <div
+                className="absolute inset-y-0 left-0 rounded-full bg-pulse"
+                style={{ width: `${Math.min(getProgress(displayNutrition.calories, targets.calories), 100)}%` }}
+              />
+              <span
+                className="absolute top-1/2 h-9 w-9 -translate-y-1/2 rounded-full border-4 border-white bg-pulse shadow-sm"
+                style={{ left: `calc(${Math.min(getProgress(displayNutrition.calories, targets.calories), 100)}% - 18px)` }}
+              />
+            </div>
+            <div className="mt-4 flex justify-between text-lg font-medium text-black/45">
+              <span>0</span>
+              <span>{targets.calories.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-[2rem] bg-white p-6 shadow-sm">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.14em] text-black/35">Nutrition info</p>
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-[#101d2b]">{nutritionStatus.title}</h2>
+            </div>
+            <ChevronRight className="h-7 w-7 text-[#101d2b]" />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <MacroBox label="Carb" value={displayNutrition.carbs} target={nutrientTargets.carbs} color="text-purple-600" />
+            <MacroBox label="Fat" value={displayNutrition.fats} target={nutrientTargets.fats} color="text-red-500" />
+            <MacroBox label="Protein" value={displayNutrition.protein} target={nutrientTargets.protein} color="text-gold" />
+          </div>
+          <div className="mt-6">
+            <div className="mb-2 flex justify-between text-sm font-black text-black/45">
+              <span>Actual</span>
+              <span>Recommended</span>
+            </div>
+            <MacroSplitBar protein={displayNutrition.protein || 0} carbs={displayNutrition.carbs || 0} fats={displayNutrition.fats || 0} />
+            <div className="mt-3 grid grid-cols-3 text-sm font-black">
+              <span className="text-purple-600">55%</span>
+              <span className="text-center text-red-500">25%</span>
+              <span className="text-right text-gold">20%</span>
+            </div>
+          </div>
+          <p className="mt-5 text-sm leading-relaxed text-black/45">{nutritionStatus.detail}</p>
+        </div>
+      </section>
+
+      <section className="mb-5 grid gap-3 sm:grid-cols-3">
+        <WellnessSummaryPill icon={Activity} label="Daily score" value={`${todayScore}%`} />
+        <WellnessSummaryPill icon={Moon} label="Sleep" value={formatHours(todayLog?.sleep_hours)} />
+        <WellnessSummaryPill icon={Zap} label="Energy" value={todayLog?.energy_rating ? `${todayLog.energy_rating}/10` : "-"} />
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[1.35fr_0.75fr]">
-        <Surface className="order-2 xl:order-2">
-          <div className="mb-5 flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-pulse/10 text-pulse">
-              <Activity className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">Recovery details</p>
-              <h2 className="text-xl font-semibold text-dark">Water, sleep and body signals</h2>
-            </div>
-          </div>
-
-          <form onSubmit={saveLog} className="grid gap-4">
-            <Field label="Date" type="date" value={form.log_date} onChange={setActiveNutritionDate} required />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <Field label="Water (litres)" type="number" step="0.1" value={form.water_litres} onChange={(value) => setForm((prev) => ({ ...prev, water_litres: value }))} placeholder={`${targets.waterLitres}`} />
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  <QuickAddButton label="+250ml" onClick={() => addWater(0.25)} />
-                  <QuickAddButton label="+500ml" onClick={() => addWater(0.5)} />
-                  <QuickAddButton label="+1L" onClick={() => addWater(1)} />
-                </div>
-                <div className="mt-2 grid grid-cols-[1fr_auto] gap-2">
-                  <TextInput value={customWaterMl} onChange={(event) => setCustomWaterMl(event.target.value)} type="number" min="0" placeholder="Custom ml" />
-                  <Button type="button" variant="secondary" onClick={addCustomWater}>
-                    Add
-                  </Button>
-                </div>
-              </div>
-              <Field label="Calories" type="number" value={form.calories} onChange={(value) => setForm((prev) => ({ ...prev, calories: value }))} placeholder={`${targets.calories}`} />
-              <Field label="Protein (g)" type="number" value={form.protein_grams} onChange={(value) => setForm((prev) => ({ ...prev, protein_grams: value }))} placeholder={`${targets.proteinGrams}`} />
-              <Field label="Carbs (g)" type="number" value={form.carbs_grams} onChange={(value) => setForm((prev) => ({ ...prev, carbs_grams: value }))} placeholder="260" />
-              <Field label="Fats (g)" type="number" value={form.fats_grams} onChange={(value) => setForm((prev) => ({ ...prev, fats_grams: value }))} placeholder="70" />
-              <Field label="Bodyweight" type="number" step="0.1" value={form.bodyweight} onChange={(value) => setForm((prev) => ({ ...prev, bodyweight: value }))} placeholder="78.5" />
-              <Field label="Sleep (hours)" type="number" step="0.1" value={form.sleep_hours} onChange={(value) => setForm((prev) => ({ ...prev, sleep_hours: value }))} placeholder="8" />
-              <div>
-                <FieldLabel>Energy</FieldLabel>
-                <SelectInput value={form.energy_rating} onChange={(event) => setForm((prev) => ({ ...prev, energy_rating: event.target.value }))}>
-                  <option value="">Rate energy</option>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((rating) => (
-                    <option key={rating} value={rating}>{rating}/10</option>
-                  ))}
-                </SelectInput>
-              </div>
-            </div>
-            <div>
-              <FieldLabel>Notes</FieldLabel>
-              <TextArea rows={4} value={form.notes} onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))} placeholder="Meals, caffeine, soreness, travel, anything that explains the day..." />
-            </div>
-            {error && <p className="rounded-lg border border-danger/25 bg-danger/10 p-3 text-sm font-semibold text-danger">{error}</p>}
-            <Button type="submit" variant="pulse" disabled={saving || !form.log_date}>
-              {saving ? "Saving..." : "Save Wellness Log"}
-            </Button>
-          </form>
-        </Surface>
-
         <div className="order-1 space-y-5 xl:order-1">
-          <Surface>
+          <Surface className="rounded-[2rem] border-0 bg-white shadow-sm">
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex items-center gap-3">
-                <Utensils className="h-5 w-5 text-golf" />
-                <div>
-                  <h2 className="text-xl font-semibold text-dark">Food log</h2>
-                  <p className="mt-1 text-sm text-muted">
-                    Pick a meal, reuse foods, search the database, or add calories fast.
-                  </p>
-                </div>
+              <div>
+                <h2 className="text-3xl font-black tracking-tight text-dark">Log meal</h2>
+                <p className="mt-1 text-sm text-muted">
+                  Choose a meal, add calories quickly, or search the food database.
+                </p>
               </div>
               <Button type="button" variant="secondary" onClick={() => copyMealsFromDate(copySourceDate)} disabled={saving}>
                 <Copy className="h-4 w-4" />
@@ -973,42 +969,39 @@ export default function Wellness() {
               </Button>
             </div>
 
-            <div className="mb-5 grid gap-2 sm:grid-cols-4">
+            <div className="mb-5 divide-y divide-line overflow-hidden rounded-[1.6rem] bg-white">
               {mealTypes.map((meal) => {
                 const mealEntries = activeEntries.filter((entry) => entry.meal_type === meal.value);
                 const totals = getNutritionTotals(mealEntries);
+                const skipped = skippedMeals.includes(mealSkipKey(activeNutritionDate, meal.value)) && mealEntries.length === 0;
                 return (
-                  <div
+                  <button
                     key={meal.value}
-                    className={`rounded-xl border p-4 text-left transition ${
-                      activeMeal === meal.value
-                        ? "border-pulse bg-pulse/10 text-dark"
-                        : "border-line bg-white/70 text-muted hover:border-pulse/40 hover:text-dark"
+                    type="button"
+                    onClick={() => selectMeal(meal.value)}
+                    className={`grid w-full grid-cols-[4.5rem_1fr_auto] items-center gap-4 px-1 py-4 text-left transition ${
+                      activeMeal === meal.value ? "bg-pulse/5" : "hover:bg-black/[0.025]"
                     }`}
                   >
-                    <button type="button" onClick={() => selectMeal(meal.value)} className="block w-full text-left">
-                      <span className="block text-sm font-semibold">{meal.label}</span>
-                      <span className="mt-2 block text-xl font-semibold text-dark">{totals.calories} kcal</span>
-                      <span className="mt-1 block text-xs text-muted">
-                        {mealEntries.length} item{mealEntries.length === 1 ? "" : "s"}
-                        {skippedMeals.includes(mealSkipKey(activeNutritionDate, meal.value)) && mealEntries.length === 0 ? " - skipped" : ""}
+                    <span className="flex h-16 w-16 flex-col items-center justify-center rounded-full bg-black/[0.06] text-sm font-semibold leading-tight text-[#101d2b]">
+                      <span>{totals.calories}</span>
+                      <span className="text-xs font-medium">kcal</span>
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-2xl font-medium text-[#101d2b]">{meal.label}</span>
+                      <span className="mt-1 block text-sm text-muted">
+                        {skipped ? "Skipped" : `${mealEntries.length} item${mealEntries.length === 1 ? "" : "s"}`}
                       </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openMealReuse(meal.value)}
-                      className="mt-3 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border border-line bg-panel px-3 py-2 text-xs font-semibold text-muted transition hover:border-pulse/40 hover:bg-pulse/8 hover:text-pulse disabled:cursor-not-allowed disabled:opacity-45"
-                      disabled={!mealEntries.length}
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                      Copy to {formatMealLabel(activeMeal)}
-                    </button>
-                  </div>
+                    </span>
+                    <span className="inline-flex h-12 w-12 items-center justify-center border-l border-line text-[#101d2b]">
+                      <Plus className="h-8 w-8" />
+                    </span>
+                  </button>
                 );
               })}
             </div>
 
-            <div className="mb-5 grid gap-3 rounded-xl border border-line bg-white/55 p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
+            <div className="mb-5 grid gap-3 rounded-[1.3rem] border border-line bg-[#f7f9fa] p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Active meal</p>
                 <p className="mt-1 font-semibold text-dark">
@@ -1027,7 +1020,7 @@ export default function Wellness() {
               </Button>
             </div>
 
-            <div className="mb-5 rounded-xl border border-line bg-white/55 p-3">
+            <div className="mb-5 grid gap-3 rounded-[1.3rem] border border-line bg-[#f7f9fa] p-4">
               <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
                 <div>
                   <FieldLabel>Copy meals from</FieldLabel>
@@ -1043,7 +1036,7 @@ export default function Wellness() {
                   Copy All
                 </Button>
               </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-4">
+              <div className="grid gap-2 sm:grid-cols-4">
                 {mealTypes.map((meal) => (
                   <QuickMealButton
                     key={meal.value}
@@ -1054,7 +1047,7 @@ export default function Wellness() {
               </div>
             </div>
 
-            <form onSubmit={addQuickCalories} className="mb-5 rounded-xl border border-gold/25 bg-gold/10 p-4">
+            <form onSubmit={addQuickCalories} className="mb-5 rounded-[1.3rem] border border-gold/25 bg-gold/10 p-4">
               <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
                 <div>
                   <FieldLabel>Add calories to {formatMealLabel(activeMeal)}</FieldLabel>
@@ -1073,7 +1066,7 @@ export default function Wellness() {
               </div>
             </form>
 
-            <form onSubmit={searchFoods} className="mb-5 rounded-xl border border-pulse/20 bg-pulse/8 p-4">
+            <form onSubmit={searchFoods} className="mb-5 rounded-[1.3rem] border border-pulse/20 bg-pulse/8 p-4">
               <div className="mb-4 flex items-center gap-3">
                 <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-pulse/10 text-pulse">
                   <Database className="h-5 w-5" />
@@ -1084,8 +1077,7 @@ export default function Wellness() {
                 </div>
               </div>
               <p className="mb-4 text-sm leading-relaxed text-muted">
-                Food results are sourced estimates. USDA entries use FoodData Central, U.S. Department of Agriculture,
-                Agricultural Research Service, fdc.nal.usda.gov. Check serving sizes and edit macros before saving.
+                USDA entries use FoodData Central, U.S. Department of Agriculture, Agricultural Research Service, fdc.nal.usda.gov.
               </p>
               <div className="grid gap-3 md:grid-cols-[1fr_180px_auto] md:items-end">
                 <Field label="Food search" value={foodSearchQuery} onChange={setFoodSearchQuery} placeholder="Chicken breast, banana, Weetabix..." />
@@ -1265,95 +1257,101 @@ export default function Wellness() {
             />
           </Surface>
 
-          <Surface className="bg-dark text-white">
-            <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-start">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-pulse">Weekly Signal</p>
-                <h2 className="mt-2 text-3xl font-semibold">Recovery baseline</h2>
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/64">
-                  These are simple manual signals for now. The power comes later when they sit beside training, rounds, and practice.
-                </p>
-              </div>
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-lg bg-pulse/15 text-pulse">
-                <Zap className="h-5 w-5" />
-              </span>
-            </div>
-            <div className="mt-6 grid gap-3 sm:grid-cols-4">
-              <DarkMetric label="Water avg" value={formatLitres(weekly.avgWater)} />
-              <DarkMetric label="Protein avg" value={formatGrams(weekly.avgProtein)} />
-              <DarkMetric label="Sleep avg" value={formatHours(weekly.avgSleep)} />
-              <DarkMetric label="Energy avg" value={weekly.avgEnergy === null ? "-" : `${weekly.avgEnergy.toFixed(1)}/10`} />
-            </div>
-          </Surface>
-
-          <Surface>
+          <Surface className="rounded-[2rem] border-0 bg-white shadow-sm">
             <div className="mb-5 flex items-center gap-3">
-              <Scale className="h-5 w-5 text-pulse" />
-              <h2 className="text-xl font-semibold text-dark">Recent logs</h2>
-            </div>
-            {logs.length ? (
-              <div className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white/70">
-                {logs.slice(0, 7).map((log) => (
-                  <button
-                    key={log.id}
-                    type="button"
-                    onClick={() => selectLog(log)}
-                    className={`grid w-full gap-3 p-4 text-left transition hover:bg-steel/5 sm:grid-cols-[110px_1fr_1fr_1fr] sm:items-center ${
-                      selectedLog?.id === log.id ? "bg-pulse/8" : ""
-                    }`}
-                  >
-                    <span className="font-semibold text-dark">{formatDate(log.log_date)}</span>
-                    <span className="text-sm text-muted">Water {formatLitres(log.water_litres)}</span>
-                    <span className="text-sm text-muted">Protein {formatGrams(log.protein_grams)}</span>
-                    <span className="text-sm text-muted">Energy {log.energy_rating ? `${log.energy_rating}/10` : "-"}</span>
-                  </button>
-                ))}
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-pulse/10 text-pulse">
+                <Activity className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-black/35">Recovery details</p>
+                <h2 className="text-xl font-black text-[#101d2b]">Water, sleep and body signals</h2>
               </div>
-            ) : (
-              <EmptyState title="No wellness logs yet" description="Save today's totals and the weekly signal will start building." />
-            )}
+            </div>
+
+            <form onSubmit={saveLog} className="grid gap-4">
+              <Field label="Date" type="date" value={form.log_date} onChange={setActiveNutritionDate} required />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Field label="Water (litres)" type="number" step="0.1" value={form.water_litres} onChange={(value) => setForm((prev) => ({ ...prev, water_litres: value }))} placeholder={`${targets.waterLitres}`} />
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    <QuickAddButton label="+250ml" onClick={() => addWater(0.25)} />
+                    <QuickAddButton label="+500ml" onClick={() => addWater(0.5)} />
+                    <QuickAddButton label="+1L" onClick={() => addWater(1)} />
+                  </div>
+                  <div className="mt-2 grid grid-cols-[1fr_auto] gap-2">
+                    <TextInput value={customWaterMl} onChange={(event) => setCustomWaterMl(event.target.value)} type="number" min="0" placeholder="Custom ml" />
+                    <Button type="button" variant="secondary" onClick={addCustomWater}>Add</Button>
+                  </div>
+                </div>
+                <Field label="Bodyweight" type="number" step="0.1" value={form.bodyweight} onChange={(value) => setForm((prev) => ({ ...prev, bodyweight: value }))} placeholder="78.5" />
+                <Field label="Sleep (hours)" type="number" step="0.1" value={form.sleep_hours} onChange={(value) => setForm((prev) => ({ ...prev, sleep_hours: value }))} placeholder="8" />
+                <div>
+                  <FieldLabel>Energy</FieldLabel>
+                  <SelectInput value={form.energy_rating} onChange={(event) => setForm((prev) => ({ ...prev, energy_rating: event.target.value }))}>
+                    <option value="">Rate energy</option>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((rating) => (
+                      <option key={rating} value={rating}>{rating}/10</option>
+                    ))}
+                  </SelectInput>
+                </div>
+              </div>
+              <div>
+                <FieldLabel>Notes</FieldLabel>
+                <TextArea rows={4} value={form.notes} onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))} placeholder="Meals, caffeine, soreness, travel, anything that explains the day..." />
+              </div>
+              {error && <p className="rounded-lg border border-danger/25 bg-danger/10 p-3 text-sm font-semibold text-danger">{error}</p>}
+              <Button type="submit" variant="pulse" disabled={saving || !form.log_date}>
+                {saving ? "Saving..." : "Save Wellness Log"}
+              </Button>
+            </form>
           </Surface>
-        </div>
-      </section>
 
-      <section className="mt-5 grid gap-5 xl:grid-cols-[1fr_0.9fr]">
-        <Surface>
-          <div className="mb-5 flex items-center gap-3">
-            <CalendarDays className="h-5 w-5 text-pulse" />
-            <h2 className="text-xl font-semibold text-dark">Weekly trend</h2>
-          </div>
-          {weekLogs.length ? (
-            <div className="grid gap-3 md:grid-cols-7">
-              {[...weekLogs].reverse().map((log) => (
-                <TrendDay key={log.id} log={log} targets={targets} />
-              ))}
-            </div>
-          ) : (
-            <EmptyState title="No weekly trend yet" description="Save a few daily logs and the week view will fill in here." />
-          )}
-        </Surface>
-
-        <Surface>
-          <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-pulse">AthletiAI</p>
-              <h2 className="mt-1 text-xl font-semibold text-dark">Wellness insights</h2>
-            </div>
-            <span className="w-fit rounded-full bg-pulse/10 px-3 py-1 text-xs font-bold text-pulse">
-              Smart summary
-            </span>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            {insights.map((insight) => (
-              <div key={insight.title} className={`rounded-xl border p-4 ${insight.tone}`}>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">{insight.label}</p>
-                <h3 className="mt-2 font-semibold text-dark">{insight.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted">{insight.detail}</p>
-                <p className="mt-3 rounded-lg bg-white/55 p-2 text-xs font-semibold text-dark">{insight.action}</p>
+          <section className="grid gap-5 lg:grid-cols-[1fr_0.85fr]">
+            <Surface className="rounded-[2rem] border-0 bg-white shadow-sm">
+              <div className="mb-5 flex items-center gap-3">
+                <CalendarDays className="h-5 w-5 text-pulse" />
+                <h2 className="text-xl font-black text-[#101d2b]">Last 7 days</h2>
               </div>
-            ))}
-          </div>
-        </Surface>
+              {weekLogs.length ? (
+                <div className="grid gap-3 sm:grid-cols-7">
+                  {[...weekLogs].reverse().map((log) => (
+                    <TrendDay key={log.id} log={log} targets={targets} />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState title="No weekly trend yet" description="Save a few daily logs and the week view will fill in here." />
+              )}
+            </Surface>
+
+            <Surface className="rounded-[2rem] border-0 bg-white shadow-sm">
+              <div className="mb-5 flex items-center gap-3">
+                <Scale className="h-5 w-5 text-pulse" />
+                <h2 className="text-xl font-black text-[#101d2b]">Recent logs</h2>
+              </div>
+              {logs.length ? (
+                <div className="divide-y divide-black/8 overflow-hidden rounded-[1.35rem] border border-black/8">
+                  {logs.slice(0, 5).map((log) => (
+                    <button
+                      key={log.id}
+                      type="button"
+                      onClick={() => selectLog(log)}
+                      className={`grid w-full gap-2 p-4 text-left transition hover:bg-black/[0.025] ${
+                        selectedLog?.id === log.id ? "bg-pulse/8" : ""
+                      }`}
+                    >
+                      <span className="font-black text-[#101d2b]">{formatDate(log.log_date)}</span>
+                      <span className="text-sm text-black/45">
+                        Water {formatLitres(log.water_litres)} - Protein {formatGrams(log.protein_grams)} - Energy {log.energy_rating ? `${log.energy_rating}/10` : "-"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState title="No wellness logs yet" description="Save today's totals and the weekly signal will start building." />
+              )}
+            </Surface>
+          </section>
+        </div>
       </section>
 
       {reuseMeal && (
@@ -1462,6 +1460,70 @@ function WellnessTile({
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-steel/10">
         <div className={`h-full rounded-full ${bar}`} style={{ width: `${progress}%` }} />
       </div>
+    </div>
+  );
+}
+
+function MacroBox({
+  label,
+  value,
+  target,
+  color,
+}: {
+  label: string;
+  value: number | null | undefined;
+  target: number;
+  color: string;
+}) {
+  const progress = getProgress(value, target);
+  return (
+    <div className="rounded-[1.25rem] border border-black/10 bg-white p-4 text-center">
+      <p className={`text-lg font-semibold ${color}`}>{label}</p>
+      <p className="mt-3 text-3xl font-black text-[#101d2b]">
+        {formatNumber(value)}
+        <span className="ml-1 text-base font-semibold text-black/40">g</span>
+      </p>
+      <p className="mt-2 text-xs font-semibold text-black/35">Target {target}g</p>
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/8">
+        <div className="h-full rounded-full bg-current" style={{ width: `${progress}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function MacroSplitBar({ protein, carbs, fats }: { protein: number; carbs: number; fats: number }) {
+  const total = protein + carbs + fats;
+  const carbsShare = total ? (carbs / total) * 100 : 55;
+  const fatsShare = total ? (fats / total) * 100 : 25;
+  const proteinShare = Math.max(0, 100 - carbsShare - fatsShare);
+
+  return (
+    <div className="flex h-3 overflow-hidden rounded-full bg-black/8">
+      <div className="bg-purple-400" style={{ width: `${carbsShare}%` }} />
+      <div className="bg-red-300" style={{ width: `${fatsShare}%` }} />
+      <div className="bg-gold" style={{ width: `${proteinShare}%` }} />
+    </div>
+  );
+}
+
+function WellnessSummaryPill({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-[1.35rem] bg-white p-4 shadow-sm">
+      <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-pulse/10 text-pulse">
+        <Icon className="h-5 w-5" />
+      </span>
+      <span>
+        <span className="block text-xs font-black uppercase tracking-[0.14em] text-black/35">{label}</span>
+        <span className="mt-1 block text-lg font-black text-[#101d2b]">{value}</span>
+      </span>
     </div>
   );
 }

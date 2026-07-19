@@ -2,9 +2,7 @@ import { useEffect, useState } from "react";
 import {
   ChevronRight,
   CreditCard,
-  ExternalLink,
   Instagram,
-  KeyRound,
   LogOut,
   Mail,
   Settings,
@@ -27,7 +25,7 @@ type MoreRowProps = {
 
 export default function AppMore() {
   const [, navigate] = useLocation();
-  const { user, signOut } = useAuth();
+  const { signOut } = useAuth();
   const [role, setRole] = useState("user");
 
   useEffect(() => {
@@ -55,8 +53,6 @@ export default function AppMore() {
     <main className="min-h-screen bg-[#f3f6f8] pb-[calc(3rem+env(safe-area-inset-bottom))] text-[#101d2b]">
       <div className="border-b border-black/5 bg-white">
         <MoreRow icon={User} label="Edit Profile" onClick={() => navigate("/profile")} />
-        <MoreRow icon={KeyRound} label="Account settings" detail={user?.email || "Signed in"} trailingIcon={ExternalLink} onClick={() => navigate("/settings")} />
-        <MoreRow icon={ShieldCheck} label="Privacy settings" dot onClick={() => navigate("/privacy")} />
       </div>
 
       <MoreSection title="App" />

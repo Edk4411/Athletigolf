@@ -293,14 +293,14 @@ export default function Social() {
   }
 
   return (
-    <main className="min-h-screen bg-cream px-4 py-5 text-ink md:px-8 md:py-7">
-      <section className="mb-5 overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(18,184,214,0.22),transparent_36%),linear-gradient(135deg,#0f2636,#07131d)] p-5 text-white shadow-sm md:p-7">
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
-          <div>
+    <main className="min-h-screen bg-[#eef4f8] px-4 pb-28 pt-5 text-ink md:px-8 md:py-7">
+      <section className="mb-5 overflow-hidden rounded-[1.65rem] border border-[#d8e4ec] bg-white p-4 shadow-sm md:p-6">
+        <div className="grid gap-4 lg:grid-cols-[1fr_0.88fr] lg:items-stretch">
+          <div className="rounded-[1.35rem] bg-[radial-gradient(circle_at_top_left,rgba(18,184,214,0.22),transparent_36%),linear-gradient(135deg,#12334a,#07131d)] p-5 text-white md:p-6">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-pulse">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-cyan-200">
                 <Sparkles className="h-3.5 w-3.5" />
-                Social hub
+                AthletiClub
               </span>
               {profileUsername && (
                 <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1.5 text-sm font-semibold text-white/72">
@@ -308,18 +308,18 @@ export default function Social() {
                 </span>
               )}
             </div>
-            <h1 className="mt-4 text-4xl font-semibold tracking-tight md:text-5xl">
-              See who is moving today.
+            <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-5xl">
+              Your training circle, live.
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/66 md:text-base">
-              Check in, find friends, and follow live sessions without making your private training, golf or wellness data public.
+              Check in, find players, follow rounds and sessions, and keep your private training data locked to the people you choose.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
-              <button type="button" onClick={() => jumpToSocialSection("social-checkin")} className="rounded-full bg-pulse px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-pulse/90">
+              <button type="button" onClick={() => jumpToSocialSection("social-checkin")} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 shadow-sm transition hover:bg-cyan-200">
                 Check in
               </button>
               <button type="button" onClick={() => jumpToSocialSection("social-add-friend")} className="rounded-full border border-white/12 bg-white/10 px-4 py-2 text-sm font-bold text-white transition hover:bg-white/15">
-                Add friend
+                Find players
               </button>
               <button type="button" onClick={() => jumpToSocialSection("social-feed")} className="rounded-full border border-white/12 bg-white/10 px-4 py-2 text-sm font-bold text-white transition hover:bg-white/15">
                 Live feed
@@ -328,9 +328,9 @@ export default function Social() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-            <SocialHeroStat icon={Activity} label="Status" value={activeActivity ? getActivityLabel(activeActivity.activity_type) : "Offline"} />
-            <SocialHeroStat icon={Users} label="Friends" value={acceptedCount} />
-            <SocialHeroStat icon={MessageCircle} label="Live now" value={friendFeedCount} />
+            <SocialHeroStat icon={Activity} label="You" value={activeActivity ? getActivityLabel(activeActivity.activity_type) : "Offline"} />
+            <SocialHeroStat icon={Users} label="Squad" value={`${acceptedCount} friends`} />
+            <SocialHeroStat icon={MessageCircle} label="Live" value={`${friendFeedCount} updates`} />
           </div>
         </div>
       </section>
@@ -344,12 +344,12 @@ export default function Social() {
       <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
         <Surface id="social-checkin" className="scroll-mt-6">
           <div className="mb-5 flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-pulse/10 text-pulse">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-pulse/10 text-pulse">
               <MapPin className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">Check In</p>
-              <h2 className="text-xl font-semibold text-dark">Share your session</h2>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">Status composer</p>
+              <h2 className="text-xl font-semibold text-dark">Tell friends what you are doing</h2>
             </div>
           </div>
 
@@ -398,14 +398,14 @@ export default function Social() {
         </Surface>
 
         <div className="space-y-5">
-          <Surface className="bg-dark text-white">
+          <Surface className="bg-[#0b1f2d] text-white">
             <div className="flex items-start gap-3">
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-pulse/15 text-pulse">
+              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-300/15 text-cyan-200">
                 {activeActivity?.activity_type === "course" ? <Flag className="h-5 w-5" /> : <Dumbbell className="h-5 w-5" />}
               </span>
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-pulse">Live Now</p>
-                <h2 className="mt-2 text-3xl font-semibold">{activeActivity ? getActivityLabel(activeActivity.activity_type) : "No active check-in"}</h2>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-200">Now board</p>
+                <h2 className="mt-2 text-3xl font-semibold">{activeActivity ? getActivityLabel(activeActivity.activity_type) : "You are offline"}</h2>
                 <p className="mt-3 text-sm leading-relaxed text-white/64">
                   {activeActivity
                     ? `${activeActivity.location_name || "Location not set"} - ${activeActivity.detail || "No extra detail"}`
@@ -429,7 +429,7 @@ export default function Social() {
           <Surface id="social-feed" className="scroll-mt-6">
             <div className="mb-5 flex items-center gap-3">
               <Users className="h-5 w-5 text-pulse" />
-              <h2 className="text-xl font-semibold text-dark">Friends live feed</h2>
+              <h2 className="text-xl font-semibold text-dark">Live board</h2>
             </div>
             {friendActivities.length ? (
               <div className="space-y-3">
@@ -448,7 +448,7 @@ export default function Social() {
         <Surface id="social-add-friend" className="scroll-mt-6">
           <div className="mb-5 flex items-center gap-3">
             <UserPlus className="h-5 w-5 text-pulse" />
-            <h2 className="text-xl font-semibold text-dark">Add friend</h2>
+            <h2 className="text-xl font-semibold text-dark">Find players</h2>
           </div>
           <div className="mb-5 rounded-xl border border-pulse/20 bg-pulse/8 p-4">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Your username</p>
@@ -538,7 +538,7 @@ export default function Social() {
         <Surface id="social-friends" className="scroll-mt-6">
           <div className="mb-5 flex items-center gap-3">
             <Users className="h-5 w-5 text-pulse" />
-            <h2 className="text-xl font-semibold text-dark">Friends and requests</h2>
+            <h2 className="text-xl font-semibold text-dark">Squad list</h2>
           </div>
           {connections.length ? (
             <div className="space-y-5">
@@ -609,7 +609,7 @@ export default function Social() {
         <Surface>
           <div className="mb-5 flex items-center gap-3">
             <ShieldCheck className="h-5 w-5 text-pulse" />
-            <h2 className="text-xl font-semibold text-dark">Privacy controls</h2>
+            <h2 className="text-xl font-semibold text-dark">Visibility rules</h2>
           </div>
           <div className="grid gap-3 md:grid-cols-3">
             <PrivacyCard title="Friends-only live feed" detail="Only accepted friends can see check-ins marked friends-only." />
@@ -643,8 +643,8 @@ function Field({
 
 function SocialMetric({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-line bg-panel p-5 shadow-sm">
-      <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-pulse/10 text-pulse">
+    <div className="rounded-2xl border border-[#d8e4ec] bg-white p-5 shadow-sm">
+      <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-pulse/10 text-pulse">
         <Icon className="h-5 w-5" />
       </span>
       <p className="mt-4 text-sm font-medium text-muted">{label}</p>
@@ -655,14 +655,14 @@ function SocialMetric({ icon: Icon, label, value }: { icon: React.ComponentType<
 
 function SocialHeroStat({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
+    <div className="rounded-2xl border border-[#d8e4ec] bg-[#f7fafc] p-4">
       <div className="flex items-center gap-3">
-        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/12 text-pulse">
+        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-pulse/10 text-pulse">
           <Icon className="h-5 w-5" />
         </span>
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/48">{label}</p>
-          <p className="mt-1 truncate text-lg font-semibold text-white">{value}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted">{label}</p>
+          <p className="mt-1 truncate text-lg font-semibold text-dark">{value}</p>
         </div>
       </div>
     </div>

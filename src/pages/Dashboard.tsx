@@ -18,11 +18,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import {
   formatAverage,
-  formatControlPercent,
   formatPercent,
   getGolfStats,
   getShortGameStats,
-  lowerIsBetterControl,
 } from "@/lib/golfStats";
 import { todayIso as getTodayIso, isSameLocalIsoDate } from "@/lib/dates";
 import type { CardioSession, Competition, ExerciseLog, NutritionEntry, OnboardingData, Round, RoundHole, Workout } from "@/lib/types";
@@ -115,8 +113,6 @@ export default function Dashboard() {
       sum + (workout.exercises || []).reduce((exerciseSum, exercise) => exerciseSum + (exercise.volume ?? 0), 0),
     0
   );
-  const penaltyControl = lowerIsBetterControl(golfStats.avgPenaltyShots, 0, 4);
-  const puttingControl = lowerIsBetterControl(golfStats.avgPutts, 30, 42);
   const highlight = getWeeklyHighlight(rounds, roundHoles, workouts, weekAgo);
   const hasTrainingToday = workouts.some((workout) => isSameLocalIsoDate(workout.date || workout.created_at, todayIso));
   const hasCardioToday = personalCardioSessions.some((session) => isSameLocalIsoDate(session.session_date, todayIso));
@@ -269,19 +265,6 @@ export default function Dashboard() {
               <Meter label="Scramble Rate" value={formatPercent(golfStats.avgScramblePercent)} color="bg-gold" />
               <Meter label="Up & Down Rate" value={formatPercent(shortGameStats.upAndDownPercent)} color="bg-golf" />
               <Meter label="Sand Save Rate" value={formatPercent(shortGameStats.sandSavePercent)} color="bg-gold" />
-              <ControlMeter
-                label="Putting Control"
-                value={formatControlPercent(puttingControl)}
-                sub={`${formatAverage(golfStats.avgPutts)} putts/round`}
-                control={puttingControl}
-              />
-              <ControlMeter
-                label="Penalty Control"
-                value={formatControlPercent(penaltyControl)}
-                sub={`${formatAverage(golfStats.avgPenaltyShots)} penalties/round`}
-                control={penaltyControl}
-                danger
-              />
             </div>
           ) : (
             <EmptyState
@@ -465,51 +448,6 @@ function Meter({ label, value, color }: { label: string; value: string; color: s
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-steel/10">
         <div className={`h-full rounded-full ${color}`} style={{ width }} />
-      </div>
-    </div>
-  );
-}
-
-function ControlMeter({
-  label,
-  value,
-  sub,
-  control,
-  danger,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  control: number | null;
-  danger?: boolean;
-}) {
-  const width = `${control ?? 0}%`;
-  const color =
-    control === null
-      ? "bg-steel/20"
-      : control >= 70
-      ? "bg-golf"
-      : control >= 40
-      ? "bg-gold"
-      : danger
-      ? "bg-danger"
-      : "bg-warning";
-
-  return (
-    <div>
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-muted">{label}</p>
-          <p className="text-xs text-muted">{sub}</p>
-        </div>
-        <p className="font-semibold text-dark">{value}</p>
-      </div>
-      <div className="relative h-2 overflow-hidden rounded-full bg-danger/15">
-        <div className={`absolute right-0 h-full rounded-full ${color}`} style={{ width }} />
-      </div>
-      <div className="mt-1 flex justify-between text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-        <span>Bad</span>
-        <span>Good</span>
       </div>
     </div>
   );
