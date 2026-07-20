@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
-import { Copy, Database, Mail, ShieldCheck } from "lucide-react";
+import { ChevronDown, Copy, Database, Mail, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { sportModeLabels, type SportMode } from "@/lib/sportMode";
 import { applyTheme, type AppTheme } from "@/lib/theme";
@@ -9,6 +9,17 @@ import { isValidUsername, normalizeUsername, usernameRules } from "@/lib/usernam
 import { defaultWellnessSetup, defaultWellnessTracking } from "@/lib/wellnessTargets";
 
 type SaveState = "idle" | "saving" | "success" | "error";
+type SettingsSection =
+  | "account"
+  | "profile"
+  | "sportMode"
+  | "units"
+  | "appearance"
+  | "notifications"
+  | "privacy"
+  | "connectedAccounts"
+  | "about"
+  | "dangerZone";
 
 const THEMES = [
   { value: "light", label: "Light" },
@@ -42,6 +53,7 @@ export default function Settings() {
   const [dataRequestState, setDataRequestState] = useState<SaveState>("idle");
   const [dataRequestMessage, setDataRequestMessage] = useState("");
   const [closingAccount, setClosingAccount] = useState(false);
+  const [openSection, setOpenSection] = useState<SettingsSection>("account");
 
   const [profile, setProfile] = useState({
     full_name: "",
@@ -316,514 +328,495 @@ export default function Settings() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-cream px-4 py-5 text-ink sm:px-6 md:p-12">
-      <div className="mx-auto max-w-6xl min-w-0">
-
-        {/* PAGE HEADER */}
-        <div className="mb-8 max-w-3xl md:mb-12">
-          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.25em] text-muted">
-            Settings
-          </p>
-          <h1 className="mb-4 text-3xl font-semibold leading-tight text-dark sm:text-4xl md:text-5xl">
-            Manage your AthletiGolf account
-          </h1>
-          <p className="text-base leading-relaxed text-muted md:text-lg">
-            Control your account, preferences and app experience from one place.
+    <div className="min-h-screen overflow-x-hidden bg-cream px-4 py-5 pb-28 text-ink sm:px-6 md:p-12 md:pb-12">
+      <div className="mx-auto max-w-4xl min-w-0">
+        <div className="mb-8 max-w-3xl">
+          <p className="text-xs font-bold uppercase tracking-[0.32em] text-pulse">Account</p>
+          <h1 className="mt-3 text-3xl font-black text-dark sm:text-4xl">Settings</h1>
+          <p className="mt-3 text-sm leading-6 text-muted sm:text-base">
+            Manage your profile, sport mode, privacy, app preferences and account controls from one clean place.
           </p>
         </div>
 
-        <section className="grid gap-6">
-
-          {/* PROFILE */}
-          <div className="rounded-xl border border-line bg-panel p-6 shadow-sm">
-            <h2 className="mb-2 text-2xl font-semibold text-dark">Profile</h2>
-            <p className="mb-6 text-muted">
-              Update your name, handicap, goals and personal details.
-            </p>
-
-            <div className="grid min-w-0 gap-4 md:grid-cols-2">
-              <div className="flex flex-col gap-1">
-                <label className="text-sm text-muted">Full name</label>
-                <input
-                  className="w-full rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
-                  placeholder="e.g. Jamie Wilson"
-                  value={profile.full_name}
-                  onChange={(e) => set("full_name", e.target.value)}
-                />
+        <div className="space-y-4">
+          <SettingsAccordionItem
+            id="account"
+            title="Account"
+            description="Save changes, view your signed-in email and log out."
+            openSection={openSection}
+            onOpen={setOpenSection}
+          >
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-line bg-white/70 p-4 dark:bg-slate-950/35">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-muted">Signed in as</p>
+                <p className="mt-2 break-words text-lg font-black text-dark">{email || "AthletiGolf user"}</p>
               </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-sm text-muted">Username</label>
-                <input
-                  className="w-full rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
-                  placeholder="e.g. jamie_golf"
-                  value={profile.username}
-                  onChange={(e) => set("username", normalizeUsername(e.target.value))}
-                />
-                <span className="text-xs text-muted">{usernameRules}</span>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={saveSettings}
+                  disabled={saveState === "saving"}
+                  className="rounded-2xl bg-pulse px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-pulse/90 disabled:opacity-60"
+                >
+                  {saveState === "saving" ? "Saving..." : "Save settings"}
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-dark transition hover:bg-cream dark:bg-slate-950/35"
+                >
+                  Log out
+                </button>
               </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-sm text-muted">Golf handicap</label>
-                <input
-                  className="w-full rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
-                  placeholder="e.g. 12.4"
-                  type="number"
-                  step="0.1"
-                  value={profile.golf_handicap}
-                  onChange={(e) => set("golf_handicap", e.target.value)}
-                />
+              {saveState === "success" && <p className="rounded-2xl border border-lab/30 bg-lab/10 px-4 py-3 text-sm font-bold text-lab">Settings saved successfully.</p>}
+              {saveState === "error" && errorMessage && <p className="rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-bold text-danger">{errorMessage}</p>}
+            </div>
+          </SettingsAccordionItem>
+
+          <SettingsAccordionItem
+            id="profile"
+            title="Profile"
+            description="Your name, username, handicap, goals and wellness modules."
+            openSection={openSection}
+            onOpen={setOpenSection}
+          >
+            <div className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-bold text-dark">
+                  Full name
+                  <input
+                    value={profile.full_name}
+                    onChange={(e) => set("full_name", e.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-dark outline-none focus:border-pulse dark:bg-slate-950/35"
+                    placeholder="Your name"
+                  />
+                </label>
+                <label className="block text-sm font-bold text-dark">
+                  Username
+                  <input
+                    value={profile.username}
+                    onChange={(e) => set("username", normalizeUsername(e.target.value))}
+                    className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-dark outline-none focus:border-pulse dark:bg-slate-950/35"
+                    placeholder="yourusername"
+                  />
+                  <span className="mt-2 block text-xs font-medium text-muted">{usernameRules}</span>
+                </label>
+                <label className="block text-sm font-bold text-dark">
+                  Golf handicap
+                  <input
+                    value={profile.golf_handicap}
+                    onChange={(e) => set("golf_handicap", e.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-dark outline-none focus:border-pulse dark:bg-slate-950/35"
+                    placeholder="e.g. 12.4"
+                  />
+                </label>
+                <label className="block text-sm font-bold text-dark">
+                  Main goal
+                  <input
+                    value={profile.main_goal}
+                    onChange={(e) => set("main_goal", e.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-dark outline-none focus:border-pulse dark:bg-slate-950/35"
+                    placeholder="e.g. Lower scores, get stronger"
+                  />
+                </label>
+                <label className="block text-sm font-bold text-dark">
+                  Height
+                  <input
+                    value={profile.height}
+                    onChange={(e) => set("height", e.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-dark outline-none focus:border-pulse dark:bg-slate-950/35"
+                    placeholder="e.g. 180cm"
+                  />
+                </label>
+                <label className="block text-sm font-bold text-dark">
+                  Weight
+                  <input
+                    value={profile.weight}
+                    onChange={(e) => set("weight", e.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-dark outline-none focus:border-pulse dark:bg-slate-950/35"
+                    placeholder="e.g. 75kg"
+                  />
+                </label>
               </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-sm text-muted">Height</label>
-                <input
-                  className="w-full rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
-                  placeholder="e.g. 180cm"
-                  value={profile.height}
-                  onChange={(e) => set("height", e.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-sm text-muted">Weight</label>
-                <input
-                  className="w-full rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
-                  placeholder="e.g. 80kg"
-                  value={profile.weight}
-                  onChange={(e) => set("weight", e.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1 md:col-span-2">
-                <label className="text-sm text-muted">Main goal</label>
-                <input
-                  className="w-full rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
-                  placeholder="e.g. Break 80, Improve strength, Lose 5kg"
-                  value={profile.main_goal}
-                  onChange={(e) => set("main_goal", e.target.value)}
-                />
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-[0.22em] text-muted">Wellness modules</h3>
+                <p className="mt-2 text-sm leading-6 text-muted">Choose what appears in Wellness and onboarding.</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {wellnessTrackingOptions.map((option) => {
+                    const enabled = currentWellnessTracking[option.key];
+                    return (
+                      <label
+                        key={option.key}
+                        className="flex cursor-pointer items-start gap-3 rounded-2xl border border-line bg-white/70 p-4 transition hover:border-pulse/40 dark:bg-slate-950/35"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={enabled}
+                          onChange={(e) => updateWellnessTracking(option.key, e.target.checked)}
+                          className="mt-1 h-4 w-4 rounded border-line text-pulse focus:ring-pulse"
+                        />
+                        <span>
+                          <span className="block text-sm font-black text-dark">{option.label}</span>
+                          <span className="mt-1 block text-xs leading-5 text-muted">{option.detail}</span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </div>
+          </SettingsAccordionItem>
 
-          {/* UNITS */}
-          <div className="rounded-xl border border-line bg-panel p-6 shadow-sm">
-            <h2 className="mb-2 text-2xl font-semibold text-dark">Units</h2>
-            <p className="mb-6 text-muted">
-              Switch between yards/metres and kg/lbs.
-            </p>
-
-            <div className="grid min-w-0 gap-4 md:grid-cols-2">
-              <div className="flex flex-col gap-1">
-                <label className="text-sm text-muted">Distance unit</label>
-                <select
-                  className="w-full rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
-                  value={profile.distance_unit}
-                  onChange={(e) => set("distance_unit", e.target.value)}
-                >
-                  <option value="yards">Yards</option>
-                  <option value="metres">Metres</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-sm text-muted">Weight unit</label>
-                <select
-                  className="w-full rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
-                  value={profile.weight_unit}
-                  onChange={(e) => set("weight_unit", e.target.value)}
-                >
-                  <option value="kg">KG</option>
-                  <option value="lbs">LBS</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* SPORT MODE */}
-          <div className="rounded-xl border border-line bg-panel p-6 shadow-sm">
-            <h2 className="mb-2 text-2xl font-semibold text-dark">Sport mode</h2>
-            <p className="mb-6 text-muted">
-              Choose whether AthletiGolf should behave like a golf platform, fitness tracking platform, or full combined setup.
-            </p>
-
-            <div className="grid min-w-0 gap-3 md:grid-cols-2">
+          <SettingsAccordionItem
+            id="sportMode"
+            title="Sport Mode"
+            description="Choose whether the app is golf-first, gym-first, or tracks everything."
+            openSection={openSection}
+            onOpen={setOpenSection}
+          >
+            <div className="grid gap-3 sm:grid-cols-3">
               {visibleSportModes.map(([value, label]) => (
                 <button
                   key={value}
                   type="button"
                   onClick={() => set("primary_sport", value)}
-                  className={`rounded-xl border p-4 text-left transition ${
+                  className={`rounded-2xl border px-4 py-4 text-left transition ${
                     profile.primary_sport === value
-                      ? "border-pulse bg-pulse/10 text-dark"
-                      : "border-line bg-white/70 text-muted hover:border-pulse/40 hover:text-dark"
+                      ? "border-pulse bg-pulse text-white shadow-sm"
+                      : "border-line bg-white text-dark hover:border-pulse/40 dark:bg-slate-950/35"
                   }`}
                 >
-                  <span className="block font-semibold">{label}</span>
-                  <span className="mt-1 block text-sm leading-relaxed">
+                  <span className="block text-sm font-black">{label}</span>
+                  <span className={`mt-2 block text-xs leading-5 ${profile.primary_sport === value ? "text-white/80" : "text-muted"}`}>
                     {getSportModeDetail(value)}
                   </span>
                 </button>
               ))}
             </div>
-          </div>
+          </SettingsAccordionItem>
 
-          {/* THEME */}
-          <div className="rounded-xl border border-line bg-panel p-6 shadow-sm">
-            <h2 className="mb-2 text-2xl font-semibold text-dark">Theme</h2>
-            <p className="mb-6 text-muted">
-              Customise the look of AthletiGolf.
-            </p>
+          <SettingsAccordionItem
+            id="units"
+            title="Units"
+            description="Set your preferred distance and body-weight units."
+            openSection={openSection}
+            onOpen={setOpenSection}
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm font-bold text-dark">
+                Distance unit
+                <select
+                  value={profile.distance_unit}
+                  onChange={(e) => set("distance_unit", e.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-dark outline-none focus:border-pulse dark:bg-slate-950/35"
+                >
+                  <option value="yards">Yards</option>
+                  <option value="metres">Metres</option>
+                </select>
+              </label>
+              <label className="block text-sm font-bold text-dark">
+                Weight unit
+                <select
+                  value={profile.weight_unit}
+                  onChange={(e) => set("weight_unit", e.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-dark outline-none focus:border-pulse dark:bg-slate-950/35"
+                >
+                  <option value="kg">kg</option>
+                  <option value="lbs">LBS</option>
+                </select>
+              </label>
+            </div>
+          </SettingsAccordionItem>
 
+          <SettingsAccordionItem
+            id="appearance"
+            title="Appearance"
+            description="Switch between light and dark mode."
+            openSection={openSection}
+            onOpen={setOpenSection}
+          >
             <div className="flex flex-wrap gap-3">
-              {THEMES.map((t) => (
+              {THEMES.map((theme) => (
                 <button
-                  key={t.value}
-                  onClick={() => set("theme", t.value as AppTheme)}
-                  className={`rounded-lg border px-5 py-3 text-sm font-semibold transition ${
-                    profile.theme === t.value
-                      ? "border-dark bg-dark text-white"
-                      : "border-line bg-cream text-muted hover:border-pulse/40 hover:text-dark"
+                  key={theme.value}
+                  type="button"
+                  onClick={() => set("theme", theme.value as AppTheme)}
+                  className={`rounded-2xl px-5 py-3 text-sm font-black transition ${
+                    profile.theme === theme.value
+                      ? "bg-dark text-white shadow-sm"
+                      : "border border-line bg-white text-dark hover:border-pulse/40 dark:bg-slate-950/35"
                   }`}
                 >
-                  {t.label}
+                  {theme.label}
                 </button>
               ))}
             </div>
-          </div>
+          </SettingsAccordionItem>
 
-          {/* NOTIFICATIONS */}
-          <div className="rounded-xl border border-line bg-panel p-6 shadow-sm">
-            <h2 className="mb-2 text-2xl font-semibold text-dark">Notifications</h2>
-            <p className="mb-6 text-muted">
-              Choose whether to receive app reminders and updates.
-            </p>
+          <SettingsAccordionItem
+            id="notifications"
+            title="Notifications"
+            description="Control whether the bell and in-app notifications are active."
+            openSection={openSection}
+            onOpen={setOpenSection}
+          >
+            <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-line bg-white/70 p-4 dark:bg-slate-950/35">
+              <span>
+                <span className="block text-sm font-black text-dark">Enable notifications</span>
+                <span className="mt-1 block text-xs leading-5 text-muted">When this is off, the bell tells you notifications are disabled.</span>
+              </span>
+              <input
+                type="checkbox"
+                checked={profile.notifications_enabled}
+                onChange={(e) => set("notifications_enabled", e.target.checked)}
+                className="h-5 w-5 rounded border-line text-pulse focus:ring-pulse"
+              />
+            </label>
+          </SettingsAccordionItem>
 
-            <label className="flex cursor-pointer items-center gap-4">
-              <div className="relative">
+          <SettingsAccordionItem
+            id="privacy"
+            title="Privacy"
+            description="Live visibility, discovery, friend codes and safety controls."
+            openSection={openSection}
+            onOpen={setOpenSection}
+          >
+            <div className="space-y-5">
+              <label className="block text-sm font-bold text-dark">
+                Default live visibility
+                <select
+                  value={profile.default_live_visibility}
+                  onChange={(e) => set("default_live_visibility", e.target.value as "friends" | "private")}
+                  className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-dark outline-none focus:border-pulse dark:bg-slate-950/35"
+                >
+                  <option value="friends">Friends</option>
+                  <option value="private">Private</option>
+                </select>
+              </label>
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-line bg-white/70 p-4 dark:bg-slate-950/35">
                 <input
                   type="checkbox"
-                  className="sr-only"
-                  checked={profile.notifications_enabled}
-                  onChange={(e) => set("notifications_enabled", e.target.checked)}
+                  checked={profile.show_display_name_in_search}
+                  onChange={(e) => set("show_display_name_in_search", e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-line text-pulse focus:ring-pulse"
                 />
-                <div
-                  className={`h-8 w-14 rounded-full border-2 shadow-inner transition-colors duration-200 ${
-                    profile.notifications_enabled
-                      ? "border-pulse bg-pulse"
-                      : "border-dark/40 bg-white dark:border-white/70 dark:bg-dark"
-                  }`}
-                />
-                <div
-                  className={`absolute top-1 h-6 w-6 rounded-full border-2 shadow-md transition-transform duration-200 ${
-                    profile.notifications_enabled
-                      ? "translate-x-7 border-white bg-white"
-                      : "translate-x-1 border-dark bg-steel/35 dark:border-white dark:bg-white"
-                  }`}
-                />
-              </div>
-              <span className="font-medium text-dark">
-                {profile.notifications_enabled ? "Notifications on" : "Notifications off"}
-              </span>
-            </label>
-          </div>
+                <span>
+                  <span className="block text-sm font-black text-dark">Show my display name in friend search</span>
+                  <span className="mt-1 block text-xs leading-5 text-muted">People can still search your username either way.</span>
+                </span>
+              </label>
 
-          {/* WELLNESS TRACKING */}
-          <div className="rounded-xl border border-line bg-panel p-6 shadow-sm">
-            <h2 className="mb-2 text-2xl font-semibold text-dark">Wellness tracking</h2>
-            <p className="mb-6 text-muted">
-              Choose which health areas appear on your Wellness home page.
-            </p>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              {wellnessTrackingOptions.map((option) => (
-                <label
-                  key={option.key}
-                  className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-cream/50 p-4 transition hover:border-pulse/35 hover:bg-pulse/5"
-                >
-                  <input
-                    type="checkbox"
-                    className="mt-1 h-4 w-4 accent-pulse"
-                    checked={currentWellnessTracking[option.key]}
-                    onChange={(event) => updateWellnessTracking(option.key, event.target.checked)}
-                  />
-                  <span>
-                    <span className="block font-semibold text-dark">{option.label}</span>
-                    <span className="mt-1 block text-sm leading-relaxed text-muted">{option.detail}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* BETA READINESS */}
-          <div className="rounded-xl border border-line bg-panel p-6 shadow-sm">
-            <div className="mb-6 flex items-start gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-lab/10 text-lab">
-                <Database className="h-5 w-5" />
-              </span>
-              <div>
-                <h2 className="text-2xl font-semibold text-dark">Beta readiness</h2>
-                <p className="mt-2 text-muted">
-                  Before testing in Bolt or Supabase, these database pieces should be applied and checked.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <PrivacyNote title="Social usernames" detail="Profiles need username, username search, display-name search settings, and friend-search functions." />
-              <PrivacyNote title="Wellness nutrition" detail="Nutrition entries and saved foods need source IDs, per-100g macros, saturated fat, sugars and serving grams." />
-              <PrivacyNote title="Cardio logs" detail="The cardio_sessions table powers run and walk tracking, with Strava imports kept private." />
-              <PrivacyNote title="Feedback inbox" detail="feedback_reports and notifications let testers report bugs and request data export or deletion." />
-            </div>
-          </div>
-
-          {/* PRIVACY */}
-          <div className="rounded-xl border border-line bg-panel p-6 shadow-sm">
-            <div className="mb-6 flex items-start gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-pulse/10 text-pulse">
-                <ShieldCheck className="h-5 w-5" />
-              </span>
-              <div>
-                <h2 className="text-2xl font-semibold text-dark">Privacy & Safety</h2>
-                <p className="mt-2 text-muted">
-                  Control what friends can see and keep the alpha social features easy to understand.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-              <div className="min-w-0 space-y-5">
-                <div>
-                  <label className="mb-2 block text-sm text-muted">Default live check-in visibility</label>
-                  <select
-                    className="w-full rounded-lg border border-line bg-white p-4 text-ink outline-none transition focus:border-pulse/50 focus:ring-4 focus:ring-pulse/10"
-                    value={profile.default_live_visibility}
-                    onChange={(e) => set("default_live_visibility", e.target.value as "friends" | "private")}
+              <div className="rounded-2xl border border-line bg-white/70 p-4 dark:bg-slate-950/35">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-muted">Username</p>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <p className="break-all text-lg font-black text-dark">@{profile.username || "set-a-username"}</p>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard?.writeText(profile.username || "")}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-2 text-sm font-black text-dark transition hover:border-pulse/40 dark:bg-slate-950/35"
                   >
-                    <option value="friends">Friends only</option>
-                    <option value="private">Private by default</option>
-                  </select>
+                    <Copy className="h-4 w-4" /> Copy
+                  </button>
                 </div>
+              </div>
 
-                <div className="rounded-xl border border-pulse/20 bg-pulse/8 p-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Your username</p>
-                  <div className="mt-2 flex min-w-0 items-center gap-2">
-                    <code className="min-w-0 flex-1 truncate rounded-lg bg-white/70 px-3 py-2 text-xs font-semibold text-dark">
-                      @{profile.username || "set_username"}
-                    </code>
-                    <button
-                      type="button"
-                      onClick={() => navigator.clipboard?.writeText(profile.username ? `@${profile.username}` : "")}
-                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line bg-white text-dark transition hover:border-pulse/40"
-                      disabled={!profile.username}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <p className="mt-2 text-sm text-muted">Friends can find you by username. Your account ID stays as a backup code.</p>
-                </div>
-
-                <label className="flex cursor-pointer items-center gap-4 rounded-xl border border-line bg-white/70 p-4">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 accent-pulse"
-                    checked={profile.show_display_name_in_search}
-                    onChange={(e) => set("show_display_name_in_search", e.target.checked)}
-                  />
-                  <span className="text-sm font-medium text-dark">Show my display name in username search</span>
-                </label>
-
-                <div className="rounded-xl border border-line bg-white/70 p-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Backup friend code</p>
-                  <div className="mt-2 flex min-w-0 items-center gap-2">
-                    <code className="min-w-0 flex-1 truncate rounded-lg bg-cream px-3 py-2 text-xs font-semibold text-dark">
-                      {userId || "Loading..."}
-                    </code>
-                    <button
-                      type="button"
-                      onClick={() => navigator.clipboard?.writeText(userId)}
-                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line bg-white text-dark transition hover:border-pulse/40"
-                      disabled={!userId}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-
+              <div className="grid gap-3 sm:grid-cols-2">
                 <button
                   type="button"
                   onClick={endAllLiveCheckIns}
-                  className="w-full rounded-lg border border-danger/25 bg-danger/10 px-5 py-3 text-sm font-semibold text-danger transition hover:bg-danger/15"
+                  className="rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-dark transition hover:border-pulse/40 dark:bg-slate-950/35"
                 >
                   End all live check-ins
                 </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/privacy")}
+                  className="rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-dark transition hover:border-pulse/40 dark:bg-slate-950/35"
+                >
+                  Privacy policy
+                </button>
               </div>
 
-              <div className="grid min-w-0 gap-3 md:grid-cols-2">
-                <PrivacyNote title="Golf rounds" detail="Private to your account." />
-                <PrivacyNote title="Training logs" detail="Private to your account." />
-                <PrivacyNote title="Wellness logs" detail="Private to your account." />
-                <PrivacyNote title="Live check-ins" detail="Private or accepted friends only." />
-                <PrivacyNote title="Strava imports" detail="Private to your account only. Not used for AthletiAI, social sharing, advertising, or cross-user analytics." />
-                <PrivacyNote title="AthletiAI" detail="Uses rule-based reads of your AthletiGolf logs. It is not medical, nutrition, injury, or professional coaching advice." />
-                <div className="rounded-xl border border-line bg-white/70 p-4 md:col-span-2">
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Alpha privacy notice</p>
-                  <p className="mt-2 text-sm leading-relaxed text-muted">
-                    AthletiGolf stores your golf, training, wellness and social activity data to power your dashboard.
-                    Private logs are not shown to other users. Friends-only live check-ins are visible only to accepted friends.
-                  </p>
-                </div>
-              </div>
+              <PrivacyNote
+                icon={<ShieldCheck className="h-5 w-5 text-pulse" />}
+                title="Friends-only by default"
+                body="Live activity, friend search and shared round data use the privacy controls you choose here."
+              />
             </div>
-          </div>
+          </SettingsAccordionItem>
 
-          {/* DATA CONTROLS */}
-          <div className="rounded-xl border border-line bg-panel p-6 shadow-sm">
-            <div className="mb-5 flex items-start gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-pulse/10 text-pulse">
-                <ShieldCheck className="h-5 w-5" />
-              </span>
-              <div>
-                <h2 className="text-2xl font-semibold text-dark">Data controls</h2>
-                <p className="mt-2 text-muted">
-                  Ask for a copy of your data or close your account.
-                </p>
-              </div>
+          <SettingsAccordionItem
+            id="connectedAccounts"
+            title="Connected Accounts"
+            description="Review integrations and beta data-source readiness."
+            openSection={openSection}
+            onOpen={setOpenSection}
+          >
+            <div className="space-y-4">
+              <PrivacyNote
+                icon={<Database className="h-5 w-5 text-pulse" />}
+                title="Food databases"
+                body="USDA FoodData Central and Open Food Facts are used for nutrition search where configured. Serving sizes should be checked before saving."
+              />
+              <PrivacyNote
+                icon={<Database className="h-5 w-5 text-pulse" />}
+                title="Strava"
+                body="Connected Strava activity is private to the connected user and is not used for cross-user analytics or AthletiAI training."
+              />
+              <PrivacyNote
+                icon={<ShieldCheck className="h-5 w-5 text-pulse" />}
+                title="Beta readiness"
+                body="Third-party data is shown with clear source context. Full production launch should keep API keys in server-side secrets only."
+              />
             </div>
-            <div className="flex min-w-0 flex-wrap gap-3">
+          </SettingsAccordionItem>
+
+          <SettingsAccordionItem
+            id="about"
+            title="About"
+            description="Support, legal pages and alpha feedback."
+            openSection={openSection}
+            onOpen={setOpenSection}
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
-                onClick={requestAccountDataExport}
-                disabled={dataRequestState === "saving"}
-                className="rounded-lg border border-line bg-white px-5 py-3 text-sm font-semibold text-dark transition hover:border-pulse/40 disabled:opacity-50"
+                onClick={() => navigate("/profile")}
+                className="rounded-2xl border border-line bg-white px-5 py-3 text-left text-sm font-black text-dark transition hover:border-pulse/40 dark:bg-slate-950/35"
               >
-                Request data export
+                Setup profile
               </button>
               <button
                 type="button"
-                onClick={closeAccount}
-                disabled={closingAccount || dataRequestState === "saving"}
-                className="rounded-lg border border-danger/25 bg-danger/10 px-5 py-3 text-sm font-semibold text-danger transition hover:bg-danger/15 disabled:opacity-50"
+                onClick={() => navigate("/feedback")}
+                className="rounded-2xl border border-line bg-white px-5 py-3 text-left text-sm font-black text-dark transition hover:border-pulse/40 dark:bg-slate-950/35"
               >
-                {closingAccount ? "Closing account..." : "Close account"}
+                Alpha feedback
               </button>
-            </div>
-            <p className="mt-4 text-sm leading-relaxed text-muted">
-              Export requests go to the feedback/admin inbox. Closing your account calls the secure account deletion flow immediately.
-              You can also read the public <button type="button" onClick={() => navigate("/privacy")} className="font-semibold text-pulse">Privacy Policy</button> and <button type="button" onClick={() => navigate("/terms")} className="font-semibold text-pulse">Terms</button>.
-            </p>
-            {dataRequestState === "success" && <p className="mt-3 text-sm font-semibold text-emerald-600">{dataRequestMessage}</p>}
-            {dataRequestState === "error" && <p className="mt-3 text-sm font-semibold text-danger">{dataRequestMessage}</p>}
-          </div>
-
-          {/* ONBOARDING */}
-          <div className="rounded-xl border border-line bg-panel p-6 shadow-sm">
-            <h2 className="mb-2 text-2xl font-semibold text-dark">Setup Profile</h2>
-            <p className="mb-6 text-muted">
-              Revisit your golf baseline, training setup and starting recommendations.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => navigate("/onboarding")}
-              className="rounded-lg bg-pulse px-5 py-3 text-sm font-semibold text-white transition hover:bg-pulse/90"
-            >
-              Edit Setup Answers
-            </button>
-          </div>
-
-          {/* ALPHA FEEDBACK */}
-          <div className="rounded-xl border border-pulse/20 bg-pulse/8 p-6 shadow-sm">
-            <div className="mb-4 flex items-start gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-pulse/10 text-pulse">
-                <Mail className="h-5 w-5" />
-              </span>
-              <div>
-                <h2 className="text-2xl font-semibold text-dark">Alpha feedback</h2>
-                <p className="mt-2 text-muted">
-                  Found a bug, confusing screen, or missing feature? Send it while it is fresh.
-                </p>
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
-              <p className="text-sm leading-relaxed text-muted">
-                Ask testers to include what they were trying to do, what happened, and whether they were on mobile or laptop.
-              </p>
               <button
                 type="button"
-                onClick={() => navigate("/contact")}
-                className="rounded-lg bg-pulse px-5 py-3 text-sm font-semibold text-white transition hover:bg-pulse/90"
+                onClick={() => navigate("/terms")}
+                className="rounded-2xl border border-line bg-white px-5 py-3 text-left text-sm font-black text-dark transition hover:border-pulse/40 dark:bg-slate-950/35"
               >
-                Send Feedback
+                Terms
               </button>
+              <button
+                type="button"
+                onClick={() => navigate("/privacy")}
+                className="rounded-2xl border border-line bg-white px-5 py-3 text-left text-sm font-black text-dark transition hover:border-pulse/40 dark:bg-slate-950/35"
+              >
+                Privacy policy
+              </button>
+              <a
+                href="mailto:support@athletigolf.app"
+                className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-dark transition hover:border-pulse/40 dark:bg-slate-950/35 sm:col-span-2"
+              >
+                <Mail className="h-4 w-4" /> Contact support
+              </a>
             </div>
-          </div>
+          </SettingsAccordionItem>
 
-        </section>
-
-        {/* ACCOUNT CONTROLS */}
-        <section className="mt-10 rounded-xl bg-dark p-5 text-white shadow-2xl sm:p-8">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.25em] text-[#D4AF37]">
-            Account
-          </p>
-
-          <h2 className="mb-4 text-2xl font-semibold sm:text-3xl">Account controls</h2>
-
-          <p className="mb-1 text-white/60">Signed in as:</p>
-          <p className="mb-6 break-all font-semibold">{email}</p>
-
-          <div className="flex flex-wrap gap-4">
-            <button
-              onClick={saveSettings}
-              disabled={saveState === "saving"}
-              className="min-w-[152px] rounded-lg bg-white px-6 py-4 font-semibold text-slate-950 transition hover:bg-white/90 disabled:opacity-50"
-            >
-              {saveState === "saving" ? "Saving..." : "Save Settings"}
-            </button>
-
-            <button
-              onClick={handleLogout}
-              className="rounded-lg bg-white/10 px-6 py-4 font-semibold text-white transition hover:bg-white/15"
-            >
-              Log Out
-            </button>
-          </div>
-
-          {saveState === "success" && (
-            <p className="mt-5 flex items-center gap-2 text-sm font-medium text-emerald-400">
-              <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
-              Settings saved successfully.
-            </p>
-          )}
-
-          {saveState === "error" && (
-            <p className="mt-5 flex items-center gap-2 text-sm font-medium text-red-400">
-              <span className="inline-block h-2 w-2 rounded-full bg-red-400" />
-              {errorMessage}
-            </p>
-          )}
-        </section>
-
+          <SettingsAccordionItem
+            id="dangerZone"
+            title="Danger Zone"
+            description="Export your data or close your account."
+            openSection={openSection}
+            onOpen={setOpenSection}
+          >
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={requestAccountDataExport}
+                  disabled={dataRequestState === "saving"}
+                  className="rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-dark transition hover:border-pulse/40 disabled:opacity-60 dark:bg-slate-950/35"
+                >
+                  {dataRequestState === "saving" ? "Requesting..." : "Request data export"}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeAccount}
+                  disabled={dataRequestState === "saving" || closingAccount}
+                  className="rounded-2xl border border-danger/30 bg-danger/10 px-5 py-3 text-sm font-black text-danger transition hover:bg-danger/15 disabled:opacity-60"
+                >
+                  Close account
+                </button>
+              </div>
+              {dataRequestState === "success" && dataRequestMessage && <p className="rounded-2xl border border-lab/30 bg-lab/10 px-4 py-3 text-sm font-bold text-lab">{dataRequestMessage}</p>}
+              {dataRequestState === "error" && dataRequestMessage && <p className="rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-bold text-danger">{dataRequestMessage}</p>}
+            </div>
+          </SettingsAccordionItem>
+        </div>
       </div>
     </div>
   );
 }
 
-function PrivacyNote({ title, detail }: { title: string; detail: string }) {
+function SettingsAccordionItem({
+  id,
+  title,
+  description,
+  openSection,
+  onOpen,
+  children,
+}: {
+  id: SettingsSection;
+  title: string;
+  description: string;
+  openSection: SettingsSection;
+  onOpen: (section: SettingsSection) => void;
+  children: ReactNode;
+}) {
+  const isOpen = openSection === id;
+
   return (
-    <div className="rounded-xl border border-line bg-white/70 p-4">
-      <h3 className="font-semibold text-dark">{title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-muted">{detail}</p>
+    <section className="overflow-hidden rounded-2xl border border-line bg-panel shadow-sm">
+      <button
+        type="button"
+        onClick={() => onOpen(id)}
+        aria-expanded={isOpen}
+        className="flex w-full items-center justify-between gap-4 p-5 text-left transition hover:bg-pulse/5 sm:p-6"
+      >
+        <span className="min-w-0">
+          <span className="block text-base font-black text-dark sm:text-lg">{title}</span>
+          <span className="mt-1 block text-sm leading-6 text-muted">{description}</span>
+        </span>
+        <ChevronDown className={`h-5 w-5 shrink-0 text-muted transition ${isOpen ? "rotate-180 text-pulse" : ""}`} />
+      </button>
+      {isOpen && <div className="border-t border-line p-5 sm:p-6">{children}</div>}
+    </section>
+  );
+}
+function PrivacyNote({
+  title,
+  detail,
+  body,
+  icon,
+}: {
+  title: string;
+  detail?: string;
+  body?: string;
+  icon?: ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-line bg-white/70 p-4 dark:bg-slate-950/35">
+      <div className="flex items-start gap-3">
+        {icon && <span className="mt-0.5 shrink-0">{icon}</span>}
+        <div>
+          <h3 className="font-semibold text-dark">{title}</h3>
+          <p className="mt-2 text-sm leading-relaxed text-muted">{body ?? detail ?? ""}</p>
+        </div>
+      </div>
     </div>
   );
 }
-
 function getSportModeDetail(mode: SportMode) {
   if (mode === "training") return "Hide golf clutter and focus the app around fitness tracking, wellness, nutrition and social performance.";
   if (mode === "golf") return "Prioritise golf tracking, practice, competitions and golf-specific reports.";
   if (mode === "other") return "Use AthletiGolf as a general athletic performance platform while future sport modules grow.";
   return "Track everything: golf, training, wellness, nutrition, social and AthletiAI relationship insights.";
 }
+
 

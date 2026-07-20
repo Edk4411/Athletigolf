@@ -36,6 +36,8 @@ import AppMore from "@/pages/AppMore";
 import { applyTextAutoFormatToField } from "@/lib/textFormatting";
 import { isNativeApp } from "@/lib/nativeApp";
 import { applyTheme, getStoredTheme } from "@/lib/theme";
+import { getFallbackRouteForSportMode, isRouteAllowedForSportMode } from "@/lib/sportMode";
+import type { OnboardingData } from "@/lib/types";
 import PracticeSession from "./pages/PracticeSession";
 import PracticePlan from "./pages/PracticePlan";
 import PracticeHistory from "./pages/PracticeHistory";
@@ -62,6 +64,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AppShell() {
   const [location, navigate] = useLocation();
   const { user } = useAuth();
+  const [sportMode, setSportMode] = useState<OnboardingData["mainSport"]>("both");
+  const [profileReady, setProfileReady] = useState(false);
   const hideSidebar = location === "/" || location === "/auth" || location === "/onboarding" || location === "/app-intro";
   const nativeApp = isNativeApp();
   const showAppDock = nativeApp && !hideSidebar;
@@ -90,6 +94,7 @@ function AppShell() {
   }, [user]);
 
   useEffect(() => {
+    setProfileReady(!user);
     if (!user || location === "/auth" || location === "/" || location === "/onboarding" || location === "/privacy" || location === "/terms") return;
 
     let cancelled = false;
@@ -103,6 +108,15 @@ function AppShell() {
         if (cancelled) return;
         if (!data || data.onboarding_completed !== true) {
           navigate("/onboarding");
+          setProfileReady(true);
+          return;
+        }
+        const onboarding = (data.onboarding_data as OnboardingData | null) || null;
+        const nextSportMode = onboarding?.mainSport || "both";
+        setSportMode(nextSportMode);
+        setProfileReady(true);
+        if (!isRouteAllowedForSportMode(location, nextSportMode)) {
+          navigate(getFallbackRouteForSportMode(nextSportMode));
         }
       });
 
@@ -110,6 +124,16 @@ function AppShell() {
       cancelled = true;
     };
   }, [location, navigate, user]);
+
+  const guarded = (children: React.ReactNode) => (
+    <ProtectedRoute>
+      {profileReady ? children : (
+        <div className="flex min-h-screen items-center justify-center bg-cream">
+          <div className="text-lg text-muted">Loading...</div>
+        </div>
+      )}
+    </ProtectedRoute>
+  );
 
  return (
   <div

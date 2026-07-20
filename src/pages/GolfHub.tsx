@@ -144,7 +144,7 @@ export default function GolfHub() {
       </section>
 
       <section className="grid gap-3 lg:grid-cols-[1.05fr_0.95fr]">
-        <Card className="border-golf/20 bg-golf/7 dark:border-emerald-200/10 dark:bg-emerald-300/8">
+        <Card className="border-golf/20 bg-golf/7 dark:border-emerald-200/12 dark:bg-[#0b2a24]">
           <div className="flex items-start gap-3">
             <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-golf/12 text-golf dark:bg-emerald-300/12 dark:text-emerald-100">
               <Activity className="h-5 w-5" />
@@ -165,7 +165,7 @@ export default function GolfHub() {
                       key={round.id}
                       type="button"
                       onClick={() => navigate(`/golf/submit?resume=${round.id}`)}
-                      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-white/70 px-3 py-3 text-left transition active:scale-[0.99] dark:border-white/10 dark:bg-white/7"
+                      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-white/70 px-3 py-3 text-left transition active:scale-[0.99] dark:border-emerald-200/12 dark:bg-[#0f342c] dark:hover:bg-[#123d33]"
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-dark dark:text-white">{round.round_name || round.course || "Unfinished round"}</p>
@@ -177,7 +177,7 @@ export default function GolfHub() {
                     </button>
                   ))
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-line bg-white/45 px-3 py-4 text-sm text-muted dark:border-white/10 dark:bg-white/5 dark:text-white/55">
+                  <div className="rounded-2xl border border-dashed border-line bg-white/45 px-3 py-4 text-sm text-muted dark:border-emerald-200/12 dark:bg-[#0b1f2b] dark:text-emerald-50/65">
                     No open rounds right now. Start a round when you get to the first tee.
                   </div>
                 )}
@@ -199,12 +199,12 @@ export default function GolfHub() {
               <div className="mt-4 flex flex-wrap gap-2">
                 {recentCourses.length ? (
                   recentCourses.map((course) => (
-                    <span key={course} className="rounded-full bg-steel/8 px-3 py-1.5 text-xs font-semibold text-dark dark:bg-white/8 dark:text-white/72">
+                    <span key={course} className="rounded-full bg-steel/8 px-3 py-1.5 text-xs font-semibold text-dark dark:bg-emerald-300/10 dark:text-emerald-50/75">
                       {course}
                     </span>
                   ))
                 ) : (
-                  <span className="rounded-full bg-steel/8 px-3 py-1.5 text-xs font-semibold text-muted dark:bg-white/8 dark:text-white/52">
+                  <span className="rounded-full bg-steel/8 px-3 py-1.5 text-xs font-semibold text-muted dark:bg-emerald-300/10 dark:text-emerald-50/60">
                     Courses will appear after your first saved round
                   </span>
                 )}
@@ -222,7 +222,7 @@ export default function GolfHub() {
               key={item.label}
               type="button"
               onClick={() => navigate(item.href)}
-              className="group rounded-[1.5rem] border border-line bg-panel p-4 text-left shadow-[0_16px_40px_rgba(11,17,23,0.07)] transition active:scale-[0.99] dark:border-white/10 dark:bg-white/7"
+              className="group rounded-[1.5rem] border border-line bg-panel p-4 text-left shadow-[0_16px_40px_rgba(11,17,23,0.07)] transition active:scale-[0.99] dark:border-emerald-200/12 dark:bg-[#0b2a24] dark:hover:bg-[#0d332b]"
             >
               <div className="flex items-center gap-3">
                 <span className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${item.tone}`}>
@@ -239,7 +239,7 @@ export default function GolfHub() {
         })}
       </section>
 
-      <Card className="border-golf/20 bg-golf/7 dark:border-emerald-200/10 dark:bg-emerald-300/8">
+      <Card className="border-golf/20 bg-golf/7 dark:border-emerald-200/12 dark:bg-[#0b2a24]">
         <div className="flex items-start gap-3">
           <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-golf/12 text-golf dark:bg-emerald-300/12 dark:text-emerald-100">
             <Users className="h-5 w-5" />
@@ -250,11 +250,11 @@ export default function GolfHub() {
               Live rounds can now use the scoring foundation for partners, games, comments, reactions and media. Keep this private or friends-only until team/coach mode is ready.
             </p>
             <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-muted dark:text-white/52">
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/60 px-3 py-1 dark:bg-white/8">
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/60 px-3 py-1 dark:bg-emerald-300/10 dark:text-emerald-50/75">
                 <Shield className="h-3.5 w-3.5" />
                 Friends or private
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/60 px-3 py-1 dark:bg-white/8">
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/60 px-3 py-1 dark:bg-emerald-300/10 dark:text-emerald-50/75">
                 <MessageCircle className="h-3.5 w-3.5" />
                 Comments ready
               </span>

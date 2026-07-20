@@ -41,7 +41,7 @@ const gymItems: GymHubItem[] = [
     description: "Old boards you may want to bring back later.",
     href: "/workouts/archive",
     icon: Archive,
-    tone: "bg-slate-400/15 text-slate-100 border-slate-200/20",
+    tone: "bg-indigo-400/15 text-indigo-100 border-indigo-200/20",
   },
   {
     label: "Exercise Library",
@@ -100,7 +100,7 @@ export default function GymHub() {
               key={item.label}
               type="button"
               onClick={() => navigate(item.href)}
-              className="group rounded-[1.5rem] border border-line bg-panel p-4 text-left shadow-[0_16px_40px_rgba(11,17,23,0.07)] transition active:scale-[0.99] dark:border-white/10 dark:bg-white/7"
+              className="group rounded-[1.5rem] border border-line bg-panel p-4 text-left shadow-[0_16px_40px_rgba(11,17,23,0.07)] transition active:scale-[0.99] dark:border-sky-200/12 dark:bg-[#0b2033] dark:hover:bg-[#0f2b43]"
             >
               <div className="flex items-center gap-3">
                 <span className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${item.tone}`}>
@@ -117,22 +117,22 @@ export default function GymHub() {
         })}
       </section>
 
-      <Card className="border-lab/20 bg-lab/7 dark:border-sky-200/10 dark:bg-sky-300/8">
+      <Card className="border-lab/20 bg-lab/7 dark:border-sky-200/12 dark:bg-[#0b2033]">
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted dark:text-white/45">This week</p>
             <p className="mt-2 text-2xl font-semibold text-dark dark:text-white">Train clean</p>
           </div>
-          <div className="rounded-2xl bg-white/65 p-4 dark:bg-white/8">
+          <div className="rounded-2xl bg-white/65 p-4 dark:bg-[#102b42]">
             <HeartPulse className="h-5 w-5 text-pulse" />
             <p className="mt-2 text-sm font-semibold text-dark dark:text-white">Start with today's lift</p>
           </div>
-          <div className="rounded-2xl bg-white/65 p-4 dark:bg-white/8">
+          <div className="rounded-2xl bg-white/65 p-4 dark:bg-[#102b42]">
             <BarChart3 className="h-5 w-5 text-lab dark:text-sky-200" />
             <p className="mt-2 text-sm font-semibold text-dark dark:text-white">Review progress after</p>
           </div>
         </div>
-        <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-semibold text-muted dark:bg-white/8 dark:text-white/52">
+        <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1 text-xs font-semibold text-muted dark:bg-sky-300/10 dark:text-sky-50/70">
           <Sparkles className="h-3.5 w-3.5" />
           App-first gym flow
         </div>
