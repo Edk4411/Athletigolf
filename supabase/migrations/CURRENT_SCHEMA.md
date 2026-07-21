@@ -283,6 +283,9 @@ Required columns:
 - `bodyweight numeric`
 - `sleep_hours numeric`
 - `energy_rating integer`
+- `resting_heart_rate integer`
+- `blood_pressure_systolic integer`
+- `blood_pressure_diastolic integer`
 - `notes text`
 - `created_at timestamptz`
 - `updated_at timestamptz`
