@@ -120,7 +120,7 @@ export default function AppDock() {
               {menu === "activity" ? "Activity" : "Quick Add"}
             </p>
 
-            <div className="pointer-events-auto relative h-[15.5rem] w-full">
+            <div className="pointer-events-auto relative mx-auto h-[15.5rem] w-20">
               {(menu === "activity" ? filteredActivityItems : filteredCreateItems).map((item, index, items) => (
                 <ArcButton
                   key={item.label}
@@ -176,7 +176,7 @@ function ArcButton({
   const spread = total <= 1 ? 0 : Math.min(menu === "activity" ? 176 : 164, Math.max(108, total * 28));
   const angle = total === 1 ? 90 : 90 + spread / 2 - (index * spread) / (total - 1);
   const radius = menu === "activity" ? 112 : 106;
-  const top = "11.1rem";
+  const top = "12rem";
   const x = Math.cos((angle * Math.PI) / 180) * radius;
   const y = -Math.sin((angle * Math.PI) / 180) * radius;
 
@@ -185,7 +185,11 @@ function ArcButton({
       type="button"
       onClick={onClick}
       className="absolute left-1/2 flex w-[4.9rem] -translate-x-1/2 flex-col items-center gap-1.5 text-center transition active:scale-95"
-      style={{ top, transform: `translate(calc(-50% + ${x}px), ${y}px)` }}
+      style={{
+  left: "50%",
+  top,
+  transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`
+}}
     >
       <span className={`inline-flex h-12 w-12 items-center justify-center rounded-xl border text-white shadow-xl ${toneClass(item.tone, active)}`}>
         <Icon className="h-5 w-5" />
