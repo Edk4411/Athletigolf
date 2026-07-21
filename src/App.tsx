@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Switch, Route, Redirect, useLocation } from "wouter";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
