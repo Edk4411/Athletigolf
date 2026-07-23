@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   ChevronRight,
   CreditCard,
+  Database,
   Instagram,
   LogOut,
   Mail,
