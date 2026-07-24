@@ -189,13 +189,13 @@ export default function Wellness() {
     setFoodForm((prev) => ({ ...prev, meal_type: meal }));
   }
 
-  function addWater(amount: number) {
+  function addWater(amountMl: number) {
     setForm((prev) => {
       const current = toNumber(prev.water_litres) || 0;
       return {
         ...prev,
         log_date: prev.log_date || todayIso(),
-        water_litres: Number(current + amount).toFixed(1),
+        water_litres: Math.round(current + amountMl).toString(),
       };
     });
   }
@@ -203,7 +203,7 @@ export default function Wellness() {
   function addCustomWater() {
     const amountMl = toNumber(customWaterMl);
     if (!amountMl || amountMl <= 0) return;
-    addWater(amountMl / 1000);
+    addWater(amountMl);
     setCustomWaterMl("");
   }
 
@@ -214,7 +214,7 @@ export default function Wellness() {
 
     const payload = {
       log_date: form.log_date,
-      water_litres: toNumber(form.water_litres),
+      water_litres: (toNumber(form.water_litres) || 0) / 1000,
       calories: toInteger(form.calories),
       protein_grams: toInteger(form.protein_grams),
       carbs_grams: toInteger(form.carbs_grams),
@@ -847,7 +847,7 @@ export default function Wellness() {
           title: "Water",
           value: formatLitres(todayLog?.water_litres),
           unit: "logged",
-          target: `${targets.waterLitres} L target`,
+          target: `${targets.waterLitres * 1000} ml target`,
           progress: getProgress(todayLog?.water_litres, targets.waterLitres),
           tone: "bg-white",
         },
@@ -1388,11 +1388,11 @@ export default function Wellness() {
               <Field label="Date" type="date" value={form.log_date} onChange={setActiveNutritionDate} required />
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Field label="Water (litres)" type="number" step="0.1" value={form.water_litres} onChange={(value) => setForm((prev) => ({ ...prev, water_litres: value }))} placeholder={`${targets.waterLitres}`} />
+                  <Field label="Water (ml)" type="number" step="100" value={form.water_litres} onChange={(value) => setForm((prev) => ({ ...prev, water_litres: value }))} placeholder={`${targets.waterLitres * 1000}`} />
                   <div className="mt-2 grid grid-cols-3 gap-2">
-                    <QuickAddButton label="+250ml" onClick={() => addWater(0.25)} />
-                    <QuickAddButton label="+500ml" onClick={() => addWater(0.5)} />
-                    <QuickAddButton label="+1L" onClick={() => addWater(1)} />
+                    <QuickAddButton label="+250ml" onClick={() => addWater(250)} />
+                    <QuickAddButton label="+500ml" onClick={() => addWater(500)} />
+                    <QuickAddButton label="+1L" onClick={() => addWater(1000)} />
                   </div>
                   <div className="mt-2 grid grid-cols-[1fr_auto] gap-2">
                     <TextInput value={customWaterMl} onChange={(event) => setCustomWaterMl(event.target.value)} type="number" min="0" placeholder="Custom ml" />
@@ -2094,7 +2094,7 @@ function DarkMetric({ label, value }: { label: string; value: React.ReactNode })
 function formFromLog(log: WellnessLog) {
   return {
     log_date: log.log_date,
-    water_litres: toFormValue(log.water_litres),
+    water_litres: toFormValue(log.water_litres ? log.water_litres * 1000 : null),
     calories: toFormValue(log.calories),
     protein_grams: toFormValue(log.protein_grams),
     carbs_grams: toFormValue(log.carbs_grams),
@@ -2234,7 +2234,7 @@ function buildWellnessInsights(
         recoveryDriver === "sleep"
           ? `Aim for ${targets.sleepHours}h tonight before judging tomorrow's training quality.`
           : recoveryDriver === "hydration"
-          ? `Get to ${targets.waterLitres} L and check whether energy rebounds.`
+          ? `Get to ${targets.waterLitres * 1000} ml and check whether energy rebounds.`
           : "Keep the daily sleep, water and energy fields complete.",
       tone: recoveryDriver === "consistency" && hasEnoughSignal ? "border-golf/20 bg-golf/8" : "border-gold/25 bg-gold/10",
     },

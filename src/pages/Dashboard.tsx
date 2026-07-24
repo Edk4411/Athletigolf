@@ -160,7 +160,7 @@ export default function Dashboard() {
                 icon={Droplets}
                 label="Water today"
                 value={todayWellness?.water_litres ? formatWater(todayWellness.water_litres * 1000) : "Not logged"}
-                detail={`Target ${wellnessTargets.waterLitres} L`}
+                detail={`Target ${wellnessTargets.waterLitres * 1000} ml`}
                 progress={hydrationProgress}
                 onClick={() => navigate("/wellness")}
               />
