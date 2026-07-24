@@ -37,7 +37,7 @@ export default function Dashboard() {
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [cardioSessions, setCardioSessions] = useState<CardioSession[]>([]);
   const [competitions, setCompetitions] = useState<Competition[]>([]);
-  const [wellnessLogs, setWellnessLogs] = useState<WellnessLog[]>([]);
+  const [todayWellness, setTodayWellness] = useState<WellnessLog | null>(null);
   const [nutritionEntries, setNutritionEntries] = useState<NutritionEntry[]>([]);
   const [liveActivities, setLiveActivities] = useState<LiveActivity[]>([]);
   const [sportMode, setSportMode] = useState<OnboardingData["mainSport"]>("both");
@@ -57,7 +57,7 @@ export default function Dashboard() {
         supabase.from("workouts").select("*").order("created_at", { ascending: false }),
         supabase.from("cardio_sessions").select("*").order("session_date", { ascending: false }).limit(30),
         supabase.from("competitions").select("*").eq("status", "upcoming").order("competition_date", { ascending: true }),
-        supabase.from("daily_wellness_logs").select("*").order("log_date", { ascending: false }).limit(7),
+        supabase.from("daily_wellness_logs").select("*").eq("log_date", today).maybeSingle(),
         supabase.from("nutrition_entries").select("*").eq("log_date", today).order("created_at", { ascending: false }),
         supabase
           .from("live_activities")
@@ -73,7 +73,7 @@ export default function Dashboard() {
       setWorkouts((w as Workout[]) || []);
       setCardioSessions((cardio as CardioSession[]) || []);
       setCompetitions((c as Competition[]) || []);
-      setWellnessLogs((wellness as WellnessLog[]) || []);
+      setTodayWellness(wellness as WellnessLog | null);
       setNutritionEntries((nutrition as NutritionEntry[]) || []);
       setLiveActivities((live as LiveActivity[]) || []);
       const onboarding = (profile?.onboarding_data as OnboardingData | null) || null;
@@ -90,7 +90,6 @@ export default function Dashboard() {
   const nextCompetition = competitions[0] ?? null;
   const competitionToday = nextCompetition ? isToday(nextCompetition.competition_date) : false;
   const todayIso = getTodayIso();
-  const todayWellness = wellnessLogs.find((log) => log.log_date === todayIso) || wellnessLogs[0] || null;
   const hydrationProgress = todayWellness?.water_litres ? Math.min((todayWellness.water_litres / wellnessTargets.waterLitres) * 100, 100) : 0;
   const trainingOnly = sportMode === "training";
   const golfEnabled = !trainingOnly;
