@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Button, Card } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { MapPin } from "lucide-react";
+import { useLocation } from "wouter";
 
 type StravaGolfActivity = {
   id: string;
@@ -12,6 +13,7 @@ type StravaGolfActivity = {
 
 export function StravaGolfQueue() {
   const [activities, setActivities] = useState<StravaGolfActivity[]>([]);
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     async function fetchActivities() {
@@ -24,6 +26,21 @@ export function StravaGolfQueue() {
     }
     fetchActivities();
   }, []);
+
+  async function handleIgnore(id: string) {
+    const { error } = await supabase.functions.invoke("strava-process-golf", {
+      body: { action: "ignore", queueId: id },
+    });
+    if (!error) {
+      setActivities((prev) => prev.filter((a) => a.id !== id));
+    }
+  }
+
+  function handleLink(id: string) {
+    // Navigate to a page to select a round, or start a new one
+    // For now, assume we navigate to submission page with activity info
+    setLocation(`/golf/submit?queueId=${id}`);
+  }
 
   if (activities.length === 0) return null;
 
@@ -41,8 +58,8 @@ export function StravaGolfQueue() {
               {activity.activity_date} - {activity.activity_type}
             </div>
             <div className="flex gap-2">
-              <Button variant="secondary">Link to Round</Button>
-              <Button variant="ghost">Ignore</Button>
+              <Button variant="secondary" onClick={() => handleLink(activity.id)}>Link to Round</Button>
+              <Button variant="ghost" onClick={() => handleIgnore(activity.id)}>Ignore</Button>
             </div>
           </div>
         ))}

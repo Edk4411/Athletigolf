@@ -40,10 +40,25 @@ export default function Cardio() {
   const [success, setSuccess] = useState(false);
   
   const { stravaConnection } = useStrava();
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     loadPage();
   }, []);
+
+  async function handleSync() {
+    setSyncing(true);
+    setError("");
+    const { error } = await supabase.functions.invoke("strava-import");
+    if (error) {
+      setError(error.message);
+    } else {
+      setSuccess(true);
+      await loadSessions();
+      setTimeout(() => setSuccess(false), 3000);
+    }
+    setSyncing(false);
+  }
 
   async function loadPage() {
     setLoading(true);
@@ -211,12 +226,17 @@ export default function Cardio() {
                     <p className="text-sm text-muted">
                         {stravaConnection ? "Connected ✓" : "Not connected"}
                     </p>
-                    {!stravaConnection && (
+                    {stravaConnection ? (
+                        <Button variant="secondary" onClick={handleSync} disabled={syncing}>
+                            {syncing ? "Syncing..." : "Sync Strava Activities"}
+                        </Button>
+                    ) : (
                         <Button variant="secondary" onClick={handleConnect}>
                             Manage in Connected Apps
                         </Button>
                     )}
                 </div>
+                {success && <p className="mt-3 text-sm text-lab font-semibold">Activities synced successfully!</p>}
             </Surface>
         </div>
       </section>

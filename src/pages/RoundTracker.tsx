@@ -156,6 +156,29 @@ export default function RoundTracker() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const [step, setStep] = useState<Step>("setup");
+  const [linkedQueueId, setLinkedQueueId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const queueId = params.get("queueId");
+    if (queueId) {
+      setLinkedQueueId(queueId);
+      fetchStravaActivity(queueId);
+    }
+  }, []);
+
+  async function fetchStravaActivity(queueId: string) {
+    const { data, error } = await supabase
+      .from("strava_activity_queue")
+      .select("*")
+      .eq("id", queueId)
+      .single();
+    
+    if (!error && data) {
+      setDate(data.activity_date);
+    }
+  }
+
   const [existingRoundId, setExistingRoundId] = useState<string | null>(null);
   const [savedStatus, setSavedStatus] = useState<"completed" | "unfinished">("completed");
   const [holesPlayed, setHolesPlayed] = useState<9 | 18>(18);
@@ -725,6 +748,13 @@ export default function RoundTracker() {
       setSaving(false);
       setSaveError(roundError?.message || "Could not save round.");
       return;
+    }
+
+    // Link Strava activity
+    if (linkedQueueId && round.id) {
+      await supabase.functions.invoke("strava-process-golf", {
+        body: { action: "link", queueId: linkedQueueId, roundId: round.id },
+      });
     }
 
     const holeRows = holes
