@@ -4,6 +4,7 @@ import { Activity, ArrowLeft, ShieldCheck } from "lucide-react";
 import { Button, EmptyState, PageHeader, Surface } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { FriendProfileSummary, LiveActivity } from "@/lib/types";
+import { getDisplayName } from "@/lib/nameFormatting";
 
 export default function FriendProfile() {
   const [, params] = useRoute("/social/friends/:friendId");
@@ -65,7 +66,7 @@ export default function FriendProfile() {
     );
   }
 
-  const displayName = profile.display_name || (profile.username ? `@${profile.username}` : "Friend");
+  const displayName = getDisplayName(profile as any);
 
   return (
     <main className="min-h-screen bg-cream px-4 py-5 text-ink md:px-8 md:py-7">

@@ -1,6 +1,7 @@
 export type Profile = {
   id: string;
   full_name: string | null;
+  preferred_name?: string | null;
   username?: string | null;
   username_search?: string | null;
   show_display_name_in_search?: boolean | null;

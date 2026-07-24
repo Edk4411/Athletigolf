@@ -7,6 +7,7 @@ import { formatAverage, formatPercent, getGolfStats } from "@/lib/golfStats";
 import { getTrainingIntelligence } from "@/lib/insights";
 import { supabase } from "@/lib/supabase";
 import type { Profile, Round, Workout } from "@/lib/types";
+import { getDisplayName } from "@/lib/nameFormatting";
 import { isValidUsername, normalizeUsername, usernameRules } from "@/lib/usernames";
 
 export default function Profile() {
@@ -121,7 +122,7 @@ export default function Profile() {
 
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-pulse">Athlete Profile</p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-5xl">{name}</h1>
+              <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-5xl">{getDisplayName(profile)}</h1>
               <div className="mt-4 flex flex-wrap gap-2">
                 <ProfilePill>{rounds.length} rounds</ProfilePill>
                 <ProfilePill>{workouts.length} training sessions</ProfilePill>

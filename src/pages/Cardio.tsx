@@ -122,11 +122,7 @@ export default function Cardio() {
   }
 
   function handleConnect() {
-    if (isNativeApp()) {
-      openExternalBrowser(window.location.origin + "/connected-apps?provider=strava&source=mobile");
-    } else {
-      window.location.href = "/connected-apps";
-    }
+    openExternalBrowser("https://edk4411-athletigolf-q5hm.bolt.host/connected-apps");
   }
 
   return (

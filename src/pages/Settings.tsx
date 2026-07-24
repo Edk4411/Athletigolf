@@ -1,3 +1,4 @@
+import { getDisplayName } from "@/lib/nameFormatting";
 import { useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import { ChevronDown, Copy, Database, Mail, ShieldCheck } from "lucide-react";
@@ -611,7 +612,9 @@ export default function Settings() {
               <div className="rounded-2xl border border-line bg-white/70 p-4 dark:bg-slate-950/35">
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-muted">Username</p>
                 <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <p className="break-all text-lg font-black text-dark">@{profile.username || "set-a-username"}</p>
+                  <h2 className="text-xl font-bold text-dark">{getDisplayName(profile as any)}</h2>
+                  <p className="break-all text-sm font-medium text-muted">@{profile.username || "set-a-username"}</p>
+
                   <button
                     type="button"
                     onClick={() => navigator.clipboard?.writeText(profile.username || "")}
@@ -644,6 +647,7 @@ export default function Settings() {
                 title="Friends-only by default"
                 body="Live activity, friend search and shared round data use the privacy controls you choose here."
               />
+
             </div>
           </SettingsAccordionItem>
 

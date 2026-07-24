@@ -15,15 +15,11 @@ export default function ConnectedApps() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
-    const provider = params.get("provider");
-    const source = params.get("source");
 
     if (code) {
       handleCallback(code);
-    } else if (provider === "strava" && source === "mobile" && !stravaConnection && stravaHref && !loading) {
-      window.location.href = stravaHref;
     }
-  }, [stravaConnection, stravaHref, loading]);
+  }, []);
 
   async function handleCallback(code: string) {
     setProcessing(true);
@@ -34,10 +30,12 @@ export default function ConnectedApps() {
   }
 
   function handleConnect() {
-    if (isNativeApp() && stravaHref) {
-      openExternalBrowser(window.location.origin + "/connected-apps?provider=strava&source=mobile");
-    } else if (stravaHref) {
-      window.location.href = stravaHref;
+    if (stravaHref) {
+      if (isNativeApp()) {
+        openExternalBrowser(stravaHref);
+      } else {
+        window.location.href = stravaHref;
+      }
     }
   }
 

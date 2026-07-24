@@ -3,6 +3,7 @@ import { Activity, Bed, CalendarDays, ChevronLeft, ChevronRight, Copy, Database,
 import { Button, EmptyState, FieldLabel, SelectInput, Surface, TextArea, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { FoodSearchResult, NutritionEntry, OnboardingData, PracticeSession, Round, SavedFood, WellnessLog, WellnessTrackingPreferences, Workout } from "@/lib/types";
+import { formatWater } from "@/lib/waterFormatting";
 import { defaultWellnessTargets, defaultWellnessTracking, getWellnessTargets, getWellnessTracking, type WellnessTargets } from "@/lib/wellnessTargets";
 
 const toLocalIso = (date: Date) => {
@@ -2550,7 +2551,7 @@ function getProgress(value: number | null | undefined, target: number) {
 }
 
 function formatLitres(value: number | null | undefined) {
-  return value === null || value === undefined ? "-" : `${Number(value).toFixed(1)} L`;
+  return value === null || value === undefined ? "-" : formatWater(value * 1000);
 }
 
 function formatGrams(value: number | null | undefined) {

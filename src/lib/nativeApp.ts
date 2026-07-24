@@ -1,9 +1,10 @@
 import { Capacitor } from "@capacitor/core";
+import { Browser } from "@capacitor/browser";
 
 export function isNativeApp() {
   return Capacitor.isNativePlatform();
 }
 
-export function openExternalBrowser(url: string) {
-  window.open(url, "_system");
+export async function openExternalBrowser(url: string) {
+  await Browser.open({ url });
 }

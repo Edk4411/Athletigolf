@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { todayIso } from "@/lib/dates";
 import { supabase } from "@/lib/supabase";
 import type { FairwayResult, FriendConnectionProfile, GolfCourseDetail, GolfCourseTee, Profile, Round, RoundHole, TeeShotLocation } from "@/lib/types";
+import { getDisplayName } from "@/lib/nameFormatting";
 
 type Step = "setup" | "holes" | "review" | "saved";
 
@@ -370,7 +371,8 @@ export default function RoundTracker() {
 
   const addFriendPlayer = (friend: FriendConnectionProfile) => {
     if (livePlayers.some((player) => player.userId === friend.other_user_id)) return;
-    const name = friend.other_display_name || (friend.other_username ? `@${friend.other_username}` : `Friend ${friend.other_user_id.slice(0, 8)}`);
+    const name = getDisplayName(friend as any) || (friend.other_username ? `@${friend.other_username}` : `Friend ${friend.other_user_id.slice(0, 8)}`);
+
     const player: LivePlayer = {
       id: `friend-${friend.other_user_id}`,
       name,
@@ -540,7 +542,7 @@ export default function RoundTracker() {
   const currentHole = holes[currentHoleIndex];
   const currentHoleScore =
     currentHole && currentHole.score !== "" ? Number(currentHole.score) - currentHole.par : null;
-  const ownerDisplayName = profile?.full_name || (profile?.username ? `@${profile.username}` : "You");
+  const ownerDisplayName = getDisplayName(profile as any) || (profile?.username ? `@${profile.username}` : "You");
   const liveParticipants = useMemo<LiveParticipant[]>(
     () => [
       {
@@ -988,7 +990,7 @@ export default function RoundTracker() {
                     <div className="grid gap-2 sm:grid-cols-2">
                       {friends.slice(0, 6).map((friend) => {
                         const alreadyAdded = livePlayers.some((player) => player.userId === friend.other_user_id);
-                        const friendName = friend.other_display_name || (friend.other_username ? `@${friend.other_username}` : `Friend ${friend.other_user_id.slice(0, 8)}`);
+                        const friendName = getDisplayName(friend as any) || (friend.other_username ? `@${friend.other_username}` : `Friend ${friend.other_user_id.slice(0, 8)}`);
                         return (
                           <button
                             key={friend.other_user_id}
