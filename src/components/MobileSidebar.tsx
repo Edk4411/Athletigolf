@@ -40,6 +40,7 @@ type NavItem = {
   adminOnly?: boolean;
 };
 
+
 const mainLinks: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, tone: "pulse" },
   { href: "/analytics", label: "Analytics", icon: BarChart3, tone: "gold" },
@@ -259,8 +260,8 @@ function NavContent({
     ? mainLinks.filter((item) => item.href !== "/analytics")
     : mainLinks;
   
-  const visibleMainLinks = isDesktop 
-    ? [...baseMainLinks, { href: "/connected-apps", label: "Connected Apps", icon: Link2, tone: "pulse" }]
+  const visibleMainLinks: NavItem[] = isDesktop 
+    ? [...baseMainLinks, { href: "/connected-apps", label: "Connected Apps", icon: Link2, tone: "pulse" as const }]
     : baseMainLinks;
     
   const visibleSupportLinks = supportLinks.filter((item) => !item.adminOnly || role === "admin");

@@ -5,6 +5,7 @@ import { todayIso } from "@/lib/dates";
 import { supabase } from "@/lib/supabase";
 import { useStrava } from "@/hooks/useStrava";
 import type { CardioSession } from "@/lib/types";
+import { isNativeApp, openExternalBrowser } from "@/lib/nativeApp";
 
 type CardioForm = {
   activity_type: CardioSession["activity_type"];
@@ -120,6 +121,14 @@ export default function Cardio() {
     );
   }
 
+  function handleConnect() {
+    if (isNativeApp()) {
+      openExternalBrowser(window.location.origin + "/connected-apps?provider=strava&source=mobile");
+    } else {
+      window.location.href = "/connected-apps";
+    }
+  }
+
   return (
     <main className="min-h-screen bg-cream px-4 py-5 text-ink md:px-8 md:py-7">
       <PageHeader
@@ -207,7 +216,7 @@ export default function Cardio() {
                         {stravaConnection ? "Connected ✓" : "Not connected"}
                     </p>
                     {!stravaConnection && (
-                        <Button variant="secondary" onClick={() => window.location.href = "/connected-apps"}>
+                        <Button variant="secondary" onClick={handleConnect}>
                             Manage in Connected Apps
                         </Button>
                     )}

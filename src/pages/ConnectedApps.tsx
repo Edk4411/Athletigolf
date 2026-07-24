@@ -4,6 +4,7 @@ import { useStrava } from "@/hooks/useStrava";
 import { getStravaAuthorizeUrl } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useLocation } from "wouter";
+import { isNativeApp, openExternalBrowser } from "@/lib/nativeApp";
 
 export default function ConnectedApps() {
   const { stravaConnection, loading, disconnect } = useStrava();
@@ -14,10 +15,15 @@ export default function ConnectedApps() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
+    const provider = params.get("provider");
+    const source = params.get("source");
+
     if (code) {
       handleCallback(code);
+    } else if (provider === "strava" && source === "mobile" && !stravaConnection && stravaHref && !loading) {
+      window.location.href = stravaHref;
     }
-  }, []);
+  }, [stravaConnection, stravaHref, loading]);
 
   async function handleCallback(code: string) {
     setProcessing(true);
@@ -27,13 +33,21 @@ export default function ConnectedApps() {
     setProcessing(false);
   }
 
+  function handleConnect() {
+    if (isNativeApp() && stravaHref) {
+      openExternalBrowser(window.location.origin + "/connected-apps?provider=strava&source=mobile");
+    } else if (stravaHref) {
+      window.location.href = stravaHref;
+    }
+  }
+
   const integrations = [
     {
       id: "strava",
       name: "Strava",
       description: "Import runs, walks and hikes from Strava.",
       isConnected: !!stravaConnection,
-      connectHref: stravaHref,
+      onConnect: handleConnect,
       onDisconnect: disconnect,
     },
     { id: "garmin", name: "Garmin", description: "Coming soon", isConnected: false },
@@ -77,10 +91,10 @@ export default function ConnectedApps() {
                 <Button variant="secondary" onClick={integration.onDisconnect} disabled={loading || processing}>
                   Disconnect
                 </Button>
-              ) : integration.connectHref ? (
-                <a href={integration.connectHref} className="app-button inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition hover:-translate-y-0.5 bg-dark text-white shadow-[0_14px_34px_rgba(7,10,15,0.18)] hover:bg-steel">
+              ) : integration.id === "strava" ? (
+                <Button variant="pulse" onClick={integration.onConnect} disabled={loading || processing}>
                   Connect {integration.name}
-                </a>
+                </Button>
               ) : (
                 <Button variant="secondary" disabled>
                   {integration.id === "strava" ? "Configure Strava API" : "Coming Soon"}
