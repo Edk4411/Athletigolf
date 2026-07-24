@@ -39,6 +39,12 @@ export default function ConnectedApps() {
     }
   }
 
+  async function handleImport() {
+    setProcessing(true);
+    await supabase.functions.invoke("strava-import");
+    setProcessing(false);
+  }
+
   const integrations = [
     {
       id: "strava",
@@ -46,6 +52,7 @@ export default function ConnectedApps() {
       description: "Import runs, walks and hikes from Strava.",
       isConnected: !!stravaConnection,
       onConnect: handleConnect,
+      onImport: handleImport,
       onDisconnect: disconnect,
     },
     { id: "garmin", name: "Garmin", description: "Coming soon", isConnected: false },
@@ -86,9 +93,14 @@ export default function ConnectedApps() {
             
             <div className="flex gap-3 mt-2">
               {integration.isConnected ? (
-                <Button variant="secondary" onClick={integration.onDisconnect} disabled={loading || processing}>
-                  Disconnect
-                </Button>
+                <>
+                  <Button variant="secondary" onClick={integration.onDisconnect} disabled={loading || processing}>
+                    Disconnect
+                  </Button>
+                  <Button variant="pulse" onClick={integration.onImport} disabled={loading || processing}>
+                    Sync Activities
+                  </Button>
+                </>
               ) : integration.id === "strava" ? (
                 <Button variant="pulse" onClick={integration.onConnect} disabled={loading || processing}>
                   Connect {integration.name}

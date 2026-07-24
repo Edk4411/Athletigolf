@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { useLocation } from "wouter";
+import { StravaGolfQueue } from "@/components/StravaGolfQueue";
 import {
   Activity,
   CalendarDays,
@@ -108,6 +109,7 @@ export default function GolfHub() {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 pb-6 sm:px-6">
+      <StravaGolfQueue />
       <section className="overflow-hidden rounded-[2rem] border border-white/12 bg-[linear-gradient(135deg,rgba(6,36,55,0.96),rgba(7,77,58,0.9))] p-5 text-white shadow-[0_24px_70px_rgba(2,14,28,0.28)]">
         <div className="flex items-start gap-4">
           <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-emerald-200/25 bg-emerald-300/15">

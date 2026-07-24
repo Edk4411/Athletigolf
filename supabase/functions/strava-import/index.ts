@@ -35,17 +35,32 @@ Deno.serve(async (request) => {
     const activityList = Array.isArray(activities) ? activities : [];
     const mapped = activityList.map((activity: any) => ({
       activity,
-      row: mapActivity(user.id, activity),
+      result: mapActivity(user.id, activity),
     }));
-    const rows = mapped.map((item) => item.row).filter(Boolean);
-    const skippedUnsupported = mapped.filter((item) => !item.row).length;
+    
+    const cardioRows = mapped
+      .filter((item) => item.result?.classification === "cardio")
+      .map((item) => item.result!.row);
+      
+    const golfRows = mapped
+      .filter((item) => item.result?.classification === "golf")
+      .map((item) => item.result!.row);
+
+    const skippedUnsupported = mapped.filter((item) => !item.result).length;
     const activityTypes = [...new Set(activityList.map((activity: any) => String(activity.sport_type || activity.type || "unknown")))];
 
-    if (rows.length) {
+    if (cardioRows.length) {
       const { error: upsertError } = await admin
         .from("cardio_sessions")
-        .upsert(rows, { onConflict: "source,external_id" });
+        .upsert(cardioRows, { onConflict: "source,external_id" });
       if (upsertError) return json({ error: upsertError.message }, 500);
+    }
+    
+    if (golfRows.length) {
+      const { error: insertError } = await admin
+        .from("strava_activity_queue")
+        .upsert(golfRows, { onConflict: "external_id" });
+      if (insertError) return json({ error: insertError.message }, 500);
     }
 
     await admin
@@ -54,7 +69,8 @@ Deno.serve(async (request) => {
       .eq("user_id", user.id);
 
     return json({
-      imported: rows.length,
+      importedCardio: cardioRows.length,
+      importedGolf: golfRows.length,
       scanned: activityList.length,
       skippedUnsupported,
       activityTypes,
@@ -102,24 +118,53 @@ async function getFreshTokens(admin: any, connection: any) {
 
 function mapActivity(userId: string, activity: any) {
   const sport = String(activity.sport_type || activity.type || "").toLowerCase();
-  const isRun = sport.includes("run");
-  const isWalk = sport.includes("walk") || sport.includes("hike");
-  if (!isRun && !isWalk) return null;
+  
+  // Classification Logic
+  const isGolf = sport.includes("golf");
+  const isCardio = sport.includes("run") || sport.includes("walk") || sport.includes("hike") || sport.includes("ride");
+  
+  if (!isGolf && !isCardio) return null;
 
+  const classification = isGolf ? "golf" : "cardio";
+  const sessionDate = String(activity.start_date_local || activity.start_date || "").slice(0, 10);
+
+  if (classification === "golf") {
+    return {
+      classification,
+      row: {
+        user_id: userId,
+        external_id: String(activity.id),
+        activity_type: sport,
+        classification: "golf",
+        activity_date: sessionDate,
+        distance_km: Number(activity.distance || 0) / 1000,
+        duration_minutes: Math.round(Number(activity.moving_time || activity.elapsed_time || 0) / 60),
+        calories: toInteger(activity.calories),
+        avg_heart_rate: toInteger(activity.average_heartrate),
+        status: "pending",
+        activity_data: activity,
+      }
+    };
+  }
+
+  // Cardio mapping
   return {
-    user_id: userId,
-    activity_type: isWalk ? "walk" : "run",
-    session_date: String(activity.start_date_local || activity.start_date || "").slice(0, 10),
-    distance_km: Number(activity.distance || 0) / 1000,
-    duration_minutes: Math.round(Number(activity.moving_time || activity.elapsed_time || 0) / 60),
-    avg_heart_rate: toInteger(activity.average_heartrate),
-    calories: toInteger(activity.calories),
-    perceived_effort: null,
-    route_name: activity.name || null,
-    notes: "Imported from Strava. Private to your account.",
-    source: "strava",
-    external_id: String(activity.id),
-    updated_at: new Date().toISOString(),
+    classification,
+    row: {
+      user_id: userId,
+      activity_type: sport,
+      session_date: sessionDate,
+      distance_km: Number(activity.distance || 0) / 1000,
+      duration_minutes: Math.round(Number(activity.moving_time || activity.elapsed_time || 0) / 60),
+      avg_heart_rate: toInteger(activity.average_heartrate),
+      calories: toInteger(activity.calories),
+      perceived_effort: null,
+      route_name: activity.name || null,
+      notes: "Imported from Strava. Private to your account.",
+      source: "strava",
+      external_id: String(activity.id),
+      updated_at: new Date().toISOString(),
+    },
   };
 }
 
