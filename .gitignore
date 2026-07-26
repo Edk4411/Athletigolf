@@ -3,3 +3,9 @@ node_modules/
 .vite/
 dist/
 android/.idea/
+.env.*
+*.env
+credentials.json
+*.pem
+*.key
+.credentials
