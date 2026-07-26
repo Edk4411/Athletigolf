@@ -27,6 +27,7 @@ import { todayIso as getTodayIso, isSameLocalIsoDate } from "@/lib/dates";
 import type { CardioSession, Competition, ExerciseLog, NutritionEntry, OnboardingData, Round, RoundHole, Workout } from "@/lib/types";
 import type { WellnessLog } from "@/lib/types";
 import type { LiveActivity } from "@/lib/types";
+import type { Profile } from "@/lib/types";
 import { defaultWellnessTargets, getWellnessTargets, type WellnessTargets } from "@/lib/wellnessTargets";
 import { formatWater } from "@/lib/waterFormatting";
 import { getDisplayName } from "@/lib/nameFormatting";
@@ -46,6 +47,52 @@ export default function Dashboard() {
   const [wellnessTargets, setWellnessTargets] = useState<WellnessTargets>(defaultWellnessTargets);
   const [profile, setProfile] = useState<any>(null);
 
+  const [profile, setProfile] = useState<Profile | null>(null);
+
+  useEffect(() => {
+    supabase.from("profiles").select("preferred_name, full_name").maybeSingle().then(({ data }) => setProfile(data as Profile | null));
+  }, []);
+
+  const firstName =
+    (profile?.preferred_name && profile.preferred_name.trim()) ||
+    (profile?.full_name && profile.full_name.trim().split(/\s+/)[0]) ||
+    user?.email?.split("@")[0] ||
+    "Athlete";
+
+  useEffect(() => {
+    const load = async () => {
+      const today = getTodayIso();
+      const [{ data: r }, { data: h }, { data: w }, { data: cardio }, { data: c }, { data: wellness }, { data: nutrition }, { data: live }, { data: profile }] = await Promise.all([
+        supabase.from("rounds").select("*").order("created_at", { ascending: false }),
+        supabase.from("round_holes").select("*").order("created_at", { ascending: false }),
+        supabase.from("workouts").select("*").order("created_at", { ascending: false }),
+        supabase.from("cardio_sessions").select("*").order("session_date", { ascending: false }).limit(30),
+        supabase.from("competitions").select("*").eq("status", "upcoming").order("competition_date", { ascending: true }),
+        supabase.from("daily_wellness_logs").select("*").order("log_date", { ascending: false }).limit(7),
+        supabase.from("nutrition_entries").select("*").eq("log_date", today).order("created_at", { ascending: false }),
+        supabase
+          .from("live_activities")
+          .select("*")
+          .is("ended_at", null)
+          .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+          .order("started_at", { ascending: false })
+          .limit(8),
+        supabase.from("profiles").select("onboarding_data").maybeSingle(),
+      ]);
+      setRounds((r as Round[]) || []);
+      setRoundHoles((h as RoundHole[]) || []);
+      setWorkouts((w as Workout[]) || []);
+      setCardioSessions((cardio as CardioSession[]) || []);
+      setCompetitions((c as Competition[]) || []);
+      setWellnessLogs((wellness as WellnessLog[]) || []);
+      setNutritionEntries((nutrition as NutritionEntry[]) || []);
+      setLiveActivities((live as LiveActivity[]) || []);
+      const onboarding = (profile?.onboarding_data as OnboardingData | null) || null;
+      setSportMode(onboarding?.mainSport || "both");
+      setWellnessTargets(getWellnessTargets(onboarding));
+    };
+    load();
+  }, []);
   const firstName = getDisplayName(profile);
 
   const now = new Date();

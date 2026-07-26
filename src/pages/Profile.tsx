@@ -21,6 +21,7 @@ export default function Profile() {
   const [saveError, setSaveError] = useState("");
 
   const [editName, setEditName] = useState("");
+  const [editPreferredName, setEditPreferredName] = useState("");
   const [editUsername, setEditUsername] = useState("");
   const [editAge, setEditAge] = useState("");
   const [editHeight, setEditHeight] = useState("");
@@ -51,6 +52,7 @@ export default function Profile() {
   const openEditor = () => {
     setSaveError("");
     setEditName(profile?.full_name || "");
+    setEditPreferredName(profile?.preferred_name || "");
     setEditUsername(profile?.username || user?.user_metadata?.username || "");
     setEditAge(profile?.age?.toString() || "");
     setEditHeight(profile?.height || "");
@@ -74,6 +76,7 @@ export default function Profile() {
     const { error } = await supabase.from("profiles").upsert({
       id: user?.id,
       full_name: editName || null,
+      preferred_name: editPreferredName.trim() || null,
       username: cleanUsername,
       username_search: cleanUsername,
       age: editAge ? Number(editAge) : null,
@@ -95,7 +98,7 @@ export default function Profile() {
     await loadData();
   };
 
-  const name = profile?.full_name || user?.user_metadata?.username || user?.email?.split("@")[0] || "Athlete";
+  const name = profile?.preferred_name || (profile?.full_name || "").split(/\s+/)[0] || user?.email?.split("@")[0] || "Athlete";
   const username = profile?.username || user?.user_metadata?.username || "";
   const initial = name.charAt(0).toUpperCase();
   const memberSince = profile?.created_at
@@ -258,6 +261,10 @@ export default function Profile() {
 
             <div className="space-y-4">
               <Field label="Full Name" value={editName} onChange={setEditName} placeholder="Enter your name" />
+              <div>
+                <Field label="Preferred / First Name" value={editPreferredName} onChange={setEditPreferredName} placeholder="What friends should call you" />
+                <p className="mt-2 text-xs text-muted">This is the name shown across the app. Username is only used for adding friends.</p>
+              </div>
               <div>
                 <Field label="Username" value={editUsername} onChange={(value) => setEditUsername(normalizeUsername(value))} placeholder="your_username" />
                 <p className="mt-2 text-xs text-muted">{usernameRules}</p>

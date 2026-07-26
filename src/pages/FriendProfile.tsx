@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useRoute } from "wouter";
-import { Activity, ArrowLeft, ShieldCheck } from "lucide-react";
-import { Button, EmptyState, PageHeader, Surface } from "@/components/ui";
+import { Activity, ArrowLeft, Pencil, ShieldCheck, X } from "lucide-react";
+import { Button, EmptyState, FieldLabel, PageHeader, Surface, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { FriendProfileSummary, LiveActivity } from "@/lib/types";
 import { getDisplayName } from "@/lib/nameFormatting";
@@ -13,6 +13,9 @@ export default function FriendProfile() {
   const [activity, setActivity] = useState<LiveActivity | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [editingNick, setEditingNick] = useState(false);
+  const [nicknameDraft, setNicknameDraft] = useState("");
+  const [savingNick, setSavingNick] = useState(false);
 
   useEffect(() => {
     if (!friendId) return;
@@ -21,7 +24,7 @@ export default function FriendProfile() {
     async function loadFriendProfile() {
       setLoading(true);
       setError("");
-      const [{ data: profileData, error: profileError }, { data: activityData }] = await Promise.all([
+      const [{ data: profileData, error: profileError }, { data: activityData }, { data: nickData }] = await Promise.all([
         supabase.rpc("get_friend_profile", { friend_user_id: friendId }),
         supabase
           .from("live_activities")
@@ -31,11 +34,15 @@ export default function FriendProfile() {
           .is("ended_at", null)
           .order("started_at", { ascending: false })
           .limit(1),
+        supabase.from("friend_nicknames").select("nickname").eq("friend_id", friendId).maybeSingle(),
       ]);
 
       if (cancelled) return;
       if (profileError) setError(profileError.message);
-      setProfile(((profileData as FriendProfileSummary[]) || [])[0] || null);
+      const base = ((profileData as FriendProfileSummary[]) || [])[0] || null;
+      const merged = base ? { ...base, nickname: (nickData as { nickname?: string } | null)?.nickname || null } : null;
+      setProfile(merged);
+      setNicknameDraft(merged?.nickname || "");
       setActivity(((activityData as LiveActivity[]) || [])[0] || null);
       setLoading(false);
     }
@@ -45,6 +52,24 @@ export default function FriendProfile() {
       cancelled = true;
     };
   }, [friendId]);
+
+  async function saveNickname() {
+    setSavingNick(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setSavingNick(false); return; }
+    const value = nicknameDraft.trim();
+    if (value) {
+      await supabase.from("friend_nicknames").upsert(
+        { owner_id: user.id, friend_id: friendId, nickname: value, updated_at: new Date().toISOString() },
+        { onConflict: "owner_id,friend_id" }
+      );
+    } else {
+      await supabase.from("friend_nicknames").delete().eq("owner_id", user.id).eq("friend_id", friendId);
+    }
+    setProfile((prev) => (prev ? { ...prev, nickname: value || null } : prev));
+    setEditingNick(false);
+    setSavingNick(false);
+  }
 
   if (loading) {
     return (
@@ -66,6 +91,7 @@ export default function FriendProfile() {
     );
   }
 
+  const displayName = profile.nickname || profile.preferred_name || (profile.full_name || "").split(/\s+/)[0] || profile.display_name || (profile.username ? `@${profile.username}` : "Friend");
   const displayName = getDisplayName(profile as any);
 
   return (
@@ -82,10 +108,27 @@ export default function FriendProfile() {
         <Surface>
           <div className="flex items-start gap-4">
             <FriendAvatar src={profile.avatar_url} name={displayName} />
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">Accepted friend</p>
-              <h2 className="mt-2 text-3xl font-semibold text-dark">{displayName}</h2>
+              <div className="mt-2 flex items-center gap-2">
+                <h2 className="text-3xl font-semibold text-dark">{displayName}</h2>
+                <button type="button" onClick={() => setEditingNick((v) => !v)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-steel/10 hover:text-dark" aria-label="Edit nickname" data-testid="edit-nickname-btn">
+                  <Pencil className="h-4 w-4" />
+                </button>
+              </div>
               {profile.username && <p className="mt-1 text-sm font-semibold text-pulse">@{profile.username}</p>}
+              {editingNick && (
+                <div className="mt-3 flex items-center gap-2" data-testid="nickname-editor">
+                  <FieldLabel>Rename in your app</FieldLabel>
+                  <TextInput value={nicknameDraft} onChange={(e) => setNicknameDraft(e.target.value)} placeholder="e.g. Coach D" data-testid="nickname-input" />
+                  <Button type="button" variant="pulse" onClick={saveNickname} disabled={savingNick} data-testid="save-nickname">
+                    {savingNick ? "Saving..." : "Save"}
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => { setEditingNick(false); setNicknameDraft(profile.nickname || ""); }}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
               {profile.bio && <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">{profile.bio}</p>}
             </div>
           </div>

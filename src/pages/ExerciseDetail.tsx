@@ -1,5 +1,6 @@
 import { ExternalLink, ShieldCheck } from "lucide-react";
 import { useRoute } from "wouter";
+import BodyDiagram from "@/components/BodyDiagram";
 import { PageHeader, StatusPill, Surface } from "@/components/ui";
 import { exerciseNameFromSlug, getExerciseGuideFromList } from "@/lib/exerciseLibrary";
 import { useExerciseLibrary } from "@/hooks/useExerciseLibrary";
@@ -11,6 +12,15 @@ export default function ExerciseDetail() {
   const match = bySlug.get(slug);
   const guide = getExerciseGuideFromList(match?.name || exerciseNameFromSlug(slug), exercises);
   const videoUrl = guide.videoUrl || `https://www.youtube.com/results?search_query=${encodeURIComponent(guide.videoSearch)}`;
+
+  // Prefer the richer equipmentOptions list, fall back to the single string.
+  const equipmentList: string[] =
+    (guide as { equipmentOptions?: string[] }).equipmentOptions?.length
+      ? ((guide as { equipmentOptions: string[] }).equipmentOptions)
+      : [guide.equipment].filter(Boolean);
+
+  const tips = guide.formCues?.length ? guide.formCues : [];
+  const mistakes = guide.commonMistakes?.length ? guide.commonMistakes : [];
 
   return (
     <main className="min-h-screen bg-cream px-4 py-5 md:px-8 md:py-7">
@@ -26,7 +36,9 @@ export default function ExerciseDetail() {
           <Surface>
             <div className="flex flex-wrap gap-2">
               <StatusPill tone="gym">{guide.primaryMuscle}</StatusPill>
-              <StatusPill>{guide.equipment}</StatusPill>
+              {equipmentList.map((eq) => (
+                <StatusPill key={eq}>{eq}</StatusPill>
+              ))}
               <StatusPill>{guide.movement}</StatusPill>
               {guide.difficulty && <StatusPill tone="gold">{guide.difficulty}</StatusPill>}
               {guide.golfRelevant && <StatusPill tone="golf">Golf relevant</StatusPill>}
@@ -36,11 +48,31 @@ export default function ExerciseDetail() {
             </p>
           </Surface>
 
+          <Surface data-testid="muscle-diagram">
+            <div className="mb-4 flex items-baseline justify-between gap-3">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Muscles worked</p>
+              <p className="text-xs text-muted">Primary highlighted red - secondary amber</p>
+            </div>
+            <BodyDiagram primaryMuscle={guide.primaryMuscle} secondaryMuscles={guide.secondaryMuscles} />
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted">Primary</p>
+                <p className="mt-1 text-sm font-semibold text-dark">{guide.primaryMuscle || "-"}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted">Secondary</p>
+                <p className="mt-1 text-sm font-semibold text-dark">
+                  {guide.secondaryMuscles?.length ? guide.secondaryMuscles.join(", ") : "-"}
+                </p>
+              </div>
+            </div>
+          </Surface>
+
           <div className="grid gap-5 md:grid-cols-2">
-            <GuidePanel title="Form Cues" items={guide.formCues} />
-            <GuidePanel title="Common Mistakes" items={guide.commonMistakes} />
-            <GuidePanel title="Muscles" items={[guide.primaryMuscle, ...guide.secondaryMuscles]} />
-            <GuidePanel title="Alternatives" items={guide.alternatives.length ? guide.alternatives : ["Use the same movement pattern with equipment you can control."]} />
+            <GuidePanel title="Useful tips" items={tips.length ? tips : ["Use a controlled tempo.", "Brace before every rep.", "Stop if form breaks."]} />
+            <GuidePanel title="Common mistakes" items={mistakes.length ? mistakes : ["Going too heavy too soon.", "Rushing reps.", "Losing bracing at end range."]} />
+            <GuidePanel title="Equipment" items={equipmentList.length ? equipmentList : ["Check exercise setup"]} />
+            <GuidePanel title="Alternatives" items={guide.alternatives.length ? guide.alternatives : ["Same pattern with equipment you can control."]} />
           </div>
         </div>
 
@@ -77,8 +109,8 @@ function GuidePanel({ title, items }: { title: string; items: string[] }) {
     <Surface>
       <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-muted">{title}</p>
       <ul className="space-y-2">
-        {items.map((item) => (
-          <li key={item} className="text-sm leading-relaxed text-ink">
+        {items.map((item, i) => (
+          <li key={`${item}-${i}`} className="text-sm leading-relaxed text-ink">
             {item}
           </li>
         ))}

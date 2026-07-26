@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation, useRoute } from "wouter";
 import { Activity, Bed, CalendarDays, ChevronLeft, ChevronRight, Copy, Database, Droplets, Flame, Gauge, HeartPulse, Moon, Pencil, Plus, Scale, Search, Trash2, Utensils, Zap, type LucideIcon } from "lucide-react";
 import { Button, EmptyState, FieldLabel, SelectInput, Surface, TextArea, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
@@ -80,6 +81,11 @@ const mealTypes: Array<{ value: NutritionEntry["meal_type"]; label: string }> = 
 type WellnessPanel = "home" | "food" | "water" | "sleep" | "body" | "heartRate" | "bloodPressure";
 
 export default function Wellness() {
+  const [, panelParams] = useRoute("/wellness/:panel");
+  const [, navigate] = useLocation();
+  const routePanel = panelParams?.panel as WellnessPanel | undefined;
+  const validPanels: WellnessPanel[] = ["home", "food", "water", "sleep", "body", "heartRate", "bloodPressure"];
+  const initialPanel: WellnessPanel = routePanel && validPanels.includes(routePanel) ? routePanel : "home";
   const [logs, setLogs] = useState<WellnessLog[]>([]);
   const [nutritionEntries, setNutritionEntries] = useState<NutritionEntry[]>([]);
   const [savedFoods, setSavedFoods] = useState<SavedFood[]>([]);
@@ -88,7 +94,23 @@ export default function Wellness() {
   const [practices, setPractices] = useState<PracticeSession[]>([]);
   const [targets, setTargets] = useState<WellnessTargets>(defaultWellnessTargets);
   const [tracking, setTracking] = useState<WellnessTrackingPreferences>(defaultWellnessTracking);
-  const [activePanel, setActivePanel] = useState<WellnessPanel>("home");
+  const [activePanel, setActivePanelState] = useState<WellnessPanel>(initialPanel);
+
+  // Keep URL and panel state in sync so each area feels like its own page
+  // (browser back works, share links work).
+  const setActivePanel = (next: WellnessPanel) => {
+    setActivePanelState(next);
+    const target = next === "home" ? "/wellness" : `/wellness/${next}`;
+    if (typeof window !== "undefined" && window.location.pathname !== target) {
+      navigate(target);
+    }
+  };
+
+  useEffect(() => {
+    if (routePanel && validPanels.includes(routePanel)) setActivePanelState(routePanel);
+    else if (!routePanel) setActivePanelState("home");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routePanel]);
   const [selectedLog, setSelectedLog] = useState<WellnessLog | null>(null);
   const [form, setForm] = useState(blankForm);
   const [foodForm, setFoodForm] = useState(blankFoodForm);
