@@ -578,7 +578,7 @@ export default function Onboarding() {
                 <div className="mt-5 grid gap-3 md:grid-cols-4">
                   <TargetPreview label="Calories" value={`${wellnessTargets?.calories ?? 2400}`} />
                   <TargetPreview label="Protein" value={`${wellnessTargets?.proteinGrams ?? 140} g`} />
-                  <TargetPreview label="Water" value={`${wellnessTargets?.waterLitres ?? 2.5} L`} />
+                  <TargetPreview label="Water" value={`${(wellnessTargets?.waterLitres ?? 2.5) * 1000} ml`} />
                   <TargetPreview label="Sleep" value={`${wellnessTargets?.sleepHours ?? 8} h`} />
                 </div>
 
@@ -818,7 +818,7 @@ function buildRecommendation(data: OnboardingData) {
       },
       {
         label: "Wellness Targets",
-        title: targets ? `${targets.calories} kcal / ${targets.waterLitres} L` : "Baseline ready",
+        title: targets ? `${targets.calories} kcal / ${targets.waterLitres * 1000} ml` : "Baseline ready",
         detail: "Daily calories, protein, hydration and sleep targets will feed the Wellness dashboard.",
       },
     ];
@@ -842,7 +842,7 @@ function buildRecommendation(data: OnboardingData) {
     },
     {
       label: "Wellness Targets",
-      title: targets ? `${targets.proteinGrams} g protein / ${targets.waterLitres} L water` : "Baseline ready",
+      title: targets ? `${targets.proteinGrams} g protein / ${targets.waterLitres * 1000} ml water` : "Baseline ready",
       detail: "Nutrition, hydration and sleep now have a personal target instead of generic defaults.",
     },
   ];

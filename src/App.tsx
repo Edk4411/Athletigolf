@@ -372,14 +372,14 @@ function AppShell() {
   </ProtectedRoute>
 </Route>
 
+<Route path="/account-connected">
+  <AccountConnected />
+</Route>
+
 <Route path="/connected-apps">
   <ProtectedRoute>
     <ConnectedApps />
   </ProtectedRoute>
-</Route>
-
-<Route path="/account-connected">
-  <AccountConnected />
 </Route>
 
 <Route path="/strava-callback">

@@ -4,6 +4,7 @@ import { useStrava } from "@/hooks/useStrava";
 import { getStravaAuthorizeUrl } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useLocation } from "wouter";
+import { isNativeApp, openExternalBrowser } from "@/lib/nativeApp";
 
 export default function ConnectedApps() {
   const { stravaConnection, loading, disconnect } = useStrava();
@@ -14,6 +15,7 @@ export default function ConnectedApps() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
+
     if (code) {
       handleCallback(code);
     }
@@ -27,13 +29,30 @@ export default function ConnectedApps() {
     setProcessing(false);
   }
 
+  function handleConnect() {
+    if (stravaHref) {
+      if (isNativeApp()) {
+        openExternalBrowser(stravaHref);
+      } else {
+        window.location.href = stravaHref;
+      }
+    }
+  }
+
+  async function handleImport() {
+    setProcessing(true);
+    await supabase.functions.invoke("strava-import");
+    setProcessing(false);
+  }
+
   const integrations = [
     {
       id: "strava",
       name: "Strava",
       description: "Import runs, walks and hikes from Strava.",
       isConnected: !!stravaConnection,
-      connectHref: stravaHref,
+      onConnect: handleConnect,
+      onImport: handleImport,
       onDisconnect: disconnect,
     },
     { id: "garmin", name: "Garmin", description: "Coming soon", isConnected: false },
@@ -74,13 +93,18 @@ export default function ConnectedApps() {
             
             <div className="flex gap-3 mt-2">
               {integration.isConnected ? (
-                <Button variant="secondary" onClick={integration.onDisconnect} disabled={loading || processing}>
-                  Disconnect
-                </Button>
-              ) : integration.connectHref ? (
-                <a href={integration.connectHref} className="app-button inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition hover:-translate-y-0.5 bg-dark text-white shadow-[0_14px_34px_rgba(7,10,15,0.18)] hover:bg-steel">
+                <>
+                  <Button variant="secondary" onClick={integration.onDisconnect} disabled={loading || processing}>
+                    Disconnect
+                  </Button>
+                  <Button variant="pulse" onClick={integration.onImport} disabled={loading || processing}>
+                    Sync Activities
+                  </Button>
+                </>
+              ) : integration.id === "strava" ? (
+                <Button variant="pulse" onClick={integration.onConnect} disabled={loading || processing}>
                   Connect {integration.name}
-                </a>
+                </Button>
               ) : (
                 <Button variant="secondary" disabled>
                   {integration.id === "strava" ? "Configure Strava API" : "Coming Soon"}
