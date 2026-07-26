@@ -246,14 +246,27 @@ export default function GymQuiz({ onComplete }: { onComplete: () => void }) {
     }));
   };
 
-  const addExercisePreference = (type: "includeExercises" | "avoidExercises", value: string) => {
+  const [prefConflict, setPrefConflict] = useState("");
+
+  const toggleExercisePreference = (type: "includeExercises" | "avoidExercises", value: string) => {
     const exercise = value.trim();
     if (!exercise) return;
+    const other = type === "includeExercises" ? "avoidExercises" : "includeExercises";
+    setPrefConflict("");
     setData((prev) => {
+      const normalised = normaliseExerciseName(exercise);
+      if (prev[other].some((item) => normaliseExerciseName(item) === normalised)) {
+        setPrefConflict(`"${exercise}" is already in the ${other === "avoidExercises" ? "Avoid" : "Add"} list. Remove it from there first.`);
+        return prev;
+      }
       const currentList = prev[type];
-      if (currentList.some((item) => normaliseExerciseName(item) === normaliseExerciseName(exercise))) return prev;
-      return { ...prev, [type]: [...currentList, exercise] };
+      const exists = currentList.some((item) => normaliseExerciseName(item) === normalised);
+      return { ...prev, [type]: exists ? currentList.filter((i) => normaliseExerciseName(i) !== normalised) : [...currentList, exercise] };
     });
+  };
+
+  const addExercisePreference = (type: "includeExercises" | "avoidExercises", value: string) => {
+    toggleExercisePreference(type, value);
     if (type === "includeExercises") setIncludeDraft("");
     if (type === "avoidExercises") setAvoidDraft("");
   };
@@ -379,28 +392,18 @@ export default function GymQuiz({ onComplete }: { onComplete: () => void }) {
                 </>
               ) : current.custom === "exercisePreferences" ? (
                 <>
-                  <div className="grid gap-4">
-                    <ExercisePreferenceBlock
-                      title="Include these"
-                      value={includeDraft}
-                      setValue={setIncludeDraft}
-                      selected={data.includeExercises}
-                      exercises={exercises}
-                      allowGolfSpecific={!gymOnly}
-                      onAdd={() => addExercisePreference("includeExercises", includeDraft)}
-                      onRemove={(value) => removeExercisePreference("includeExercises", value)}
-                    />
-                    <ExercisePreferenceBlock
-                      title="Avoid these"
-                      value={avoidDraft}
-                      setValue={setAvoidDraft}
-                      selected={data.avoidExercises}
-                      exercises={exercises}
-                      allowGolfSpecific={!gymOnly}
-                      onAdd={() => addExercisePreference("avoidExercises", avoidDraft)}
-                      onRemove={(value) => removeExercisePreference("avoidExercises", value)}
-                    />
-                  </div>
+                  <FullExerciseSelector
+                    exercises={exercises}
+                    allowGolfSpecific={!gymOnly}
+                    includeList={data.includeExercises}
+                    avoidList={data.avoidExercises}
+                    onToggle={toggleExercisePreference}
+                  />
+                  {prefConflict && (
+                    <p className="mt-2 rounded-lg border border-danger/20 bg-danger/10 p-2 text-sm font-semibold text-danger" data-testid="pref-conflict">
+                      {prefConflict}
+                    </p>
+                  )}
                   <Button type="button" variant="primary" onClick={continueFromMultiStep}>
                     Continue
                   </Button>
@@ -556,16 +559,7 @@ function DayPreferenceStep({
   );
 }
 
-function ExercisePreferenceBlock({
-  title,
-  value,
-  setValue,
-  selected,
-  exercises,
-  allowGolfSpecific,
-  onAdd,
-  onRemove,
-}: {
+function ExercisePreferenceBlock(_props: {
   title: string;
   value: string;
   setValue: (value: string) => void;
@@ -575,30 +569,87 @@ function ExercisePreferenceBlock({
   onAdd: () => void;
   onRemove: (value: string) => void;
 }) {
+  // Kept for backward compat - the flow now uses FullExerciseSelector.
+  return null;
+}
+
+function FullExerciseSelector({
+  exercises,
+  allowGolfSpecific,
+  includeList,
+  avoidList,
+  onToggle,
+}: {
+  exercises: ExerciseLibraryItem[];
+  allowGolfSpecific: boolean;
+  includeList: string[];
+  avoidList: string[];
+  onToggle: (type: "includeExercises" | "avoidExercises", value: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const visible = exercises
+    .filter((e) => allowGolfSpecific || e.category !== "Golf-Specific")
+    .filter((e) => {
+      if (!q) return true;
+      const hay = `${e.name} ${e.primaryMuscle} ${e.equipment} ${(e.secondaryMuscles || []).join(" ")}`.toLowerCase();
+      return hay.includes(q);
+    });
+  const includeSet = new Set(includeList.map((v) => v.toLowerCase()));
+  const avoidSet = new Set(avoidList.map((v) => v.toLowerCase()));
+
   return (
     <div className="rounded-xl border border-line bg-white/70 p-4">
-      <ExercisePicker
-        label={title}
-        value={value}
-        exercises={exercises}
-        allowGolfSpecific={allowGolfSpecific}
-        onChange={setValue}
-        placeholder="Search exercise database"
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search exercises..."
+        className="mb-3 w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm outline-none focus:border-pulse"
+        data-testid="exercise-search"
       />
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button type="button" variant="secondary" onClick={onAdd} disabled={!value.trim()}>
-          Add
-        </Button>
-        {selected.map((exercise) => (
-          <button
-            key={exercise}
-            type="button"
-            onClick={() => onRemove(exercise)}
-            className="rounded-full border border-line bg-panel px-3 py-1 text-xs font-semibold text-dark transition hover:border-danger/40 hover:text-danger"
-          >
-            {exercise} x
-          </button>
-        ))}
+      <div className="mb-3 flex flex-wrap gap-2 text-xs">
+        <span className="rounded-full bg-pulse/10 px-2 py-1 font-semibold text-pulse">Add: {includeList.length}</span>
+        <span className="rounded-full bg-danger/10 px-2 py-1 font-semibold text-danger">Avoid: {avoidList.length}</span>
+        <span className="text-muted">Tap Add or Avoid on each exercise</span>
+      </div>
+      <div className="max-h-[380px] space-y-2 overflow-y-auto pr-1" data-testid="exercise-selector-list">
+        {visible.map((e) => {
+          const inInclude = includeSet.has(e.name.toLowerCase());
+          const inAvoid = avoidSet.has(e.name.toLowerCase());
+          return (
+            <div key={e.slug || e.name} className="flex items-center justify-between gap-3 rounded-lg border border-line bg-panel px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-dark">{e.name}</p>
+                <p className="truncate text-xs text-muted">{e.primaryMuscle} - {e.equipment}</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => onToggle("includeExercises", e.name)}
+                  disabled={inAvoid}
+                  data-testid={`add-btn-${e.name}`}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                    inInclude ? "border-pulse bg-pulse text-white" : "border-pulse/40 text-pulse hover:bg-pulse/10"
+                  } ${inAvoid ? "cursor-not-allowed opacity-40" : ""}`}
+                >
+                  {inInclude ? "Added" : "Add"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onToggle("avoidExercises", e.name)}
+                  disabled={inInclude}
+                  data-testid={`avoid-btn-${e.name}`}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                    inAvoid ? "border-danger bg-danger text-white" : "border-danger/40 text-danger hover:bg-danger/10"
+                  } ${inInclude ? "cursor-not-allowed opacity-40" : ""}`}
+                >
+                  {inAvoid ? "Avoiding" : "Avoid"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        {visible.length === 0 && <p className="text-sm text-muted">No exercises match that search.</p>}
       </div>
     </div>
   );
@@ -693,7 +744,8 @@ function buildSplitDays(data: TrainingData, mode: SplitBuilderMode): GeneratedDa
     ];
   }
 
-  return fillWeek(applyProtectedRestDays(trainingDays, data.restDays));
+  // Even for auto-build, still honour any preferred-day picks the user provided.
+  return fillWeek(applyProtectedRestDays(applyPreferredTrainingDays(trainingDays, data.preferredDays), data.restDays, data.preferredDays));
 }
 
 function buildStyledSplitDays(data: TrainingData, mode: SplitBuilderMode, exerciseCount: number): GeneratedDay[] {
@@ -765,17 +817,39 @@ function defaultTrainingDay(index: number, frequency: number) {
 }
 
 function applyPreferredTrainingDays(trainingDays: GeneratedDay[], preferredDays: Record<string, string>): GeneratedDay[] {
+  // Two-pass placement so user preferences ALWAYS win. Pass 1: honour every
+  // preferred day (order matters for tie-breaks between conflicting focuses).
+  // Pass 2: fill remaining focuses into whatever days are still free.
+  const result: GeneratedDay[] = trainingDays.map((d) => ({ ...d, day: "" }));
   const usedDays = new Set<string>();
 
-  return trainingDays.map((trainingDay) => {
-    const preferredDay = preferredDays[trainingDay.focus];
-    if (!preferredDay || usedDays.has(preferredDay)) {
-      usedDays.add(trainingDay.day);
-      return trainingDay;
+  // Pass 1 - preferred days (first come, first served if two focuses collide)
+  trainingDays.forEach((day, idx) => {
+    const preferred = preferredDays[day.focus];
+    if (preferred && !usedDays.has(preferred)) {
+      result[idx].day = preferred;
+      usedDays.add(preferred);
     }
-    usedDays.add(preferredDay);
-    return { ...trainingDay, day: preferredDay };
   });
+
+  // Pass 2 - fill in the rest from their originally suggested day, else next open day
+  trainingDays.forEach((day, idx) => {
+    if (result[idx].day) return;
+    if (day.day && !usedDays.has(day.day)) {
+      result[idx].day = day.day;
+      usedDays.add(day.day);
+      return;
+    }
+    const openDay = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].find((d) => !usedDays.has(d));
+    if (openDay) {
+      result[idx].day = openDay;
+      usedDays.add(openDay);
+    } else {
+      result[idx].day = day.day;
+    }
+  });
+
+  return result;
 }
 
 function trainingDay(day: string, focus: string, exercises: string[]): GeneratedDay {
@@ -789,15 +863,18 @@ function fillWeek(trainingDays: GeneratedDay[]): GeneratedDay[] {
   );
 }
 
-function applyProtectedRestDays(trainingDays: GeneratedDay[], restDays: string[]): GeneratedDay[] {
+function applyProtectedRestDays(trainingDays: GeneratedDay[], restDays: string[], preferredDays: Record<string, string> = {}): GeneratedDay[] {
   if (restDays.length === 0) return trainingDays;
 
   const protectedDays = new Set(restDays);
+  const preferredSet = new Set(Object.values(preferredDays).filter(Boolean));
   const usedDays = new Set(trainingDays.map((day) => day.day));
   const availableDays = weekDays.filter((day) => !protectedDays.has(day));
 
   return trainingDays.map((trainingDay) => {
     if (!protectedDays.has(trainingDay.day)) return trainingDay;
+    // Never move a day the user explicitly asked for. Their choice > rest protection.
+    if (preferredSet.has(trainingDay.day) && preferredDays[trainingDay.focus] === trainingDay.day) return trainingDay;
 
     const replacementDay = availableDays.find((day) => !usedDays.has(day));
     if (!replacementDay) return trainingDay;

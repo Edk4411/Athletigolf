@@ -50,6 +50,8 @@ import Follow from "./pages/Follow";
 import AdminFeedback from "./pages/AdminFeedback";
 import ConnectedApps from "./pages/ConnectedApps";
 import AccountConnected from "./pages/AccountConnected";
+import Recommendations from "./pages/Recommendations";
+import TopTracerSession from "./pages/TopTracerSession";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -198,6 +200,24 @@ function AppShell() {
         <Route path="/wellness">
           <ProtectedRoute>
             <Wellness />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/wellness/:panel">
+          <ProtectedRoute>
+            <Wellness />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/recommendations">
+          <ProtectedRoute>
+            <Recommendations />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/golf/toptracer">
+          <ProtectedRoute>
+            <TopTracerSession />
           </ProtectedRoute>
         </Route>
 

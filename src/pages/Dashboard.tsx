@@ -27,6 +27,7 @@ import { todayIso as getTodayIso, isSameLocalIsoDate } from "@/lib/dates";
 import type { CardioSession, Competition, ExerciseLog, NutritionEntry, OnboardingData, Round, RoundHole, Workout } from "@/lib/types";
 import type { WellnessLog } from "@/lib/types";
 import type { LiveActivity } from "@/lib/types";
+import type { Profile } from "@/lib/types";
 import { defaultWellnessTargets, getWellnessTargets, type WellnessTargets } from "@/lib/wellnessTargets";
 
 export default function Dashboard() {
@@ -43,8 +44,15 @@ export default function Dashboard() {
   const [sportMode, setSportMode] = useState<OnboardingData["mainSport"]>("both");
   const [wellnessTargets, setWellnessTargets] = useState<WellnessTargets>(defaultWellnessTargets);
 
+  const [profile, setProfile] = useState<Profile | null>(null);
+
+  useEffect(() => {
+    supabase.from("profiles").select("preferred_name, full_name").maybeSingle().then(({ data }) => setProfile(data as Profile | null));
+  }, []);
+
   const firstName =
-    user?.user_metadata?.username ||
+    (profile?.preferred_name && profile.preferred_name.trim()) ||
+    (profile?.full_name && profile.full_name.trim().split(/\s+/)[0]) ||
     user?.email?.split("@")[0] ||
     "Athlete";
 

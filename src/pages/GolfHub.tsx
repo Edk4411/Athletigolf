@@ -36,6 +36,20 @@ const golfItems: GolfHubItem[] = [
     tone: "bg-emerald-400/15 text-emerald-100 border-emerald-200/20",
   },
   {
+    label: "TopTracer / Range",
+    description: "Warm-up, TopTracer 30/12 and full range practice logging.",
+    href: "/golf/toptracer",
+    icon: Activity,
+    tone: "bg-orange-400/15 text-orange-100 border-orange-200/20",
+  },
+  {
+    label: "Gear Recommendations",
+    description: "Balls, clubs and gear picks curated by handicap.",
+    href: "/recommendations",
+    icon: Sparkles,
+    tone: "bg-amber-400/15 text-amber-100 border-amber-200/20",
+  },
+  {
     label: "Competitions",
     description: "Upcoming events, prep notes and target scores.",
     href: "/golf/competitions",

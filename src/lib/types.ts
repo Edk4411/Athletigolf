@@ -1,6 +1,7 @@
 export type Profile = {
   id: string;
   full_name: string | null;
+  preferred_name?: string | null;
   username?: string | null;
   username_search?: string | null;
   show_display_name_in_search?: boolean | null;
@@ -567,6 +568,9 @@ export type FriendProfileSummary = {
   user_id: string;
   username: string | null;
   display_name: string | null;
+  preferred_name?: string | null;
+  full_name?: string | null;
+  nickname?: string | null;
   avatar_url?: string | null;
   bio?: string | null;
   home_course?: string | null;
