@@ -45,7 +45,7 @@ export default function Dashboard() {
   const [liveActivities, setLiveActivities] = useState<LiveActivity[]>([]);
   const [sportMode, setSportMode] = useState<OnboardingData["mainSport"]>("both");
   const [wellnessTargets, setWellnessTargets] = useState<WellnessTargets>(defaultWellnessTargets);
-  const [profile, setProfile] = useState<any>(null);
+
 
   const [profile, setProfile] = useState<Profile | null>(null);
 
@@ -53,12 +53,8 @@ export default function Dashboard() {
     supabase.from("profiles").select("preferred_name, full_name").maybeSingle().then(({ data }) => setProfile(data as Profile | null));
   }, []);
 
-  const firstName =
-    (profile?.preferred_name && profile.preferred_name.trim()) ||
-    (profile?.full_name && profile.full_name.trim().split(/\s+/)[0]) ||
-    user?.email?.split("@")[0] ||
-    "Athlete";
-
+  
+  
   useEffect(() => {
     const load = async () => {
       const today = getTodayIso();
