@@ -37,9 +37,9 @@ const golfItems: GolfHubItem[] = [
     tone: "bg-emerald-400/15 text-emerald-100 border-emerald-200/20",
   },
   {
-    label: "TopTracer / Range",
-    description: "Warm-up, TopTracer 30/12 and full range practice logging.",
-    href: "/golf/toptracer",
+    label: "Log Practice",
+    description: "Range, short game, putting, on-course or sim - AthletiAI picks the right stats.",
+    href: "/practice/new",
     icon: Activity,
     tone: "bg-orange-400/15 text-orange-100 border-orange-200/20",
   },
