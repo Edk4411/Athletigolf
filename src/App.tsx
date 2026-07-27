@@ -42,6 +42,7 @@ import type { OnboardingData } from "@/lib/types";
 import PracticeSession from "./pages/PracticeSession";
 import PracticePlan from "./pages/PracticePlan";
 import PracticeHistory from "./pages/PracticeHistory";
+import LogPractice from "./pages/LogPractice";
 import PreviousWorkouts from "./pages/PreviousWorkouts";
 import Memberships from "./pages/Memberships";
 import Settings from "./pages/Settings";
@@ -51,7 +52,6 @@ import AdminFeedback from "./pages/AdminFeedback";
 import ConnectedApps from "./pages/ConnectedApps";
 import AccountConnected from "./pages/AccountConnected";
 import Recommendations from "./pages/Recommendations";
-import TopTracerSession from "./pages/TopTracerSession";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -217,7 +217,13 @@ function AppShell() {
 
         <Route path="/golf/toptracer">
           <ProtectedRoute>
-            <TopTracerSession />
+            <LogPractice />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/practice/new">
+          <ProtectedRoute>
+            <LogPractice />
           </ProtectedRoute>
         </Route>
 

@@ -349,6 +349,14 @@ export type PracticeSession = {
   id: string;
   user_id: string;
   practice_type: string;
+  mode?: string | null;
+  source?: string | null;
+  source_mode?: string | null;
+  source_session_id?: string | null;
+  session_date?: string | null;
+  location?: string | null;
+  course_name?: string | null;
+  handicap_at_session?: number | null;
   duration_minutes: number;
   focus_area: string | null;
   rating: number | null;
@@ -357,8 +365,13 @@ export type PracticeSession = {
   drill_attempts?: number | null;
   drill_successes?: number | null;
   drill_distance?: string | null;
+  metrics?: Record<string, unknown> | null;
+  shots?: unknown[] | null;
+  club_averages?: Array<Record<string, unknown>> | null;
+  ai_summary?: string | null;
   notes: string | null;
   created_at: string;
+  updated_at?: string | null;
 };
 
 export type PracticeDrill = {

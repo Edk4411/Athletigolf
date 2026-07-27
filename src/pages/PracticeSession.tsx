@@ -183,6 +183,14 @@ export default function PracticeSession() {
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-golf">Golf Practice</p>
           <h1 className="mb-3 text-4xl font-semibold tracking-tight text-dark">Log Practice</h1>
           <p className="text-muted">Track your range, sim, putting, chipping and short game sessions.</p>
+          <button
+            type="button"
+            onClick={() => navigate("/practice/new")}
+            data-testid="try-new-logger"
+            className="mt-4 inline-flex items-center gap-2 rounded-full border border-golf/30 bg-golf/10 px-4 py-2 text-xs font-semibold text-golf transition hover:bg-golf/15"
+          >
+            Try the new unified logger &rarr;
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="rounded-xl border border-line bg-panel p-6 shadow-sm">

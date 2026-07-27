@@ -313,6 +313,47 @@ function PracticeDetailsDrawer({
           <DetailTile label="Drills" value={drills.length.toString()} />
         </div>
 
+        {(session.source || session.mode || session.location || session.course_name || session.handicap_at_session != null) && (
+          <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {session.mode && <DetailTile label="Mode" value={String(session.mode)} />}
+            {session.source && <DetailTile label="Source" value={String(session.source)} />}
+            {session.location && <DetailTile label="Location" value={session.location} />}
+            {session.course_name && <DetailTile label="Course" value={session.course_name} />}
+            {session.handicap_at_session != null && <DetailTile label="HC at session" value={String(session.handicap_at_session)} />}
+          </div>
+        )}
+
+        {Array.isArray(session.club_averages) && session.club_averages.length > 0 && (
+          <div className="mb-5 rounded-xl border border-line bg-white/70 p-4">
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-muted">Club averages</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {(session.club_averages as Array<{ club?: string; avg_carry_yards?: number; dispersion_yards?: number; shots?: number; ball_speed_mph?: number }>).map((c, i) => (
+                <p key={i} className="text-sm text-ink">
+                  <span className="font-semibold text-dark">{c.club || "-"}:</span>{" "}
+                  {c.avg_carry_yards != null ? `${c.avg_carry_yards}yd carry` : ""}
+                  {c.dispersion_yards != null ? ` / +/- ${c.dispersion_yards}yd` : ""}
+                  {c.ball_speed_mph != null ? ` / ${c.ball_speed_mph} mph` : ""}
+                  {c.shots != null ? ` (${c.shots} shots)` : ""}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {session.metrics && Object.keys(session.metrics).length > 0 && (
+          <details className="mb-5 rounded-xl border border-line bg-white/70 p-4">
+            <summary className="cursor-pointer text-xs font-bold uppercase tracking-[0.14em] text-muted">Full metrics (JSON)</summary>
+            <pre className="mt-3 overflow-x-auto text-xs text-ink">{JSON.stringify(session.metrics, null, 2)}</pre>
+          </details>
+        )}
+
+        {session.ai_summary && (
+          <div className="mb-5 rounded-xl border border-pulse/20 bg-pulse/8 p-4">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-pulse">AthletiAI summary</p>
+            <p className="text-sm leading-relaxed text-dark">{session.ai_summary}</p>
+          </div>
+        )}
+
         {session.focus_area && (
           <div className="mb-5 rounded-xl border border-line bg-steel/5 p-4">
             <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-muted">Focus Area</p>
