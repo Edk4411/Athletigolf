@@ -91,7 +91,6 @@ export default function FriendProfile() {
     );
   }
 
-  const displayName = profile.nickname || profile.preferred_name || (profile.full_name || "").split(/\s+/)[0] || profile.display_name || (profile.username ? `@${profile.username}` : "Friend");
   const displayName = getDisplayName(profile as any);
 
   return (
