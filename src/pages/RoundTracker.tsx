@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Flag, Flame, Handshake, MessageCircle, Save, Trophy, UserPlus, Users } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Flag, Flame, Handshake, MessageCircle, Save, Settings, Trophy, UserPlus, Users } from "lucide-react";
 import GolfCoursePicker from "@/components/GolfCoursePicker";
+import HandicapAllowanceSelector from "@/components/HandicapAllowanceSelector";
+import PostRoundMatchAnalysis from "@/components/PostRoundMatchAnalysis";
 import ScoreBadge from "@/components/ScoreBadge";
 import { Button, Card, PageHeader, StatCard } from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
 import { todayIso } from "@/lib/dates";
 import { supabase } from "@/lib/supabase";
+import { clearRoundDraft, saveRoundDraft } from "@/lib/roundDraft";
+import { computePlayingHandicap } from "@/lib/handicap";
+import type { GameFormat } from "@/lib/handicap";
 import type { FairwayResult, FriendConnectionProfile, GolfCourseDetail, GolfCourseTee, Profile, Round, RoundHole, TeeShotLocation } from "@/lib/types";
 import { getDisplayName } from "@/lib/nameFormatting";
 
@@ -211,6 +216,8 @@ export default function RoundTracker() {
   const [recoveryPromptIndex, setRecoveryPromptIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [handicapAllowancePercent, setHandicapAllowancePercent] = useState(100);
+  const [autoSavedAt, setAutoSavedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     if (!user || typeof window === "undefined") return;
@@ -737,6 +744,18 @@ export default function RoundTracker() {
         scramble_percentage: stats.scramblePercent,
         is_competition: competition,
         notes: [notes, liveRoundSummary].filter(Boolean).join("\n\n") || null,
+        // Reliability + calculation-integrity fields:
+        primary_game_type: selectedGames[0] || "stroke_play",
+        handicap_allowance_percent: handicapAllowancePercent,
+        gross_score: stats.totalScore || null,
+        net_score: (stats.totalScore != null && ownHandicap)
+          ? stats.totalScore - computePlayingHandicap(parseFloat(ownHandicap) || 0, handicapAllowancePercent)
+          : null,
+        auto_saved_at: new Date().toISOString(),
+        client_draft_key: user?.id ? `athletigolf:round-draft:${user.id}` : null,
+        match_result: buildMatchResultSnapshot(livePlayers, playerHoleScores, matchState, selectedGames) || null,
+        tee_name_snapshot: selectedTee?.teeName || teeColour || null,
+        tee_colour_snapshot: teeColour || null,
     };
 
     const roundResult = existingRoundId
@@ -771,6 +790,9 @@ export default function RoundTracker() {
         yardage: hole.yardage,
         meters: hole.meters,
         handicap: hole.handicap,
+        stroke_index: hole.handicap ?? null,
+        tee_yardage: hole.yardage ?? null,
+        tee_meters: hole.meters ?? null,
         penalty_shots: parseStat(hole.penaltyShots),
         chip_shots: parseStat(hole.chipShots),
         greenside_bunker_shots: parseStat(hole.greensideBunkerShots),
@@ -817,8 +839,54 @@ export default function RoundTracker() {
     }
 
     setSavedStatus(status);
+    if (status === "completed") {
+      clearRoundDraft(user?.id);
+    }
+    setAutoSavedAt(new Date());
     setStep("saved");
   };
+
+  // Local-storage autosave: fires on every state change while playing.
+  useEffect(() => {
+    if (step !== "holes" || !user) return;
+    saveRoundDraft(user.id, {
+      version: 1,
+      round_id: existingRoundId,
+      updated_at: new Date().toISOString(),
+      step,
+      holes_played: holesPlayed,
+      round_name: roundName,
+      course,
+      tee_name: selectedTee?.teeName || teeColour || "",
+      tee_colour: teeColour,
+      handicap_allowance_percent: handicapAllowancePercent,
+      primary_game_type: selectedGames[0] || "stroke_play",
+      players: livePlayers,
+      holes,
+      match_state: matchState,
+      current_hole_index: currentHoleIndex,
+      notes,
+    });
+    setAutoSavedAt(new Date());
+  }, [step, user, existingRoundId, holes, currentHoleIndex, matchState, holesPlayed, roundName, course, teeColour, selectedTee, handicapAllowancePercent, selectedGames, livePlayers, notes]);
+
+  // Background / tab-hide: flush to Supabase as unfinished so a device switch still recovers the round.
+  useEffect(() => {
+    if (step !== "holes") return;
+    const flushToServer = () => {
+      // Fire and forget - errors are tolerated because local snapshot is safe.
+      if (existingRoundId) {
+        supabase.from("rounds").update({ auto_saved_at: new Date().toISOString(), status: "unfinished" }).eq("id", existingRoundId).then(() => {});
+      }
+    };
+    const onHide = () => { if (document.visibilityState === "hidden") flushToServer(); };
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", flushToServer);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", flushToServer);
+    };
+  }, [step, existingRoundId]);
 
   const resetRound = () => {
     setRoundName("");
@@ -854,6 +922,7 @@ export default function RoundTracker() {
   };
 
   if (step === "saved") {
+    const isMatchGame = selectedGames.some((g) => g === "match_play" || g === "four_ball_match");
     return (
       <div className="min-h-screen bg-cream p-6 text-dark">
         <Card className="mx-auto max-w-4xl p-8 text-center">
@@ -878,6 +947,11 @@ export default function RoundTracker() {
             </Link>
           </div>
         </Card>
+        {isMatchGame && existingRoundId && (
+          <div className="mx-auto mt-6 max-w-4xl">
+            <PostRoundMatchAnalysis roundId={existingRoundId} />
+          </div>
+        )}
       </div>
     );
   }
@@ -1099,6 +1173,15 @@ export default function RoundTracker() {
                   })}
                 </div>
               </div>
+
+              <div className="mt-5">
+                <HandicapAllowanceSelector
+                  format={(selectedGames[0] as GameFormat) || "stroke_play"}
+                  value={handicapAllowancePercent}
+                  onChange={setHandicapAllowancePercent}
+                  numPlayersOnSide={Math.max(1, Math.round(livePlayers.length / 2))}
+                />
+              </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -1208,6 +1291,31 @@ export default function RoundTracker() {
                         {currentHole.handicap ? `SI ${currentHole.handicap}` : ""}
                       </p>
                     )}
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => finishRound("unfinished")}
+                        disabled={saving}
+                        data-testid="save-round-btn"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-golf/40 bg-golf/10 px-3 py-1.5 text-xs font-semibold text-golf transition hover:bg-golf/15 disabled:opacity-60"
+                      >
+                        <Save className="h-3.5 w-3.5" /> {saving ? "Saving..." : "Save Round"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStep("setup")}
+                        data-testid="in-round-settings-btn"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white/70 px-3 py-1.5 text-xs font-semibold text-muted transition hover:border-golf/40 hover:text-dark"
+                        aria-label="Round settings"
+                      >
+                        <Settings className="h-3.5 w-3.5" /> Settings
+                      </button>
+                      {autoSavedAt && (
+                        <span className="text-[11px] font-medium text-muted" data-testid="autosave-status">
+                          Auto-saved {timeAgoLabel(autoSavedAt)}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="-mx-1 flex max-w-full gap-2 overflow-x-auto px-1 pb-1 lg:flex-wrap lg:overflow-visible">
@@ -2252,4 +2360,70 @@ function toDraftHoles(count: 9 | 18, rows: RoundHole[]): Hole[] {
 function formatOption(option: string) {
   if (option === "na") return "N/A";
   return option.replaceAll("_", " ");
+}
+
+
+function timeAgoLabel(date: Date) {
+  const diffMs = Date.now() - date.getTime();
+  const sec = Math.round(diffMs / 1000);
+  if (sec < 5) return "just now";
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  return `${Math.round(min / 60)}h ago`;
+}
+
+type MatchResultSnapshot = {
+  primary_game_type: string;
+  sides: Array<{ id: string; name: string; team_colour: "blue" | "red" | null; won: number; lost: number; halved: number }>;
+  result_label: string;
+  finish_hole: number | null;
+} | null;
+
+function buildMatchResultSnapshot(
+  livePlayers: LivePlayer[],
+  playerHoleScores: Record<string, string[]>,
+  matchState: ReturnType<typeof calculateMatchState>,
+  selectedGames: LiveGame[]
+): MatchResultSnapshot {
+  const isMatch = selectedGames.some((g) => g === "match_play" || g === "four_ball_match");
+  if (!isMatch) return null;
+
+  const teamA = livePlayers.filter((p) => p.team === "A");
+  const teamB = livePlayers.filter((p) => p.team === "B");
+  if (!teamA.length || !teamB.length) return null;
+
+  // Count won/lost/halved by comparing best team score per hole.
+  const totalHoles = Math.max(0, ...Object.values(playerHoleScores).map((arr) => arr.length));
+  let won = 0, lost = 0, halved = 0;
+  for (let i = 0; i < totalHoles; i++) {
+    const a = teamBestScore(teamA, playerHoleScores, i);
+    const b = teamBestScore(teamB, playerHoleScores, i);
+    if (a == null || b == null) continue;
+    if (a < b) won++;
+    else if (a > b) lost++;
+    else halved++;
+  }
+
+  return {
+    primary_game_type: selectedGames[0] || "match_play",
+    sides: [
+      { id: "team-a", name: "Blue Team", team_colour: "blue", won, lost, halved },
+      { id: "team-b", name: "Red Team",  team_colour: "red",  won: lost, lost: won, halved },
+    ],
+    result_label: matchState?.status || (won === lost ? "AS" : won > lost ? `${won - lost} UP` : `${lost - won} DOWN`),
+    finish_hole: matchState?.closeout ? (matchState?.holesPlayed || null) : null,
+  };
+}
+
+function teamBestScore(team: LivePlayer[], scores: Record<string, string[]>, holeIndex: number): number | null {
+  let best: number | null = null;
+  for (const p of team) {
+    const raw = scores[p.id]?.[holeIndex];
+    const val = raw ? Number(raw) : null;
+    if (val != null && !Number.isNaN(val)) {
+      best = best == null ? val : Math.min(best, val);
+    }
+  }
+  return best;
 }

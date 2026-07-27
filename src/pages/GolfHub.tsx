@@ -16,6 +16,7 @@ import {
   Users,
 } from "lucide-react";
 import { Button, Card, StatusPill } from "@/components/ui";
+import UnfinishedRoundBanner from "@/components/UnfinishedRoundBanner";
 import { isCompleteScoringRound } from "@/lib/golfStats";
 import { supabase } from "@/lib/supabase";
 import type { Round } from "@/lib/types";
@@ -122,7 +123,7 @@ export default function GolfHub() {
   }, [rounds]);
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 pb-6 sm:px-6">
+       <UnfinishedRoundBanner />
       <StravaGolfQueue />
       <section className="overflow-hidden rounded-[2rem] border border-white/12 bg-[linear-gradient(135deg,rgba(6,36,55,0.96),rgba(7,77,58,0.9))] p-5 text-white shadow-[0_24px_70px_rgba(2,14,28,0.28)]">
         <div className="flex items-start gap-4">
