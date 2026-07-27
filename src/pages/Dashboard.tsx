@@ -29,6 +29,8 @@ import type { WellnessLog } from "@/lib/types";
 import type { LiveActivity } from "@/lib/types";
 import type { Profile } from "@/lib/types";
 import { defaultWellnessTargets, getWellnessTargets, type WellnessTargets } from "@/lib/wellnessTargets";
+import { formatWater } from "@/lib/waterFormatting";
+import { getDisplayName } from "@/lib/nameFormatting";
 
 export default function Dashboard() {
   const [, navigate] = useLocation();
@@ -38,11 +40,12 @@ export default function Dashboard() {
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [cardioSessions, setCardioSessions] = useState<CardioSession[]>([]);
   const [competitions, setCompetitions] = useState<Competition[]>([]);
-  const [wellnessLogs, setWellnessLogs] = useState<WellnessLog[]>([]);
+  const [todayWellness, setTodayWellness] = useState<WellnessLog | null>(null);
   const [nutritionEntries, setNutritionEntries] = useState<NutritionEntry[]>([]);
   const [liveActivities, setLiveActivities] = useState<LiveActivity[]>([]);
   const [sportMode, setSportMode] = useState<OnboardingData["mainSport"]>("both");
   const [wellnessTargets, setWellnessTargets] = useState<WellnessTargets>(defaultWellnessTargets);
+
 
   const [profile, setProfile] = useState<Profile | null>(null);
 
@@ -50,12 +53,8 @@ export default function Dashboard() {
     supabase.from("profiles").select("preferred_name, full_name").maybeSingle().then(({ data }) => setProfile(data as Profile | null));
   }, []);
 
-  const firstName =
-    (profile?.preferred_name && profile.preferred_name.trim()) ||
-    (profile?.full_name && profile.full_name.trim().split(/\s+/)[0]) ||
-    user?.email?.split("@")[0] ||
-    "Athlete";
-
+  
+  
   useEffect(() => {
     const load = async () => {
       const today = getTodayIso();
@@ -90,6 +89,7 @@ export default function Dashboard() {
     };
     load();
   }, []);
+  const firstName = getDisplayName(profile);
 
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -98,7 +98,6 @@ export default function Dashboard() {
   const nextCompetition = competitions[0] ?? null;
   const competitionToday = nextCompetition ? isToday(nextCompetition.competition_date) : false;
   const todayIso = getTodayIso();
-  const todayWellness = wellnessLogs.find((log) => log.log_date === todayIso) || wellnessLogs[0] || null;
   const hydrationProgress = todayWellness?.water_litres ? Math.min((todayWellness.water_litres / wellnessTargets.waterLitres) * 100, 100) : 0;
   const trainingOnly = sportMode === "training";
   const golfEnabled = !trainingOnly;
@@ -131,6 +130,44 @@ export default function Dashboard() {
     ...(hasTrainingToday ? [{ label: "Workout logged", detail: getTodayWorkoutDetail(workouts, todayIso), tone: "lab" as const }] : []),
     ...(hasCardioToday ? [{ label: "Cardio done", detail: getTodayCardioDetail(personalCardioSessions, todayIso), tone: "pulse" as const }] : []),
   ];
+
+  useEffect(() => {
+    const load = async () => {
+      const today = getTodayIso();
+      const [{ data: r }, { data: h }, { data: w }, { data: cardio }, { data: c }, { data: wellness }, { data: nutrition }, { data: live }, { data: profile }] = await Promise.all([
+        supabase.from("rounds").select("*").order("created_at", { ascending: false }),
+        supabase.from("round_holes").select("*").order("created_at", { ascending: false }),
+        supabase.from("workouts").select("*").order("created_at", { ascending: false }),
+        supabase.from("cardio_sessions").select("*").order("session_date", { ascending: false }).limit(30),
+        supabase.from("competitions").select("*").eq("status", "upcoming").order("competition_date", { ascending: true }),
+        supabase.from("daily_wellness_logs").select("*").eq("log_date", today).maybeSingle(),
+        supabase.from("nutrition_entries").select("*").eq("log_date", today).order("created_at", { ascending: false }),
+        supabase
+          .from("live_activities")
+          .select("*")
+          .is("ended_at", null)
+          .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+          .order("started_at", { ascending: false })
+          .limit(8),
+        supabase.from("profiles").select("onboarding_data, full_name, preferred_name, username").maybeSingle(),
+      ]);
+      setRounds((r as Round[]) || []);
+      setRoundHoles((h as RoundHole[]) || []);
+      setWorkouts((w as Workout[]) || []);
+      setCardioSessions((cardio as CardioSession[]) || []);
+      setCompetitions((c as Competition[]) || []);
+      setTodayWellness(wellness as WellnessLog | null);
+      setNutritionEntries((nutrition as NutritionEntry[]) || []);
+      setLiveActivities((live as LiveActivity[]) || []);
+      const onboarding = (profile?.onboarding_data as OnboardingData | null) || null;
+      setSportMode(onboarding?.mainSport || "both");
+      setWellnessTargets(getWellnessTargets(onboarding));
+      // @ts-ignore
+      setProfile(profile);
+    };
+    load();
+  }, []);
+  
 
   return (
     <main className="min-h-screen bg-cream px-4 py-5 md:px-8 md:py-7">
@@ -165,8 +202,8 @@ export default function Dashboard() {
               <HomeMetric
                 icon={Droplets}
                 label="Water today"
-                value={todayWellness?.water_litres ? `${todayWellness.water_litres} L` : "Not logged"}
-                detail={`Target ${wellnessTargets.waterLitres} L`}
+                value={todayWellness?.water_litres ? formatWater(todayWellness.water_litres * 1000) : "Not logged"}
+                detail={`Target ${wellnessTargets.waterLitres * 1000} ml`}
                 progress={hydrationProgress}
                 onClick={() => navigate("/wellness")}
               />

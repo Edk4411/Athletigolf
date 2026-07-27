@@ -18,6 +18,7 @@ import {
 import ScoreBadge from "@/components/ScoreBadge";
 import { Button, EmptyState, FieldLabel, SelectInput, Surface, TextArea, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
+import { getDisplayName } from "@/lib/nameFormatting";
 import type {
   FriendConnection,
   FriendConnectionProfile,
@@ -511,7 +512,7 @@ export default function Social() {
                     <div className="flex min-w-0 items-center gap-3">
                       <SocialAvatar name={displayName} url={result.avatar_url} />
                       <div className="min-w-0">
-                        <p className="truncate font-bold text-foreground">{displayName}</p>
+                        <p className="truncate font-bold text-foreground">{getDisplayName(result as any)}</p>
                         <p className="truncate text-xs text-muted">@{result.username || "user"}</p>
                       </div>
                     </div>

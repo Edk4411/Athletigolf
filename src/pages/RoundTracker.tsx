@@ -13,6 +13,7 @@ import { clearRoundDraft, saveRoundDraft } from "@/lib/roundDraft";
 import { computePlayingHandicap } from "@/lib/handicap";
 import type { GameFormat } from "@/lib/handicap";
 import type { FairwayResult, FriendConnectionProfile, GolfCourseDetail, GolfCourseTee, Profile, Round, RoundHole, TeeShotLocation } from "@/lib/types";
+import { getDisplayName } from "@/lib/nameFormatting";
 
 type Step = "setup" | "holes" | "review" | "saved";
 
@@ -160,6 +161,29 @@ export default function RoundTracker() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const [step, setStep] = useState<Step>("setup");
+  const [linkedQueueId, setLinkedQueueId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const queueId = params.get("queueId");
+    if (queueId) {
+      setLinkedQueueId(queueId);
+      fetchStravaActivity(queueId);
+    }
+  }, []);
+
+  async function fetchStravaActivity(queueId: string) {
+    const { data, error } = await supabase
+      .from("strava_activity_queue")
+      .select("*")
+      .eq("id", queueId)
+      .single();
+    
+    if (!error && data) {
+      setDate(data.activity_date);
+    }
+  }
+
   const [existingRoundId, setExistingRoundId] = useState<string | null>(null);
   const [savedStatus, setSavedStatus] = useState<"completed" | "unfinished">("completed");
   const [holesPlayed, setHolesPlayed] = useState<9 | 18>(18);
@@ -377,7 +401,8 @@ export default function RoundTracker() {
 
   const addFriendPlayer = (friend: FriendConnectionProfile) => {
     if (livePlayers.some((player) => player.userId === friend.other_user_id)) return;
-    const name = friend.other_display_name || (friend.other_username ? `@${friend.other_username}` : `Friend ${friend.other_user_id.slice(0, 8)}`);
+    const name = getDisplayName(friend as any) || (friend.other_username ? `@${friend.other_username}` : `Friend ${friend.other_user_id.slice(0, 8)}`);
+
     const player: LivePlayer = {
       id: `friend-${friend.other_user_id}`,
       name,
@@ -547,7 +572,7 @@ export default function RoundTracker() {
   const currentHole = holes[currentHoleIndex];
   const currentHoleScore =
     currentHole && currentHole.score !== "" ? Number(currentHole.score) - currentHole.par : null;
-  const ownerDisplayName = profile?.full_name || (profile?.username ? `@${profile.username}` : "You");
+  const ownerDisplayName = getDisplayName(profile as any) || (profile?.username ? `@${profile.username}` : "You");
   const liveParticipants = useMemo<LiveParticipant[]>(
     () => [
       {
@@ -742,6 +767,13 @@ export default function RoundTracker() {
       setSaving(false);
       setSaveError(roundError?.message || "Could not save round.");
       return;
+    }
+
+    // Link Strava activity
+    if (linkedQueueId && round.id) {
+      await supabase.functions.invoke("strava-process-golf", {
+        body: { action: "link", queueId: linkedQueueId, roundId: round.id },
+      });
     }
 
     const holeRows = holes
@@ -1062,7 +1094,7 @@ export default function RoundTracker() {
                     <div className="grid gap-2 sm:grid-cols-2">
                       {friends.slice(0, 6).map((friend) => {
                         const alreadyAdded = livePlayers.some((player) => player.userId === friend.other_user_id);
-                        const friendName = friend.other_display_name || (friend.other_username ? `@${friend.other_username}` : `Friend ${friend.other_user_id.slice(0, 8)}`);
+                        const friendName = getDisplayName(friend as any) || (friend.other_username ? `@${friend.other_username}` : `Friend ${friend.other_user_id.slice(0, 8)}`);
                         return (
                           <button
                             key={friend.other_user_id}

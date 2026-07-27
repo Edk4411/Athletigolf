@@ -313,7 +313,7 @@ export default function Analytics() {
           <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <ReportKpi label="Wellness Logs" value={wellnessStats.wellnessDays} sub="days saved" tone="golf" />
             <ReportKpi label="Avg Sleep" value={formatAverage(wellnessStats.avgSleep)} sub="last 7 logs" tone="pulse" />
-            <ReportKpi label="Avg Water" value={formatAverage(wellnessStats.avgWater)} sub="litres / day" tone="pulse" />
+            <ReportKpi label="Avg Water" value={formatAverage(wellnessStats.avgWater)} sub="ml / day" tone="pulse" />
             <ReportKpi label="Cardio" value={wellnessStats.cardioSessions} sub="sessions saved" tone="gold" />
           </section>
           <Surface>
