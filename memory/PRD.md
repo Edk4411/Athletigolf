@@ -77,3 +77,38 @@ Every practice row now has `mode`, `source`, structured `metrics`, `club_average
 - Split Wellness (2600 lines) into per-panel components.
 - Photo upload on practice sessions.
 - Session sharing with friends.
+
+## Session 2026-01-27 - RoundTracker Overhaul (Iteration 1: Sections 1-3)
+
+User request: production-ready Round Tracker with never-lose autosave, redesigned setup, correct WHS calculations. Iterate — sections 1-3 first, then 4-5.
+
+### Completed
+- **Comprehensive autosave** (`RoundTracker.tsx` + `lib/roundDraft.ts`):
+  - LocalStorage draft mirrors every setup + hole state (course, tee, players, games, allowances, notes, hole scores, currentHole, nine-selection, etc.) via one `saveLocalDraft` effect triggered by all deps.
+  - Backend flush (`flushToBackend`) upserts round metadata + `round_holes` and now runs: (a) debounced 1.2s after any score/hole/setting change, (b) every 8s on interval, (c) on `visibilitychange` hidden, `pagehide`, `beforeunload`, (d) via the "Save Round" button.
+  - Local draft restoration on mount — if user re-opens `/golf/submit` without a `?resume=` URL and a draft exists, all state hydrates instantly.
+  - "Saved · HH:mm" indicator in the sticky banner. Manual "Save Round" button now labelled and has `data-testid="save-round-button"`.
+- **Setup redesign** (`RoundTracker.tsx` step 1):
+  - 9/18 replaced with Front 9 / Back 9 / 18 tiles (`data-testid` on each). Back-9 rounds store hole numbers 10-18 to `round_holes` and `round_player_holes`; front-9 stores 1-9; 18 stores 1-18. All display and DB writes use `holeStartOffset`. Resume URL infers front/back nine from stored hole numbers.
+  - New `ManualCourseModal.tsx` component — full manual scorecard entry (par + stroke index + yardage per hole) with validation on stroke-index uniqueness and par values. Opened via "Enter course manually" button below the API picker.
+- **Handicap correctness verified**:
+  - `handicap.ts` already implements WHS Course Handicap = `HcapIndex × Slope/113 + (CR − Par)`, Playing Handicap = `CourseHcap × allowance/100`, `getStrokesReceived` uses `Math.floor(playingHandicap % 18)` (correct WHS distribution).
+  - DEFAULT_ALLOWANCES match user spec: stroke 95, medal 95, stableford 100, match 100, skins 95, 4BBB 85, foursomes 50. Per-player override still exposed in Step 2.
+- **Enriched unfinished-round banner** (`GolfHub.tsx`):
+  - Fetches `round_holes`, `round_players`, `round_player_holes`, `round_games` for each unfinished round.
+  - Card now shows: round name, course, game type, status pill, current hole `x/N`, own strokes with to-par, holes scored count, and per-player chips (name + strokes).
+- **TypeScript pre-existing bugs fixed**:
+  - Removed dangling `setWellnessLogs` call in `Dashboard.tsx`, now sets `todayWellness` from the fetched wellness rows.
+  - Fixed `LivePlayerHoleRow` type predicate error in `RoundTracker.tsx` (notes type + explicit return annotation).
+- `npm run build` succeeds with zero TypeScript errors.
+
+### Deferred to Iteration 2
+- **Match play redesign**: hide holes-won/lost/match status from live scorecard, keep data stored, add separate "Match Play" tab.
+- **Scorecard tabs**: split live scoring screen into `Scorecard` / `Stats` / `Game Mode` tabs.
+
+### Files touched
+- `src/lib/roundDraft.ts` (rewritten — full setup + play state)
+- `src/pages/RoundTracker.tsx` (autosave, front/back 9, offset writes, manual course modal, restore, `data-testid`s)
+- `src/components/ManualCourseModal.tsx` (new)
+- `src/pages/GolfHub.tsx` (enriched banner)
+- `src/pages/Dashboard.tsx` (bug fix)

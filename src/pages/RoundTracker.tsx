@@ -17,6 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import GolfCoursePicker from "@/components/GolfCoursePicker";
+import ManualCourseModal from "@/components/ManualCourseModal";
 import ScoreBadge from "@/components/ScoreBadge";
 import { Button, Card, PageHeader, StatCard } from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
@@ -97,7 +98,7 @@ type LivePlayerHoleRow = {
   strokes_received: number;
   picked_up: boolean;
   conceded: boolean;
-  notes: null;
+  notes: string | null;
 };
 
 type LiveGameResultRow = {
@@ -283,6 +284,10 @@ export default function RoundTracker() {
   const [existingRoundId, setExistingRoundId] = useState<string | null>(null);
   const [savedStatus, setSavedStatus] = useState<"completed" | "unfinished">("completed");
   const [holesPlayed, setHolesPlayed] = useState<9 | 18>(18);
+  /** front = holes 1-9, back = holes 10-18, all = 18. */
+  const [nineSelection, setNineSelection] = useState<"front" | "back" | "all">("all");
+  const [showManualCourseModal, setShowManualCourseModal] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [roundName, setRoundName] = useState("");
   const [visibility, setVisibility] = useState<"private" | "friends">("friends");
   const [ownHandicap, setOwnHandicap] = useState("");
@@ -325,6 +330,25 @@ export default function RoundTracker() {
     user,
     step,
     holesPlayed,
+    nineSelection,
+    roundName,
+    course,
+    selectedCourse,
+    selectedTee,
+    teeColour,
+    date,
+    notes,
+    visibility,
+    competition,
+    ownHandicap,
+    ownAllowancePercent,
+    selectedGames,
+    livePlayers,
+    playingPartners,
+    averageDrivingDistance,
+    longestDrive,
+    teeShotQuality,
+    setupSubStep,
   });
   useEffect(() => {
     stateRef.current = {
@@ -334,6 +358,25 @@ export default function RoundTracker() {
       user,
       step,
       holesPlayed,
+      nineSelection,
+      roundName,
+      course,
+      selectedCourse,
+      selectedTee,
+      teeColour,
+      date,
+      notes,
+      visibility,
+      competition,
+      ownHandicap,
+      ownAllowancePercent,
+      selectedGames,
+      livePlayers,
+      playingPartners,
+      averageDrivingDistance,
+      longestDrive,
+      teeShotQuality,
+      setupSubStep,
     };
   });
 
@@ -356,6 +399,74 @@ export default function RoundTracker() {
     }
     load();
     return () => { cancelled = true; };
+  }, [user]);
+
+  // ── Restore local draft on mount if no resume URL and no server draft ──
+  const restoredLocalRef = useRef(false);
+  useEffect(() => {
+    if (!user || restoredLocalRef.current) return;
+    const hasResume = !!new URLSearchParams(window.location.search).get("resume");
+    if (hasResume) return;
+    const draft = loadRoundDraft(user.id);
+    if (!draft || draft.step === "saved") return;
+    restoredLocalRef.current = true;
+
+    setExistingRoundId(draft.existingRoundId);
+    setStep(draft.step);
+    setSetupSubStep(draft.setupSubStep);
+    setHolesPlayed(draft.holesPlayed);
+    setNineSelection(draft.nineSelection);
+    setRoundName(draft.roundName);
+    setCourse(draft.course);
+    setTeeColour(draft.teeColour);
+    setDate(draft.date);
+    setNotes(draft.notes);
+    setVisibility(draft.visibility);
+    setCompetition(draft.competition);
+    setOwnHandicap(draft.ownHandicap);
+    setOwnAllowancePercent(draft.ownAllowancePercent);
+    setSelectedGames(draft.selectedGames as LiveGame[]);
+    setRoundIntent(draft.roundIntent);
+    setLivePlayers(
+      draft.livePlayers.map((p) => ({
+        id: p.id, name: p.name, handicap: p.handicap,
+        allowancePercent: p.allowancePercent, type: p.type, team: p.team,
+        userId: p.userId ?? null, username: p.username ?? null,
+        avatarUrl: p.avatarUrl ?? null,
+      }))
+    );
+    setPlayerHoleScores(draft.playerHoleScores);
+    setHoles(draft.holes as Hole[]);
+    setCurrentHoleIndex(draft.currentHoleIndex);
+    setAverageDrivingDistance(draft.averageDrivingDistance);
+    setLongestDrive(draft.longestDrive);
+    setTeeShotQuality(draft.teeShotQuality);
+    setPlayingPartners(draft.playingPartners);
+
+    if (draft.selectedCourse) {
+      setSelectedCourse({
+        id: draft.selectedCourse.externalId ?? -1,
+        cachedCourseId: draft.selectedCourse.cachedCourseId,
+        clubName: draft.selectedCourse.clubName,
+        courseName: draft.selectedCourse.courseName,
+        location: null, city: null, state: null, country: null, tees: [],
+      });
+    }
+    if (draft.selectedTee) {
+      setSelectedTee({
+        id: draft.selectedTee.id || "restored-tee",
+        gender: "unknown",
+        teeName: draft.selectedTee.teeName,
+        courseRating: draft.selectedTee.courseRating,
+        slopeRating: draft.selectedTee.slopeRating,
+        bogeyRating: null,
+        totalYards: draft.selectedTee.totalYards,
+        totalMeters: draft.selectedTee.totalMeters,
+        numberOfHoles: draft.holesPlayed,
+        parTotal: draft.selectedTee.parTotal,
+        holes: [],
+      });
+    }
   }, [user]);
 
   // ── Resume from URL ──
@@ -384,9 +495,24 @@ export default function RoundTracker() {
       const loadedRound = round as Round;
       const targetHoles = loadedRound.target_holes === 9 ? 9 : 18;
 
+      // Infer front/back nine from stored hole numbers
+      const rawHoleRows = (holeRows as RoundHole[]) || [];
+      const minHole = rawHoleRows.length
+        ? Math.min(...rawHoleRows.map((h) => h.hole_number))
+        : 1;
+      const inferredNine: "front" | "back" | "all" =
+        targetHoles === 18 ? "all" : minHole >= 10 ? "back" : "front";
+      const offset = inferredNine === "back" ? 9 : 0;
+      // Normalise hole numbers into 1..N index space for the local state
+      const normalisedHoleRows: RoundHole[] = rawHoleRows.map((h) => ({
+        ...h,
+        hole_number: h.hole_number - offset,
+      }));
+
       setExistingRoundId(loadedRound.id);
       setSavedStatus(loadedRound.status === "completed" ? "completed" : "unfinished");
       setHolesPlayed(targetHoles);
+      setNineSelection(inferredNine);
       setRoundName(loadedRound.round_name || "");
       setCourse(loadedRound.course || "");
       setSelectedCourse(
@@ -422,7 +548,7 @@ export default function RoundTracker() {
       setPlayingPartners(loadedRound.playing_partners || "");
       setDate(loadedRound.date || todayIso());
       setNotes(loadedRound.notes || "");
-      setHoles(toDraftHoles(targetHoles, (holeRows as RoundHole[]) || []));
+      setHoles(toDraftHoles(targetHoles, normalisedHoleRows));
       setCurrentHoleIndex(0);
 
       // ── Restore multiplayer scores from round_player_holes ──
@@ -449,7 +575,7 @@ export default function RoundTracker() {
           const playerPhRows = phRows.filter((ph) => ph.round_player_id === dbPlayerId);
           const arr = Array.from({ length: targetHoles }, () => "");
           playerPhRows.forEach((ph) => {
-            const idx = ph.hole_number - 1;
+            const idx = ph.hole_number - 1 - offset;
             if (idx >= 0 && idx < targetHoles && ph.gross_score != null) {
               arr[idx] = ph.gross_score.toString();
             }
@@ -465,93 +591,181 @@ export default function RoundTracker() {
     return () => { cancelled = true; };
   }, [user]);
 
-  // ── LocalStorage autosave ──
+  // ── LocalStorage autosave (fires on every meaningful state change) ──
   const saveLocalDraft = useCallback(() => {
-    if (!user || step !== "holes") return;
+    if (!user) return;
+    // Only save while the round is being actively set up or played, not
+    // after it has been saved.
+    if (step === "saved") return;
     saveRoundDraft(user.id, {
       existingRoundId,
+      step,
+      setupSubStep,
+      scoreTab: "scorecard",
       holesPlayed,
+      nineSelection,
       roundName,
       course,
+      selectedCourse: selectedCourse
+        ? {
+            externalId: selectedCourse.id ?? null,
+            cachedCourseId: selectedCourse.cachedCourseId ?? null,
+            clubName: selectedCourse.clubName,
+            courseName: selectedCourse.courseName,
+            isManual: (selectedCourse.id ?? 0) < 0,
+          }
+        : null,
+      selectedTee: selectedTee
+        ? {
+            id: selectedTee.id ?? null,
+            teeName: selectedTee.teeName,
+            courseRating: selectedTee.courseRating ?? null,
+            slopeRating: selectedTee.slopeRating ?? null,
+            totalYards: selectedTee.totalYards ?? null,
+            totalMeters: selectedTee.totalMeters ?? null,
+            parTotal: selectedTee.parTotal ?? null,
+          }
+        : null,
       teeColour,
       date,
       notes,
       visibility,
+      competition,
       ownHandicap,
       ownAllowancePercent,
       selectedGames,
+      roundIntent,
       livePlayers: livePlayers.map((p) => ({
         id: p.id, name: p.name, handicap: p.handicap,
         allowancePercent: p.allowancePercent, type: p.type, team: p.team,
-        userId: p.userId, username: p.username,
+        userId: p.userId, username: p.username, avatarUrl: p.avatarUrl,
       })),
       playerHoleScores,
       holes,
       currentHoleIndex,
+      averageDrivingDistance,
+      longestDrive,
+      teeShotQuality,
+      playingPartners,
     });
   }, [
-    user, step, existingRoundId, holesPlayed, roundName, course, teeColour, date, notes,
-    visibility, ownHandicap, ownAllowancePercent, selectedGames, livePlayers,
-    playerHoleScores, holes, currentHoleIndex,
+    user, step, setupSubStep, existingRoundId, holesPlayed, nineSelection,
+    roundName, course, selectedCourse, selectedTee, teeColour, date, notes,
+    visibility, competition, ownHandicap, ownAllowancePercent, selectedGames,
+    roundIntent, livePlayers, playerHoleScores, holes, currentHoleIndex,
+    averageDrivingDistance, longestDrive, teeShotQuality, playingPartners,
   ]);
 
+  // Fire local autosave on every meaningful state change.
   useEffect(() => {
     saveLocalDraft();
-  }, [holes, playerHoleScores, currentHoleIndex, saveLocalDraft]);
+  }, [saveLocalDraft]);
 
-  // ── Background Supabase flush (visibility change / pagehide) ──
-  useEffect(() => {
-    async function flush() {
-      const s = stateRef.current;
-      if (!s.user || !s.existingRoundId || s.step !== "holes") return;
+  // ── Backend flush (used by interval, background, and manual save) ──
+  const flushToBackend = useCallback(async () => {
+    const s = stateRef.current;
+    if (!s.user || !s.existingRoundId) return;
 
-      // Mark round as autosaved + unfinished
+    // Save round metadata (setup fields, notes, tee, etc.)
+    const holeStartOffset = s.nineSelection === "back" ? 9 : 0;
+    await supabase
+      .from("rounds")
+      .update({
+        status: "unfinished",
+        live_status: "live",
+        auto_saved_at: new Date().toISOString(),
+        round_name: s.roundName || null,
+        course: s.course || null,
+        date: s.date || todayIso(),
+        target_holes: s.holesPlayed,
+        golf_course_id: s.selectedCourse?.cachedCourseId || null,
+        golf_course_external_id:
+          s.selectedCourse && s.selectedCourse.id >= 0 ? s.selectedCourse.id : null,
+        golf_course_tee_id:
+          s.selectedTee?.id?.startsWith("saved-") ||
+          s.selectedTee?.id?.startsWith("api-") ||
+          s.selectedTee?.id?.startsWith("manual-")
+            ? null
+            : s.selectedTee?.id || null,
+        tee_colour: s.teeColour || null,
+        tee_name: s.selectedTee?.teeName || s.teeColour || null,
+        course_rating: s.selectedTee?.courseRating ?? null,
+        slope_rating: s.selectedTee?.slopeRating ?? null,
+        total_yards: s.selectedTee?.totalYards ?? null,
+        total_meters: s.selectedTee?.totalMeters ?? null,
+        par_total: s.selectedTee?.parTotal ?? null,
+        is_competition: s.competition,
+        visibility: s.visibility,
+        playing_partners:
+          s.playingPartners || s.livePlayers.map((p) => p.name).join(", ") || null,
+        notes: s.notes || null,
+      })
+      .eq("id", s.existingRoundId);
+
+    // Upsert scored holes to round_holes
+    const holeRows = s.holes
+      .map((hole, index) => ({
+        round_id: s.existingRoundId!,
+        user_id: s.user!.id,
+        hole_number: index + 1 + holeStartOffset,
+        par: hole.par,
+        score: hole.score === "" ? null : Number(hole.score),
+        fairway_result: hole.par === 3 ? "na" : hole.fairway,
+        tee_shot_location: hole.par === 3 ? null : hole.teeShotLocation || null,
+        gir: hole.gir,
+        putts: parseStat(hole.putts),
+        yardage: hole.yardage,
+        meters: hole.meters,
+        handicap: hole.handicap,
+        penalty_shots: parseStat(hole.penaltyShots),
+        chip_shots: parseStat(hole.chipShots),
+        greenside_bunker_shots: parseStat(hole.greensideBunkerShots),
+        recovery_shot_type: hole.recoveryShotType || null,
+      }))
+      .filter((row) => row.score !== null);
+
+    if (holeRows.length > 0) {
       await supabase
-        .from("rounds")
-        .update({ status: "unfinished", auto_saved_at: new Date().toISOString() })
-        .eq("id", s.existingRoundId);
-
-      // Upsert scored holes to round_holes
-      const holeRows = s.holes
-        .map((hole, index) => ({
-          round_id: s.existingRoundId!,
-          user_id: s.user!.id,
-          hole_number: index + 1,
-          par: hole.par,
-          score: hole.score === "" ? null : Number(hole.score),
-          fairway_result: hole.par === 3 ? "na" : hole.fairway,
-          tee_shot_location: hole.par === 3 ? null : hole.teeShotLocation || null,
-          gir: hole.gir,
-          putts: parseStat(hole.putts),
-          yardage: hole.yardage,
-          meters: hole.meters,
-          handicap: hole.handicap,
-          penalty_shots: parseStat(hole.penaltyShots),
-          chip_shots: parseStat(hole.chipShots),
-          greenside_bunker_shots: parseStat(hole.greensideBunkerShots),
-          recovery_shot_type: hole.recoveryShotType || null,
-        }))
-        .filter((row) => row.score !== null);
-
-      if (holeRows.length > 0) {
-        await supabase
-          .from("round_holes")
-          .upsert(holeRows, { onConflict: "round_id,hole_number" });
-      }
+        .from("round_holes")
+        .upsert(holeRows, { onConflict: "round_id,hole_number" });
     }
 
+    setLastSyncedAt(new Date());
+  }, []);
+
+  // ── Debounced backend autosave when score-changing state moves ──
+  useEffect(() => {
+    if (step !== "holes" || !existingRoundId) return;
+    const timer = window.setTimeout(() => {
+      void flushToBackend();
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [holes, playerHoleScores, currentHoleIndex, step, existingRoundId, flushToBackend]);
+
+  // ── Interval autosave (belt & braces every 8s while playing) ──
+  useEffect(() => {
+    if (step !== "holes" || !existingRoundId) return;
+    const id = window.setInterval(() => { void flushToBackend(); }, 8000);
+    return () => window.clearInterval(id);
+  }, [step, existingRoundId, flushToBackend]);
+
+  // ── Backend flush on backgrounding, page-hide, before unload ──
+  useEffect(() => {
     function onVisibilityChange() {
-      if (document.visibilityState === "hidden") flush();
+      if (document.visibilityState === "hidden") void flushToBackend();
     }
-    function onPageHide() { flush(); }
+    function onPageHide() { void flushToBackend(); }
+    function onBeforeUnload() { void flushToBackend(); }
 
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("pagehide", onPageHide);
+    window.addEventListener("beforeunload", onBeforeUnload);
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pagehide", onPageHide);
+      window.removeEventListener("beforeunload", onBeforeUnload);
     };
-  }, []);
+  }, [flushToBackend]);
 
   // ── Derived: match game flags ──
   const hasTeamGame = selectedGames.some((g) =>
@@ -908,37 +1122,14 @@ export default function RoundTracker() {
   const saveNow = async () => {
     if (!user || !existingRoundId) return;
     setAutoSaving(true);
-    const holeRows = holes
-      .map((hole, idx) => ({
-        round_id: existingRoundId,
-        user_id: user.id,
-        hole_number: idx + 1,
-        par: hole.par,
-        score: hole.score === "" ? null : Number(hole.score),
-        fairway_result: hole.par === 3 ? "na" : hole.fairway,
-        tee_shot_location: hole.par === 3 ? null : hole.teeShotLocation || null,
-        gir: hole.gir,
-        putts: parseStat(hole.putts),
-        yardage: hole.yardage,
-        meters: hole.meters,
-        handicap: hole.handicap,
-        penalty_shots: parseStat(hole.penaltyShots),
-        chip_shots: parseStat(hole.chipShots),
-        greenside_bunker_shots: parseStat(hole.greensideBunkerShots),
-        recovery_shot_type: hole.recoveryShotType || null,
-      }))
-      .filter((row) => row.score !== null);
-
-    await Promise.all([
-      supabase
-        .from("rounds")
-        .update({ status: "unfinished", auto_saved_at: new Date().toISOString() })
-        .eq("id", existingRoundId),
-      holeRows.length > 0
-        ? supabase.from("round_holes").upsert(holeRows, { onConflict: "round_id,hole_number" })
-        : Promise.resolve(),
-    ]);
-    setAutoSaving(false);
+    setSaveError("");
+    try {
+      await flushToBackend();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Could not save round.");
+    } finally {
+      setAutoSaving(false);
+    }
   };
 
   // ── Finish round ──
@@ -1032,7 +1223,7 @@ export default function RoundTracker() {
       .map((hole, idx) => ({
         round_id: round.id,
         user_id: user.id,
-        hole_number: idx + 1,
+        hole_number: idx + 1 + holeStartOffset,
         par: hole.par,
         score: hole.score === "" ? null : Number(hole.score),
         fairway_result: hole.par === 3 ? "na" : hole.fairway,
@@ -1060,6 +1251,7 @@ export default function RoundTracker() {
       holes, holesPlayed, liveParticipants, playerHoleScores,
       selectedGames, roundIntent, selectedTee,
       teeName: selectedTee?.teeName || teeColour || null, matchState,
+      holeStartOffset,
     });
 
     setSaving(false);
@@ -1085,12 +1277,15 @@ export default function RoundTracker() {
     setCompetition(false); setTeeColour(""); setPlayingPartners("");
     setAverageDrivingDistance(""); setLongestDrive(""); setTeeShotQuality("");
     setExistingRoundId(null); setSavedStatus("completed");
-    setDate(todayIso()); setNotes(""); setHolesPlayed(18); setHoles(createHoles(18));
+    setDate(todayIso()); setNotes(""); setHolesPlayed(18); setNineSelection("all");
+    setHoles(createHoles(18));
     setCurrentHoleIndex(0); setSaveError(""); setSetupSubStep(1); setStep("setup");
+    if (user) clearRoundDraft(user.id);
     navigate("/golf/submit");
   };
 
   // ── Current hole ──
+  const holeStartOffset = nineSelection === "back" ? 9 : 0;
   const currentHole = holes[currentHoleIndex];
   const currentHoleScore =
     currentHole && currentHole.score !== "" ? Number(currentHole.score) - currentHole.par : null;
@@ -1178,20 +1373,36 @@ export default function RoundTracker() {
                 <h2 className="text-xl font-semibold">Course & Tees</h2>
               </div>
 
-              <div className="mb-6 grid gap-4 md:grid-cols-2">
+              <div className="mb-6 grid gap-3 sm:grid-cols-3">
                 <button
-                  onClick={() => setHolesPlayed(9)}
+                  onClick={() => { setHolesPlayed(9); setNineSelection("front"); }}
+                  data-testid="setup-front-nine"
                   className={`rounded-xl border p-5 text-left transition ${
-                    holesPlayed === 9
+                    holesPlayed === 9 && nineSelection === "front"
                       ? "border-golf bg-golf text-white"
                       : "border-line bg-steel/5 text-dark hover:border-golf/30"
                   }`}
                 >
                   <p className="text-sm opacity-70">Round length</p>
-                  <h2 className="mt-1 text-2xl font-semibold">9 Holes</h2>
+                  <h2 className="mt-1 text-2xl font-semibold">Front 9</h2>
+                  <p className="mt-1 text-xs opacity-70">Holes 1–9</p>
                 </button>
                 <button
-                  onClick={() => setHolesPlayed(18)}
+                  onClick={() => { setHolesPlayed(9); setNineSelection("back"); }}
+                  data-testid="setup-back-nine"
+                  className={`rounded-xl border p-5 text-left transition ${
+                    holesPlayed === 9 && nineSelection === "back"
+                      ? "border-golf bg-golf text-white"
+                      : "border-line bg-steel/5 text-dark hover:border-golf/30"
+                  }`}
+                >
+                  <p className="text-sm opacity-70">Round length</p>
+                  <h2 className="mt-1 text-2xl font-semibold">Back 9</h2>
+                  <p className="mt-1 text-xs opacity-70">Holes 10–18</p>
+                </button>
+                <button
+                  onClick={() => { setHolesPlayed(18); setNineSelection("all"); }}
+                  data-testid="setup-eighteen"
                   className={`rounded-xl border p-5 text-left transition ${
                     holesPlayed === 18
                       ? "border-golf bg-golf text-white"
@@ -1200,6 +1411,7 @@ export default function RoundTracker() {
                 >
                   <p className="text-sm opacity-70">Round length</p>
                   <h2 className="mt-1 text-2xl font-semibold">18 Holes</h2>
+                  <p className="mt-1 text-xs opacity-70">Full round</p>
                 </button>
               </div>
 
@@ -1211,6 +1423,19 @@ export default function RoundTracker() {
                     onCourseSelected={handleCourseSelected}
                     onTeeSelected={handleTeeSelected}
                   />
+                  <div className="mt-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs text-muted">
+                      Can't find the course, or the API is down? Enter par, stroke index and yardage by hand.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowManualCourseModal(true)}
+                      className="rounded-full border border-golf/40 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-golf transition hover:bg-golf/5"
+                      data-testid="open-manual-course"
+                    >
+                      Enter course manually
+                    </button>
+                  </div>
                 </div>
                 <Field label="Course name" value={course} onChange={(v) => { setCourse(v); if (selectedCourse && v !== selectedCourse.courseName) { setSelectedCourse(null); setSelectedTee(null); } }} />
                 <Field label="Tees played" value={teeColour} onChange={setTeeColour} placeholder="White, Yellow, Red…" />
@@ -1491,6 +1716,16 @@ export default function RoundTracker() {
             </Card>
           )}
         </div>
+        <ManualCourseModal
+          open={showManualCourseModal}
+          holesTotal={holesPlayed}
+          initialName={course}
+          onClose={() => setShowManualCourseModal(false)}
+          onSaved={(courseDetail, tee) => {
+            handleCourseSelected(courseDetail, tee);
+            setShowManualCourseModal(false);
+          }}
+        />
       </div>
     );
   }
@@ -1521,21 +1756,31 @@ export default function RoundTracker() {
             <div className="hidden h-6 w-px bg-line sm:block" />
             <p className="hidden truncate text-sm font-semibold text-muted sm:block">{selectedGameLabels}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            {lastSyncedAt && (
+              <span
+                className="hidden text-[10px] font-semibold uppercase tracking-[0.14em] text-golf/70 sm:inline"
+                data-testid="autosave-indicator"
+              >
+                Saved · {lastSyncedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            )}
             <Button
               variant="secondary"
               className="px-3 py-2 text-xs"
               onClick={saveNow}
               disabled={autoSaving || !existingRoundId}
-              title="Save progress"
+              title="Save round now"
+              data-testid="save-round-button"
             >
               <Save className="h-4 w-4" />
-              {autoSaving ? "Saving…" : "Save"}
+              {autoSaving ? "Saving…" : "Save Round"}
             </Button>
             <Button
               variant="secondary"
               className="px-3 py-2 text-xs"
               onClick={() => setShowSettingsPanel((v) => !v)}
+              data-testid="settings-toggle"
             >
               <Settings className="h-4 w-4" />
             </Button>
@@ -1575,7 +1820,7 @@ export default function RoundTracker() {
             <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.18em] text-golf">
-                  Hole {currentHoleIndex + 1} of {holesPlayed}
+                  Hole {currentHoleIndex + 1 + holeStartOffset} of {nineSelection === "back" ? "18" : holesPlayed}
                 </p>
                 <div className="mt-2 flex items-center gap-3">
                   <ScoreBadge score={currentHole.score || null} par={currentHole.par} size="lg" />
@@ -1607,9 +1852,9 @@ export default function RoundTracker() {
                         ? "border-golf/30 bg-golf/10 text-golf"
                         : "border-line bg-white text-muted hover:border-golf/40"
                     }`}
-                    aria-label={`Hole ${index + 1}`}
+                    aria-label={`Hole ${index + 1 + holeStartOffset}`}
                   >
-                    {index + 1}
+                    {index + 1 + holeStartOffset}
                   </button>
                 ))}
               </div>
@@ -1772,7 +2017,7 @@ export default function RoundTracker() {
                   <tbody>
                     {holes.map((hole, idx) => (
                       <tr key={idx} className="border-t border-line">
-                        <td className="p-4 font-semibold">{idx + 1}</td>
+                        <td className="p-4 font-semibold">{idx + 1 + holeStartOffset}</td>
                         <td className="p-4">{hole.par}</td>
                         <td className="p-4">{hole.yardage || "–"}</td>
                         <td className="p-4">{hole.handicap || "–"}</td>
@@ -2106,12 +2351,14 @@ function buildLiveRoundSummary({
 async function saveLiveRoundData({
   roundId, userId, status, holes, holesPlayed, liveParticipants,
   playerHoleScores, selectedGames, roundIntent, selectedTee, teeName, matchState,
+  holeStartOffset,
 }: {
   roundId: string; userId: string; status: "completed" | "unfinished";
   holes: Hole[]; holesPlayed: 9 | 18; liveParticipants: LiveParticipant[];
   playerHoleScores: Record<string, string[]>; selectedGames: LiveGame[];
   roundIntent: "casual" | "competition"; selectedTee: GolfCourseTee | null;
   teeName: string | null; matchState: ReturnType<typeof calculateMatchState>;
+  holeStartOffset: number;
 }) {
   // Clean up previous live data
   const cleanupTables = ["round_game_results", "round_game_holes", "round_games", "round_player_holes", "round_players", "round_sides"];
@@ -2177,7 +2424,7 @@ async function saveLiveRoundData({
   });
 
   const playerHoleRows: LivePlayerHoleRow[] = liveParticipants.flatMap((p) =>
-    holes.map((hole, index) => {
+    holes.map((hole, index): LivePlayerHoleRow | null => {
       const score = getParticipantScore(p.id, index, holes, playerHoleScores);
       const savedPlayerId = playerIdByLocalId.get(p.id);
       if (score === null || !savedPlayerId) return null;
@@ -2186,7 +2433,7 @@ async function saveLiveRoundData({
         round_id: roundId,
         round_player_id: savedPlayerId,
         side_id: sideIdByParticipant.get(p.id) || null,
-        hole_number: index + 1,
+        hole_number: index + 1 + holeStartOffset,
         gross_score: score,
         net_score: score - sr,
         stableford_points: stablefordPoints(score, hole.par, sr),
@@ -2222,7 +2469,7 @@ async function saveLiveRoundData({
   const gameHoleRows: LiveGameHoleRow[] = savedGames.flatMap((game) => {
     if (game.game_type === "skins") {
       return skinsState.holeResults.map<LiveGameHoleRow>((r) => ({
-        round_game_id: game.id, round_id: roundId, hole_number: r.hole,
+        round_game_id: game.id, round_id: roundId, hole_number: r.hole + holeStartOffset,
         winning_player_id: r.winningPlayerId ? playerIdByLocalId.get(r.winningPlayerId) || null : null,
         winning_side_id: null, result_label: r.label, carryover_count: r.carryover,
         points: { skinsAwarded: r.skinsAwarded }, match_state: { carryover: r.carryover },
@@ -2230,7 +2477,7 @@ async function saveLiveRoundData({
     }
     if (!["match_play", "four_ball_match", "foursomes"].includes(game.game_type)) return [];
     return matchState.holeResults.map<LiveGameHoleRow>((r) => ({
-      round_game_id: game.id, round_id: roundId, hole_number: r.hole,
+      round_game_id: game.id, round_id: roundId, hole_number: r.hole + holeStartOffset,
       winning_player_id: null,
       winning_side_id: r.leader === "A" ? sideAId : r.leader === "B" ? sideBId : null,
       result_label: r.label, carryover_count: 0,

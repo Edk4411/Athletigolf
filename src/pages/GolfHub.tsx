@@ -18,7 +18,32 @@ import {
 import { Button, Card, StatusPill } from "@/components/ui";
 import { isCompleteScoringRound } from "@/lib/golfStats";
 import { supabase } from "@/lib/supabase";
-import type { Round } from "@/lib/types";
+import type { Round, RoundGame, RoundHole, RoundPlayer } from "@/lib/types";
+
+const GAME_LABEL: Record<string, string> = {
+  stroke_play: "Stroke play",
+  medal: "Medal",
+  stableford: "Stableford",
+  match_play: "Match play",
+  skins: "Skins",
+  four_ball_stroke: "4BBB Stroke",
+  four_ball_match: "4BBB Match",
+  foursomes: "Foursomes",
+  scramble: "Scramble",
+  greensomes: "Greensomes",
+  nassau: "Nassau",
+  custom: "Custom",
+};
+
+type UnfinishedSummary = {
+  round: Round;
+  holesScored: number;
+  currentHole: number | null;
+  totalStrokes: number | null;
+  scoreToPar: number | null;
+  gameLabel: string;
+  playerScores: Array<{ name: string; strokes: number | null; holes: number }>;
+};
 
 type GolfHubItem = {
   label: string;
@@ -84,6 +109,7 @@ export default function GolfHub() {
   const [, navigate] = useLocation();
   const [rounds, setRounds] = useState<Round[]>([]);
   const [loading, setLoading] = useState(true);
+  const [summaries, setSummaries] = useState<Record<string, UnfinishedSummary>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -107,6 +133,67 @@ export default function GolfHub() {
     () => rounds.filter((round) => !isCompleteScoringRound(round)).slice(0, 3),
     [rounds]
   );
+
+  // ── Enrich each unfinished round with its live scoring context ──
+  useEffect(() => {
+    if (!unfinishedRounds.length) return;
+    let cancelled = false;
+
+    async function enrich() {
+      const ids = unfinishedRounds.map((r) => r.id);
+      const [
+        { data: holeRows },
+        { data: players },
+        { data: playerHoles },
+        { data: games },
+      ] = await Promise.all([
+        supabase.from("round_holes").select("*").in("round_id", ids),
+        supabase.from("round_players").select("*").in("round_id", ids),
+        supabase.from("round_player_holes").select("*").in("round_id", ids),
+        supabase.from("round_games").select("*").in("round_id", ids),
+      ]);
+      if (cancelled) return;
+
+      const next: Record<string, UnfinishedSummary> = {};
+      unfinishedRounds.forEach((round) => {
+        const rHoles = ((holeRows as RoundHole[]) || []).filter((h) => h.round_id === round.id);
+        const rPlayers = ((players as RoundPlayer[]) || []).filter((p) => p.round_id === round.id);
+        const rPlayerHoles = ((playerHoles as import("@/lib/types").RoundPlayerHole[]) || [])
+          .filter((ph) => ph.round_id === round.id);
+        const rGames = ((games as RoundGame[]) || []).filter((g) => g.round_id === round.id);
+
+        const scored = rHoles.filter((h) => h.score != null);
+        const totalStrokes = scored.reduce((sum, h) => sum + (h.score ?? 0), 0);
+        const totalPar = scored.reduce((sum, h) => sum + (h.par ?? 4), 0);
+        const currentHole = rHoles.length ? Math.max(...rHoles.map((h) => h.hole_number)) : null;
+
+        const playerScores = rPlayers.map((player) => {
+          const phs = rPlayerHoles.filter((ph) => ph.round_player_id === player.id && ph.gross_score != null);
+          return {
+            name: player.display_name,
+            strokes: phs.length ? phs.reduce((s, ph) => s + (ph.gross_score ?? 0), 0) : null,
+            holes: phs.length,
+          };
+        });
+
+        next[round.id] = {
+          round,
+          holesScored: scored.length,
+          currentHole,
+          totalStrokes: scored.length ? totalStrokes : null,
+          scoreToPar: scored.length ? totalStrokes - totalPar : null,
+          gameLabel: rGames.length ? GAME_LABEL[rGames[0].game_type] || rGames[0].game_type : "Stroke play",
+          playerScores,
+        };
+      });
+      setSummaries(next);
+    }
+
+    enrich();
+    return () => {
+      cancelled = true;
+    };
+  }, [unfinishedRounds]);
   const recentCourses = useMemo(() => {
     const seen = new Set<string>();
     return rounds
@@ -176,22 +263,75 @@ export default function GolfHub() {
 
               <div className="mt-4 space-y-2">
                 {unfinishedRounds.length ? (
-                  unfinishedRounds.map((round) => (
-                    <button
-                      key={round.id}
-                      type="button"
-                      onClick={() => navigate(`/golf/submit?resume=${round.id}`)}
-                      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-white/70 px-3 py-3 text-left transition active:scale-[0.99] dark:border-emerald-200/12 dark:bg-[#0f342c] dark:hover:bg-[#123d33]"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-dark dark:text-white">{round.round_name || round.course || "Unfinished round"}</p>
-                        <p className="mt-0.5 text-xs text-muted dark:text-white/52">
-                          {getRoundStatusLabel(round)} / {round.date || formatDate(round.created_at)}
-                        </p>
-                      </div>
-                      <ChevronRight className="h-5 w-5 shrink-0 text-muted dark:text-white/42" />
-                    </button>
-                  ))
+                  unfinishedRounds.map((round) => {
+                    const summary = summaries[round.id];
+                    return (
+                      <button
+                        key={round.id}
+                        type="button"
+                        onClick={() => navigate(`/golf/submit?resume=${round.id}`)}
+                        className="flex w-full flex-col gap-3 rounded-2xl border border-line bg-white/70 px-4 py-3 text-left transition active:scale-[0.99] dark:border-emerald-200/12 dark:bg-[#0f342c] dark:hover:bg-[#123d33]"
+                        data-testid={`unfinished-round-${round.id}`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="truncate text-sm font-semibold text-dark dark:text-white">
+                                {round.round_name || round.course || "Unfinished round"}
+                              </p>
+                              <StatusPill tone="pulse">{getRoundStatusLabel(round)}</StatusPill>
+                            </div>
+                            <p className="mt-0.5 text-xs text-muted dark:text-white/60">
+                              {round.course || "No course set"} · {summary?.gameLabel || "Stroke play"} ·{" "}
+                              {round.date || formatDate(round.created_at)}
+                            </p>
+                          </div>
+                          <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-muted dark:text-white/42" />
+                        </div>
+
+                        {summary && (
+                          <div className="grid grid-cols-3 gap-2 text-xs">
+                            <div className="rounded-xl bg-steel/5 px-2 py-2 dark:bg-white/5">
+                              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted dark:text-white/50">Hole</p>
+                              <p className="mt-0.5 text-sm font-semibold text-dark dark:text-white">
+                                {summary.currentHole ? `${summary.currentHole}/${round.target_holes || 18}` : "–"}
+                              </p>
+                            </div>
+                            <div className="rounded-xl bg-steel/5 px-2 py-2 dark:bg-white/5">
+                              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted dark:text-white/50">You</p>
+                              <p className="mt-0.5 text-sm font-semibold text-dark dark:text-white">
+                                {summary.totalStrokes ?? "–"}
+                                {summary.scoreToPar !== null && (
+                                  <span className="ml-1 text-xs text-muted dark:text-white/60">
+                                    ({summary.scoreToPar === 0 ? "E" : summary.scoreToPar > 0 ? `+${summary.scoreToPar}` : summary.scoreToPar})
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                            <div className="rounded-xl bg-steel/5 px-2 py-2 dark:bg-white/5">
+                              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted dark:text-white/50">Scored</p>
+                              <p className="mt-0.5 text-sm font-semibold text-dark dark:text-white">
+                                {summary.holesScored}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {summary && summary.playerScores.length > 1 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {summary.playerScores.slice(0, 4).map((ps, i) => (
+                              <span
+                                key={`${round.id}-${i}`}
+                                className="rounded-full bg-golf/10 px-2 py-0.5 text-[11px] font-semibold text-golf dark:bg-emerald-300/12 dark:text-emerald-100"
+                              >
+                                {ps.name.split(" ")[0]}: {ps.strokes ?? "–"}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })
                 ) : (
                   <div className="rounded-2xl border border-dashed border-line bg-white/45 px-3 py-4 text-sm text-muted dark:border-emerald-200/12 dark:bg-[#0b1f2b] dark:text-emerald-50/65">
                     No open rounds right now. Start a round when you get to the first tee.
