@@ -1,0 +1,78 @@
+You are working on my existing AthletiGolf codebase.
+
+Before making any changes, do a full codebase audit and understand the current architecture.
+
+Tech stack:
+- Vite + React + TypeScript
+- Supabase backend
+- Capacitor Android app
+- Existing migrations already created
+
+Your task:
+1. Review the current implementation and tell me:
+   - what features are already completed
+   - what files were recently changed
+   - what database migrations exist and whether they match the code
+   - any build errors, missing tables, missing columns, broken routes, or logic issues
+
+2. Specifically audit these areas:
+
+ROUND TRACKER:
+- Check the new reliability layer.
+- Confirm rounds autosave while playing.
+- Confirm leaving the app/backgrounding does not lose progress.
+- Check Save Round functionality.
+- Check unfinished round recovery.
+- Check handicap calculations.
+- Check Stableford calculations.
+- Check matchplay calculations.
+- Check handicap allowance percentages.
+- Check stroke index usage.
+- Check if course API data correctly populates tees and stroke indexes.
+- Do not change anything yet, only report issues.
+
+PRACTICE:
+- Review the unified practice system.
+- Confirm TopTracer / Trackman / simulator practice structure works.
+- Confirm different practice modes track different metrics.
+- Check that AthletiAI can use the stored data.
+
+STRAVA/CARDIO:
+- Review the current Strava integration.
+- Redesign the cardio page conceptually so it becomes a proper activity dashboard:
+  - synced Strava activities
+  - distance
+  - pace
+  - heart rate
+  - calories
+  - training load
+  - history
+  - trends
+  - activity cards
+- Tell me what needs changing.
+
+WELLNESS:
+- Review Wellness.
+- Confirm if the current single-page system can be separated into:
+  - Sleep
+  - Water
+  - Heart Rate
+  - Blood Pressure
+  - Nutrition
+  - Body metrics
+- Keep the main wellness page as an overview dashboard.
+
+UI:
+- Review mobile experience.
+- Improve the mobile arc navigation:
+  - centre it properly
+  - spread icons evenly
+  - improve colour contrast
+  - make active states clearer
+
+Do not make changes yet.
+Give me:
+1. Current state
+2. Problems found
+3. Recommended priority order
+4. Estimated difficulty of each change
