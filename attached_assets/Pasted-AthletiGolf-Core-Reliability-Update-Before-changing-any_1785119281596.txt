@@ -1,0 +1,285 @@
+AthletiGolf Core Reliability Update
+
+Before changing anything:
+Audit the current codebase and existing Supabase schema.
+
+Do not remove existing data.
+Do not replace existing tables.
+Only make additive migrations if needed.
+
+The priorities are:
+
+1. Make Round Tracker extremely reliable
+2. Fix all handicap calculations
+3. Improve Cardio and Strava integration
+
+----------------------------------
+
+ROUND TRACKER RELIABILITY
+
+Current issue:
+A golf round can be lost if the user:
+- leaves the app
+- locks their phone
+- closes the app
+- loses connection
+
+Implement true autosave.
+
+Requirements:
+
+Save automatically:
+- after every hole score update
+- after every important state change
+- when app goes into background
+- on pagehide
+- before unload where possible
+
+Use:
+- local storage draft backup
+- Supabase draft saving
+
+The user should never lose a round.
+
+----------------------------------
+
+ROUND RESUME
+
+Improve unfinished round recovery.
+
+When resuming:
+
+Restore:
+- current hole
+- all players
+- all player scores
+- hole statistics
+- settings
+- game format
+
+Currently multiplayer scores are not fully restored.
+
+Fix this.
+
+----------------------------------
+
+SAVE BUTTON
+
+Keep an obvious manual save option.
+
+During scoring show a top banner containing:
+
+- current score
+- holes completed
+- game type
+- settings button
+- save button
+
+----------------------------------
+
+ROUND SETUP FLOW
+
+Change "Start Round" into stages:
+
+Step 1:
+Course
+
+Include:
+- course
+- tees
+- yardage
+- slope rating
+- course rating
+
+Step 2:
+Players
+
+Each player:
+
+- name
+- tee
+- handicap index
+- handicap allowance
+- team colour
+
+Step 3:
+Game Type
+
+Support:
+
+- Stroke Play
+- Medal
+- Stableford
+- Match Play
+- Skins
+- 4BBB Stroke
+- 4BBB Match
+- Foursomes
+
+----------------------------------
+
+HANDICAP CALCULATIONS
+
+Implement correct WHS maths.
+
+Use:
+
+Course Handicap =
+Handicap Index × (Slope Rating / 113)
++ (Course Rating - Par)
+
+Then:
+
+Playing Handicap =
+Course Handicap × allowance %
+
+Allowances:
+
+Stroke Play:
+95%
+
+Stableford:
+100%
+
+Match Play:
+100%
+
+Fourball:
+85%
+
+Foursomes:
+50%
+
+Allow custom percentage input.
+
+----------------------------------
+
+STROKE INDEX
+
+Add stroke index support.
+
+For every hole:
+
+Store:
+- stroke index
+- yardage
+- tee information
+
+If course API provides stroke indexes:
+automatically import.
+
+If not:
+allow manual entry.
+
+----------------------------------
+
+MATCH PLAY
+
+During the round:
+
+Do NOT show:
+- holes won
+- holes lost
+- match result
+
+Only show scoring.
+
+For match play score display:
+
+Use:
+Blue outline = team blue
+Red outline = team red
+
+Store match information.
+
+After the round:
+
+Create Match Analysis page:
+
+Show:
+- holes won
+- holes lost
+- halved holes
+- turning points
+- final result
+
+----------------------------------
+
+CARDIO REBUILD
+
+Current problem:
+Cardio is just a logging form.
+
+Create a proper activity dashboard.
+
+Integrate Strava properly.
+
+Show:
+
+Recent Activities:
+
+Cards containing:
+
+- activity type
+- date
+- distance
+- duration
+- pace
+- calories
+- heart rate
+- elevation
+- route if available
+
+Support:
+
+Running
+Walking
+Hiking
+Cycling
+Other activities
+
+----------------------------------
+
+STRAVA
+
+Improve Strava integration.
+
+Allow:
+
+- connect
+- sync
+- disconnect
+- refresh activities
+
+Imported activities should appear automatically.
+
+Do not duplicate activities.
+
+Use Strava ID as unique identifier.
+
+----------------------------------
+
+CARDIO ANALYTICS
+
+Add:
+
+Weekly mileage
+Monthly mileage
+Training load
+Average pace
+Heart rate trends
+Activity history
+
+Make this feel like Garmin/Strava style.
+
+----------------------------------
+
+After completing:
+
+Run production build.
+
+Report:
+- files changed
+- migrations created
+- tests completed
+- anything still missing.
