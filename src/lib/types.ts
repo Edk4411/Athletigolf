@@ -319,7 +319,7 @@ export type Workout = {
 export type CardioSession = {
   id: string;
   user_id: string;
-  activity_type: "run" | "walk";
+  activity_type: "run" | "walk" | "hike" | "cycle" | "other";
   session_date: string;
   distance_km: number | null;
   duration_minutes: number | null;
@@ -330,6 +330,7 @@ export type CardioSession = {
   notes: string | null;
   source: "manual" | "strava";
   external_id?: string | null;
+  elevation_gain_meters?: number | null;
   created_at: string;
   updated_at?: string | null;
 };

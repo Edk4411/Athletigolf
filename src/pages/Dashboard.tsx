@@ -80,7 +80,8 @@ export default function Dashboard() {
       setWorkouts((w as Workout[]) || []);
       setCardioSessions((cardio as CardioSession[]) || []);
       setCompetitions((c as Competition[]) || []);
-      setWellnessLogs((wellness as WellnessLog[]) || []);
+      const wellnessRows = (wellness as WellnessLog[]) || [];
+      setTodayWellness(wellnessRows.find((row) => row.log_date === today) || null);
       setNutritionEntries((nutrition as NutritionEntry[]) || []);
       setLiveActivities((live as LiveActivity[]) || []);
       const onboarding = (profile?.onboarding_data as OnboardingData | null) || null;
