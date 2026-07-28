@@ -49,9 +49,15 @@ import Settings from "./pages/Settings";
 import Contact from "./pages/Contact";
 import Follow from "./pages/Follow";
 import AdminFeedback from "./pages/AdminFeedback";
-import ConnectedApps from "./pages/ConnectedApps";
-import AccountConnected from "./pages/AccountConnected";
-import Recommendations from "./pages/Recommendations";
+import ConnectedApps from "@/pages/ConnectedApps";
+import AccountConnected from "@/pages/AccountConnected";
+import Recommendations from "@/pages/Recommendations";
+import Food from "@/pages/wellness/Food";
+import Water from "@/pages/wellness/Water";
+import Sleep from "@/pages/wellness/Sleep";
+import Body from "@/pages/wellness/Body";
+import HeartRate from "@/pages/wellness/HeartRate";
+import BloodPressure from "@/pages/wellness/BloodPressure";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -200,6 +206,42 @@ function AppShell() {
         <Route path="/wellness">
           <ProtectedRoute>
             <Wellness />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/wellness/food">
+          <ProtectedRoute>
+            <Food />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/wellness/water">
+          <ProtectedRoute>
+            <Water />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/wellness/sleep">
+          <ProtectedRoute>
+            <Sleep />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/wellness/body">
+          <ProtectedRoute>
+            <Body />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/wellness/heartrate">
+          <ProtectedRoute>
+            <HeartRate />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/wellness/bloodpressure">
+          <ProtectedRoute>
+            <BloodPressure />
           </ProtectedRoute>
         </Route>
 
