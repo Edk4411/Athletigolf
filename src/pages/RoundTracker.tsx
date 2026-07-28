@@ -645,58 +645,7 @@ export default function RoundTracker() {
     averageDrivingDistance, longestDrive, teeShotQuality, playingPartners,
   ]);
 
-    const roundPayload = {
-        user_id: user.id,
-        status,
-        target_holes: holesPlayed,
-        completed_at: status === "completed" ? new Date().toISOString() : null,
-        visibility,
-        live_status: status === "completed" ? "finished" : stats.holesCompleted > 0 ? "paused" : "not_started",
-        started_at: stats.holesCompleted > 0 ? new Date().toISOString() : null,
-        finished_at: status === "completed" ? new Date().toISOString() : null,
-        round_name: roundName || null,
-        golf_course_id: selectedCourse?.cachedCourseId || null,
-        golf_course_external_id: selectedCourse?.id || null,
-        golf_course_tee_id: selectedTee?.id?.startsWith("saved-") || selectedTee?.id?.startsWith("api-") ? null : selectedTee?.id || null,
-        course: course || null,
-        date: date || todayIso(),
-        score: stats.totalScore || null,
-        fairways_hit: stats.fairwaysHit,
-        fairways_possible: stats.fairwaysPossible,
-        greens_in_regulation: stats.girs,
-        putts: stats.totalPutts,
-        penalty_shots: stats.penaltyShots,
-        chip_shots: stats.chipShots,
-        greenside_bunker_shots: stats.greensideBunkerShots,
-        holes_played: stats.holesCompleted,
-        tee_colour: teeColour || null,
-        tee_name: selectedTee?.teeName || teeColour || null,
-        course_rating: selectedTee?.courseRating ?? null,
-        slope_rating: selectedTee?.slopeRating ?? null,
-        total_yards: selectedTee?.totalYards ?? null,
-        total_meters: selectedTee?.totalMeters ?? null,
-        par_total: selectedTee?.parTotal ?? stats.totalPar ?? null,
-        average_driving_distance: parseOptionalNumber(averageDrivingDistance),
-        longest_drive: parseOptionalNumber(longestDrive),
-        tee_shot_quality: teeShotQuality || null,
-        playing_partners: playingPartners || livePlayers.map((player) => player.name).join(", ") || null,
-        scramble_percentage: stats.scramblePercent,
-        is_competition: competition,
-        notes: [notes, liveRoundSummary].filter(Boolean).join("\n\n") || null,
-        // Reliability + calculation-integrity fields:
-        primary_game_type: selectedGames[0] || "stroke_play",
-        handicap_allowance_percent: handicapAllowancePercent,
-        gross_score: stats.totalScore || null,
-        net_score: (stats.totalScore != null && ownHandicap)
-          ? stats.totalScore - computePlayingHandicap(parseFloat(ownHandicap) || 0, handicapAllowancePercent)
-          : null,
-        auto_saved_at: new Date().toISOString(),
-        client_draft_key: user?.id ? `athletigolf:round-draft:${user.id}` : null,
-        match_result: buildMatchResultSnapshot(livePlayers, playerHoleScores, matchState, selectedGames) || null,
-        tee_name_snapshot: selectedTee?.teeName || teeColour || null,
-        tee_colour_snapshot: teeColour || null,
-    };
-
+    
   // Fire local autosave on every meaningful state change.
   useEffect(() => {
     saveLocalDraft();
@@ -885,6 +834,59 @@ export default function RoundTracker() {
     if (score === 0) return "E";
     return score > 0 ? `+${score}` : `${score}`;
   };
+
+const roundPayload = {
+        user_id: user.id,
+        status,
+        target_holes: holesPlayed,
+        completed_at: status === "completed" ? new Date().toISOString() : null,
+        visibility,
+        live_status: status === "completed" ? "finished" : stats.holesCompleted > 0 ? "paused" : "not_started",
+        started_at: stats.holesCompleted > 0 ? new Date().toISOString() : null,
+        finished_at: status === "completed" ? new Date().toISOString() : null,
+        round_name: roundName || null,
+        golf_course_id: selectedCourse?.cachedCourseId || null,
+        golf_course_external_id: selectedCourse?.id || null,
+        golf_course_tee_id: selectedTee?.id?.startsWith("saved-") || selectedTee?.id?.startsWith("api-") ? null : selectedTee?.id || null,
+        course: course || null,
+        date: date || todayIso(),
+        score: stats.totalScore || null,
+        fairways_hit: stats.fairwaysHit,
+        fairways_possible: stats.fairwaysPossible,
+        greens_in_regulation: stats.girs,
+        putts: stats.totalPutts,
+        penalty_shots: stats.penaltyShots,
+        chip_shots: stats.chipShots,
+        greenside_bunker_shots: stats.greensideBunkerShots,
+        holes_played: stats.holesCompleted,
+        tee_colour: teeColour || null,
+        tee_name: selectedTee?.teeName || teeColour || null,
+        course_rating: selectedTee?.courseRating ?? null,
+        slope_rating: selectedTee?.slopeRating ?? null,
+        total_yards: selectedTee?.totalYards ?? null,
+        total_meters: selectedTee?.totalMeters ?? null,
+        par_total: selectedTee?.parTotal ?? stats.totalPar ?? null,
+        average_driving_distance: parseOptionalNumber(averageDrivingDistance),
+        longest_drive: parseOptionalNumber(longestDrive),
+        tee_shot_quality: teeShotQuality || null,
+        playing_partners: playingPartners || livePlayers.map((player) => player.name).join(", ") || null,
+        scramble_percentage: stats.scramblePercent,
+        is_competition: competition,
+        notes: notes || null,
+        // Reliability + calculation-integrity fields:
+        primary_game_type: selectedGames[0] || "stroke_play",
+        handicap_allowance_percent: handicapAllowancePercent,
+        gross_score: stats.totalScore || null,
+        net_score: (stats.totalScore != null && ownHandicap)
+          ? stats.totalScore - computePlayingHandicap(parseFloat(ownHandicap) || 0, handicapAllowancePercent)
+          : null,
+        auto_saved_at: new Date().toISOString(),
+        client_draft_key: user?.id ? `athletigolf:round-draft:${user.id}` : null,
+        match_result: null,
+        tee_name_snapshot: selectedTee?.teeName || teeColour || null,
+        tee_colour_snapshot: teeColour || null,
+    };
+
 
   // ── Leaderboard ──
   const liveLeaderboard = useMemo(() => {
