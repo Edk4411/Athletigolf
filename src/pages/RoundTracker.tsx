@@ -1935,249 +1935,106 @@ export default function RoundTracker() {
                 </p>
               </div>
 
-              {/* Hole nav dots */}
-              <div className="-mx-1 flex max-w-full gap-2 overflow-x-auto px-1 pb-1 lg:flex-wrap lg:overflow-visible">
-                {holes.map((hole, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setCurrentHoleIndex(index)}
-                    className={`h-10 w-10 rounded-lg border text-sm font-semibold transition ${
-                      index === currentHoleIndex
-                        ? "border-golf bg-golf text-white"
-                        : hole.score
-                        ? "border-golf/30 bg-golf/10 text-golf"
-                        : "border-line bg-white text-muted hover:border-golf/40"
-                    }`}
-                    aria-label={`Hole ${index + 1 + holeStartOffset}`}
-                  >
-                    {index + 1 + holeStartOffset}
-                  </button>
-                ))}
-              </div>
+             {/* Hole nav dots */}
+<div className="-mx-1 flex max-w-full gap-2 overflow-x-auto px-1 pb-1 lg:flex-wrap lg:overflow-visible">
+  {holes.map((hole, index) => (
+    <button
+      key={index}
+      onClick={() => setCurrentHoleIndex(index)}
+      className={`h-10 w-10 rounded-lg border text-sm font-semibold transition ${
+        index === currentHoleIndex
+          ? "border-golf bg-golf text-white"
+          : hole.score
+            ? "border-golf/30 bg-golf/10 text-golf"
+            : "border-line bg-white text-muted hover:border-golf/40"
+      }`}
+      aria-label={`Hole ${index + 1 + holeStartOffset}`}
+    >
+      {index + 1 + holeStartOffset}
+    </button>
+  ))}
+</div>
 
-              <div className="mt-5">
-                <HandicapAllowanceSelector
-                  format={(selectedGames[0] as GameFormat) || "stroke_play"}
-                  value={handicapAllowancePercent}
-                  onChange={setHandicapAllowancePercent}
-                  numPlayersOnSide={Math.max(1, Math.round(livePlayers.length / 2))}
-                />
-              </div>
-            </div>
+<div className="mt-5">
+  <HandicapAllowanceSelector
+    format={(selectedGames[0] as GameFormat) || "stroke_play"}
+    value={handicapAllowancePercent}
+    onChange={setHandicapAllowancePercent}
+    numPlayersOnSide={Math.max(1, Math.round(livePlayers.length / 2))}
+  />
+</div>
 
-            {currentHoleIndex === 8 && holesPlayed === 18 && (
-              <div className="mb-5 rounded-lg border border-gold/30 bg-gold/10 px-4 py-3 text-sm font-medium text-dark">
-                Turn after this hole.
-              </div>
-            )}
+{currentHoleIndex === 8 && holesPlayed === 18 && (
+  <div className="mb-5 rounded-lg border border-gold/30 bg-gold/10 px-4 py-3 text-sm font-medium text-dark">
+    Turn after this hole.
+  </div>
+)}
 
-            {/* Leaderboard */}
-            <div className="mb-6 rounded-2xl border border-line bg-panel p-4">
-              <div className="mb-3 flex items-center gap-2">
-                <Trophy className="h-5 w-5 text-golf" />
-                <h3 className="font-semibold text-dark">Live leaderboard</h3>
-              </div>
-              <div className="space-y-2">
-                {liveLeaderboard.map((player, idx) => {
-                  const teamColour =
-                    hasMatchGame
-                      ? player.team === "A"
-                        ? "border-l-4 border-blue-500"
-                        : "border-l-4 border-red-500"
-                      : "";
-                  return (
-                    <div
-                      key={player.id}
-                      className={`flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 ${teamColour}`}
-                    >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <PlayerAvatar src={player.avatarUrl} name={player.name} />
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-dark">{idx + 1}. {player.name}</p>
-                          <p className="text-xs text-muted">{player.holes}/{holesPlayed}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="flex justify-end"><ScoreBadge score={player.score} scoreToPar={player.toPar} /></p>
-                        <p className="mt-1 flex justify-end"><ScoreBadge score={player.toPar === null ? null : formatToParValue(player.toPar)} scoreToPar={player.toPar} size="sm" /></p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+{/* Leaderboard */}
+<div className="mb-6 rounded-2xl border border-line bg-panel p-4">
+  <div className="mb-3 flex items-center gap-2">
+    <Trophy className="h-5 w-5 text-golf" />
+    <h3 className="font-semibold text-dark">
+      Live leaderboard
+    </h3>
+  </div>
 
-            {/* Scoring inputs */}
-            <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
-              <SelectField
-                label="Par"
-                value={currentHole.par.toString()}
-                onChange={(v) => updateHole(currentHoleIndex, "par", Number(v))}
-                options={["3", "4", "5"]}
-              />
-              <Field
-                label="Score"
-                type="number"
-                value={currentHole.score}
-                onChange={(v) => updateHole(currentHoleIndex, "score", v)}
-              />
-              <SelectField
-                label="Fairway"
-                value={currentHole.fairway}
-                disabled={currentHole.par === 3}
-                onChange={(v) => updateHole(currentHoleIndex, "fairway", v as FairwayResult)}
-                options={["na", "hit", "left", "right", "miss"]}
-              />
-              {currentHole.par !== 3 && currentHole.fairway !== "hit" && currentHole.fairway !== "na" && (
-                <SelectField
-                  label="Where did it finish?"
-                  value={currentHole.teeShotLocation}
-                  onChange={(v) => updateHole(currentHoleIndex, "teeShotLocation", v as "" | TeeShotLocation)}
-                  options={["", "rough", "fairway_bunker", "woods", "water", "out_of_bounds", "other_fairway", "other"]}
-                />
-              <span className="font-medium">Competition round</span>
-              </label>
-              <p className="rounded-lg border border-golf/20 bg-golf/8 px-4 py-3 text-sm leading-relaxed text-muted md:col-span-2">
-                For alpha, playing partners are saved as names only. Other players' scorecards can become a group or premium feature later.
+  <div className="space-y-2">
+    {liveLeaderboard.map((player, idx) => {
+      const teamColour =
+        hasMatchGame
+          ? player.team === "A"
+            ? "border-l-4 border-blue-500"
+            : "border-l-4 border-red-500"
+          : "";
+
+      return (
+        <div
+          key={player.id}
+          className={`flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 ${teamColour}`}
+        >
+          <div className="flex min-w-0 items-center gap-3">
+            <PlayerAvatar
+              src={player.avatarUrl}
+              name={player.name}
+            />
+
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-dark">
+                {idx + 1}. {player.name}
               </p>
-              <div className="md:col-span-2">
-                <label className="mb-2 block text-sm text-black/50">Round notes</label>
-                <textarea
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  rows={4}
-                  className="w-full rounded-lg border border-line px-5 py-4 outline-none focus:border-golf"
-                />
-              </div>
+
+              <p className="text-xs text-muted">
+                {player.holes}/{holesPlayed}
+              </p>
             </div>
+          </div>
 
-            <Button
-              onClick={startRound}
-              variant="golf"
-              className="mt-8"
-            >
-              <Flag className="h-4 w-4" />
-              Start Hole Entry
-            </Button>
-          </Card>
-        ) : (
-          <>
-            <section className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
-              <StatCard label="Score" value={<ScoreBadge score={stats.holesCompleted ? stats.totalScore : null} scoreToPar={stats.holesCompleted ? stats.scoreToPar : null} size="lg" />} tone="bg-white" />
-              <StatCard label="To Par" value={<ScoreBadge score={formatToPar(stats.scoreToPar)} scoreToPar={stats.holesCompleted ? stats.scoreToPar : null} size="lg" />} tone="bg-white" />
-              <StatCard label="Holes" value={`${stats.holesCompleted}/${holesPlayed}`} tone="bg-white" />
-              <StatCard label="Putts" value={stats.totalPutts || "-"} tone="bg-white" />
-              <StatCard label="FIR" value={`${stats.fairwayPercent}%`} tone="bg-white" />
-              <StatCard label="GIR" value={`${stats.girPercent}%`} tone="bg-white" />
-              <StatCard label="Scramble" value={stats.scramblePercent === null ? "-" : `${stats.scramblePercent}%`} tone="bg-white" />
-              <StatCard label="Penalties" value={stats.penaltyShots} tone="bg-white" />
-            </section>
+          <div className="text-right">
+            <p className="flex justify-end">
+              <ScoreBadge
+                score={player.score}
+                scoreToPar={player.toPar}
+              />
+            </p>
 
-            {step === "holes" && currentHole && (
-              <Card className="p-5 md:p-7">
-                <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-[0.18em] text-golf">
-                      Hole {currentHoleIndex + 1} of {holesPlayed}
-                    </p>
-                    <div className="mt-2 flex items-center gap-3">
-                      <ScoreBadge score={currentHole.score || null} par={currentHole.par} size="lg" />
-                      <h2 className="text-4xl font-semibold">
-                        {currentHole.score ? formatToPar(currentHoleScore ?? 0) : "Not scored"}
-                      </h2>
-                    </div>
-                    <p className="mt-2 text-sm text-muted">
-                      Enter the live basics now. Slower detail can be cleaned up in the review step after the round.
-                    </p>
-                    {(currentHole.yardage || currentHole.handicap) && (
-                      <p className="mt-3 text-sm font-semibold text-golf">
-                        {currentHole.yardage ? `${currentHole.yardage} yd` : ""}
-                        {currentHole.yardage && currentHole.handicap ? " / " : ""}
-                        {currentHole.handicap ? `SI ${currentHole.handicap}` : ""}
-                      </p>
-                    )}
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => finishRound("unfinished")}
-                        disabled={saving}
-                        data-testid="save-round-btn"
-                        className="inline-flex items-center gap-1.5 rounded-full border border-golf/40 bg-golf/10 px-3 py-1.5 text-xs font-semibold text-golf transition hover:bg-golf/15 disabled:opacity-60"
-                      >
-                        <Save className="h-3.5 w-3.5" /> {saving ? "Saving..." : "Save Round"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setStep("setup")}
-                        data-testid="in-round-settings-btn"
-                        className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white/70 px-3 py-1.5 text-xs font-semibold text-muted transition hover:border-golf/40 hover:text-dark"
-                        aria-label="Round settings"
-                      >
-                        <Settings className="h-3.5 w-3.5" /> Settings
-                      </button>
-                      {autoSavedAt && (
-                        <span className="text-[11px] font-medium text-muted" data-testid="autosave-status">
-                          Auto-saved {timeAgoLabel(autoSavedAt)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="-mx-1 flex max-w-full gap-2 overflow-x-auto px-1 pb-1 lg:flex-wrap lg:overflow-visible">
-                    {holes.map((hole, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setCurrentHoleIndex(index)}
-                        className={`h-10 w-10 rounded-lg border text-sm font-semibold transition ${
-                          index === currentHoleIndex
-                            ? "border-golf bg-golf text-white"
-                            : hole.score
-                              ? "border-golf/30 bg-golf/10 text-golf"
-                              : "border-line bg-white text-muted hover:border-golf/40"
-                        }`}
-                        aria-label={`Go to hole ${index + 1}`}
-                      >
-                        {index + 1}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {currentHoleIndex === 8 && holesPlayed === 18 && (
-                  <div className="mb-5 rounded-lg border border-gold/30 bg-gold/10 px-4 py-3 text-sm font-medium text-dark">
-                    Turn after this hole.
-                  </div>
-                )}
-
-                <div className="mb-6 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-                  <div className="rounded-2xl border border-line bg-panel p-4">
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <Trophy className="h-5 w-5 text-golf" />
-                        <h3 className="font-semibold text-dark">Live leaderboard</h3>
-                      </div>
-                      <span className="rounded-full bg-golf/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-golf">
-                        {visibility === "friends" ? "Friends" : "Private"}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {liveLeaderboard.map((player, index) => (
-                        <div key={player.id} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-3">
-                          <div className="flex min-w-0 items-center gap-3">
-                            <PlayerAvatar src={player.avatarUrl} name={player.name} />
-                            <div className="min-w-0">
-                              <p className="truncate font-semibold text-dark">{index + 1}. {player.name}</p>
-                              <p className="text-xs text-muted">{player.holes}/{holesPlayed} holes</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="flex justify-end"><ScoreBadge score={player.score} scoreToPar={player.toPar} /></p>
-                            <p className="mt-1 flex justify-end"><ScoreBadge score={player.toPar === null ? null : formatToParValue(player.toPar)} scoreToPar={player.toPar} size="sm" /></p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+            <p className="mt-1 flex justify-end">
+              <ScoreBadge
+                score={
+                  player.toPar === null
+                    ? null
+                    : formatToParValue(player.toPar)
+                }
+                scoreToPar={player.toPar}
+                size="sm"
+              />
+            </p>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+</div>
 
                   <div className="rounded-2xl border border-golf/20 bg-golf/5 p-4">
                     <div className="mb-3 flex items-center gap-2">
@@ -2221,29 +2078,42 @@ export default function RoundTracker() {
                     }}
                     options={["3", "4", "5"]}
                   />
+
                   <Field
                     label="Score"
                     type="number"
                     value={currentHole.score}
-                    onChange={(value) => updateHole(currentHoleIndex, "score", value)}
+                    onChange={(value) =>
+                      updateHole(currentHoleIndex, "score", value)
+                    }
                   />
+
                   <SelectField
                     label="Fairway"
                     value={currentHole.fairway}
                     disabled={currentHole.par === 3}
                     onChange={(value) =>
-                      updateHole(currentHoleIndex, "fairway", value as FairwayResult)
+                      updateHole(
+                        currentHoleIndex,
+                        "fairway",
+                        value as FairwayResult
+                      )
                     }
                     options={["na", "hit", "left", "right", "miss"]}
                   />
+
                   {currentHole.par !== 3 &&
                     currentHole.fairway !== "hit" &&
                     currentHole.fairway !== "na" && (
                       <SelectField
                         label="Where did it finish?"
-                        value={currentHole.teeShotLocation}
+                        value={currentHole.teeShotLocation || ""}
                         onChange={(value) =>
-                          updateHole(currentHoleIndex, "teeShotLocation", value as "" | TeeShotLocation)
+                          updateHole(
+                            currentHoleIndex,
+                            "teeShotLocation",
+                            value as "" | TeeShotLocation
+                          )
                         }
                         options={[
                           "",
@@ -2257,12 +2127,17 @@ export default function RoundTracker() {
                         ]}
                       />
                     )}
+
                   <label className="flex items-center gap-3 rounded-lg border border-line px-4 py-3">
                     <input
                       type="checkbox"
                       checked={currentHole.gir}
                       onChange={(event) =>
-                        updateHole(currentHoleIndex, "gir", event.target.checked)
+                        updateHole(
+                          currentHoleIndex,
+                          "gir",
+                          event.target.checked
+                        )
                       }
                     />
                     <span className="text-sm font-medium">GIR</span>
@@ -2520,59 +2395,42 @@ export default function RoundTracker() {
             )}
 
             {saveError && (
-              <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-700">
-                {saveError}
-              </div>
-            )}
+  <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-700">
+    {saveError}
+  </div>
+)}
 
-            <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
-              <Button variant="secondary" onClick={() => setStep("setup")}>
-                <ArrowLeft className="h-4 w-4" />
-                Back To Setup
-              </Button>
-              {step === "review" && (
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button
-                    onClick={() => setStep("holes")}
-                    variant="secondary"
-                  >
-                    Back To Hole Entry
-                  </Button>
-                  <Button
-                    onClick={() => finishRound("unfinished")}
-                    disabled={saving}
-                    variant="secondary"
-                  >
-                    <Save className="h-4 w-4" />
-                    {saving ? "Saving..." : "Save Unfinished"}
-                  </Button>
-                  <Button
-                    onClick={() => finishRound("completed")}
-                    disabled={saving}
-                    variant="golf"
-                  >
-                    <Save className="h-4 w-4" />
-                    {saving ? "Saving..." : "Save Finished Round"}
-                  </Button>
-                </div>
-              )}
+{step === "review" && (
+  <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+    <Button
+      variant="secondary"
+      onClick={() => setStep("holes")}
+    >
+      <ArrowLeft className="h-4 w-4" />
+      Back To Hole Entry
+    </Button>
 
-              )}
-              <label className="flex items-center gap-3 rounded-lg border border-line px-4 py-3">
-                <input type="checkbox" checked={currentHole.gir} onChange={(e) => updateHole(currentHoleIndex, "gir", e.target.checked)} />
-                <span className="text-sm font-medium">GIR</span>
-              </label>
-              <Field label="Putts" type="number" value={currentHole.putts} onChange={(v) => updateHole(currentHoleIndex, "putts", v)} />
-              {livePlayers.map((player) => (
-                <Field
-                  key={player.id}
-                  label={`${player.name} score`}
-                  type="number"
-                  value={playerHoleScores[player.id]?.[currentHoleIndex] || ""}
-                  onChange={(v) => updatePlayerHoleScore(player.id, currentHoleIndex, v)}
-                />
-              ))}
-            </div>
+    <div className="flex flex-col gap-3 sm:flex-row">
+      <Button
+        onClick={() => finishRound("unfinished")}
+        disabled={saving}
+        variant="secondary"
+      >
+        <Save className="h-4 w-4" />
+        {saving ? "Saving..." : "Save Unfinished"}
+      </Button>
+
+      <Button
+        onClick={() => finishRound("completed")}
+        disabled={saving}
+        variant="golf"
+      >
+        <Save className="h-4 w-4" />
+        {saving ? "Saving..." : "Save Finished Round"}
+      </Button>
+    </div>
+  </div>
+)}
 
             {/* Short game detail */}
             <div className="mt-5 rounded-2xl border border-gold/25 bg-gold/10 p-4">
@@ -2584,118 +2442,55 @@ export default function RoundTracker() {
               </div>
             </div>
 
-            {/* Navigation */}
-            <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <Button
-                variant="secondary"
-                onClick={() => setCurrentHoleIndex((i) => Math.max(i - 1, 0))}
-                disabled={currentHoleIndex === 0}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
-              </Button>
-              <div className="flex gap-3">
-                {currentHoleIndex < holesPlayed - 1 ? (
-                  <>
-                    <Button variant="secondary" onClick={() => setCurrentHoleIndex((i) => Math.min(i + 1, holesPlayed - 1))}>
-                      Skip
-                    </Button>
-                    <Button variant="golf" onClick={() => setCurrentHoleIndex((i) => Math.min(i + 1, holesPlayed - 1))}>
-                      Next Hole
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </>
-                ) : null}
-                <Button variant="golf" onClick={reviewRound}>
-                  Finish
-                </Button>
-              </div>
-            </div>
-          </Card>
-        )}
+          {/* Navigation */}
+<div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+  <Button
+    variant="secondary"
+    onClick={() =>
+      setCurrentHoleIndex((i) => Math.max(i - 1, 0))
+    }
+    disabled={currentHoleIndex === 0}
+  >
+    <ChevronLeft className="h-4 w-4" />
+    Previous
+  </Button>
 
-        {/* ── Review ── */}
-        {step === "review" && (
-          <>
-            <Card className="mb-6 border-golf/20 bg-golf/5">
-              <h2 className="mb-2 text-2xl font-semibold text-golf">Review Before Saving</h2>
-              <p className="text-black/60">Check the summary below. Skipped holes stay out of scoring averages.</p>
-            </Card>
+  <div className="flex gap-3">
+    {currentHoleIndex < holesPlayed - 1 && (
+      <>
+        <Button
+          variant="secondary"
+          onClick={() =>
+            setCurrentHoleIndex((i) =>
+              Math.min(i + 1, holesPlayed - 1)
+            )
+          }
+        >
+          Skip
+        </Button>
 
-            <Card className="overflow-hidden p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px] text-left text-sm">
-                  <thead className="bg-steel/10 text-muted">
-                    <tr>
-                      <th className="p-4">Hole</th>
-                      <th className="p-4">Par</th>
-                      <th className="p-4">Yards</th>
-                      <th className="p-4">SI</th>
-                      <th className="p-4">Score</th>
-                      <th className="p-4">Fairway</th>
-                      <th className="p-4">Tee lie</th>
-                      <th className="p-4">GIR</th>
-                      <th className="p-4">Putts</th>
-                      <th className="p-4">Pen</th>
-                      <th className="p-4">Short game</th>
-                      <th className="p-4">Edit</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {holes.map((hole, idx) => (
-                      <tr key={idx} className="border-t border-line">
-                        <td className="p-4 font-semibold">{idx + 1 + holeStartOffset}</td>
-                        <td className="p-4">{hole.par}</td>
-                        <td className="p-4">{hole.yardage || "–"}</td>
-                        <td className="p-4">{hole.handicap || "–"}</td>
-                        <td className="p-4">
-                          {hole.score
-                            ? <ScoreBadge score={hole.score} par={hole.par} size="sm" />
-                            : <span className="rounded-full bg-steel/10 px-3 py-1 text-xs font-semibold text-muted">Skipped</span>
-                          }
-                        </td>
-                        <td className="p-4 capitalize">{formatOption(hole.fairway)}</td>
-                        <td className="p-4 capitalize">{hole.teeShotLocation ? formatOption(hole.teeShotLocation) : "–"}</td>
-                        <td className="p-4">{hole.gir ? "Yes" : "No"}</td>
-                        <td className="p-4">{hole.putts || "–"}</td>
-                        <td className="p-4">{hole.penaltyShots || "0"}</td>
-                        <td className="p-4">{parseStat(hole.chipShots) + parseStat(hole.greensideBunkerShots)}</td>
-                        <td className="p-4">
-                          <button onClick={() => { setCurrentHoleIndex(idx); setStep("holes"); }} className="font-semibold text-golf">
-                            Edit
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          </>
-        )}
+        <Button
+          variant="golf"
+          onClick={() =>
+            setCurrentHoleIndex((i) =>
+              Math.min(i + 1, holesPlayed - 1)
+            )
+          }
+        >
+          Next Hole
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </>
+    )}
 
-        {/* ── Recovery prompt ── */}
-        {recoveryPromptIndex !== null && holes[recoveryPromptIndex] && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-            <button className="absolute inset-0 bg-black/45" onClick={() => setRecoveryPromptIndex(null)} aria-label="Close" />
-            <div className="relative z-10 w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-golf">Hole {recoveryPromptIndex + 1}</p>
-              <h2 className="mt-2 text-2xl font-semibold text-dark">Recovery shot before putting?</h2>
-              <p className="mt-3 text-sm leading-relaxed text-muted">
-                This hole has both a chip and a bunker shot. Choose which led into putting.
-              </p>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                <Button variant="golf" onClick={() => { updateHole(recoveryPromptIndex, "recoveryShotType", "chip"); setRecoveryPromptIndex(null); }}>
-                  Chip shot
-                </Button>
-                <Button variant="secondary" onClick={() => { updateHole(recoveryPromptIndex, "recoveryShotType", "sand"); setRecoveryPromptIndex(null); }}>
-                  Bunker shot
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
+    <Button
+      variant="golf"
+      onClick={reviewRound}
+    >
+      Finish
+    </Button>
+  </div>
+</div>                               
         {/* ── Match decision overlay ── */}
         {matchDecision && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
@@ -3174,76 +2969,6 @@ async function saveLiveRoundData({
   const { error: resultError } = await supabase.from("round_game_results").insert(resultRows);
   return resultError?.message || null;
 }
-
-function formatToParValue(score: number) {
-  if (score === 0) return "E";
-  return score > 0 ? `+${score}` : `${score}`;
-}
-
-function SelectField({
-  label,
-  value,
-  onChange,
-  options,
-  disabled,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: string[];
-  disabled?: boolean;
-}) {
-  return (
-    <div>
-      <label className="mb-2 block text-sm text-muted">{label}</label>
-      <select
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-lg border border-line bg-white px-4 py-3 capitalize outline-none focus:border-golf disabled:bg-steel/5 disabled:text-muted"
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {formatOption(option)}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function toDraftHoles(count: 9 | 18, rows: RoundHole[]): Hole[] {
-  const holes = createHoles(count);
-  rows.forEach((row) => {
-    const index = row.hole_number - 1;
-    if (index < 0 || index >= holes.length) return;
-    holes[index] = {
-      par: row.par || 4,
-      yardage: row.yardage ?? null,
-      meters: row.meters ?? null,
-      handicap: row.handicap ?? null,
-      score: row.score === null || row.score === undefined ? "" : row.score.toString(),
-      fairway: row.fairway_result || "na",
-      teeShotLocation: row.tee_shot_location || "",
-      gir: row.gir,
-      putts: row.putts === null || row.putts === undefined ? "" : row.putts.toString(),
-      penaltyShots: row.penalty_shots === null || row.penalty_shots === undefined ? "" : row.penalty_shots.toString(),
-      chipShots: row.chip_shots === null || row.chip_shots === undefined ? "" : row.chip_shots.toString(),
-      greensideBunkerShots:
-        row.greenside_bunker_shots === null || row.greenside_bunker_shots === undefined
-          ? ""
-          : row.greenside_bunker_shots.toString(),
-      recoveryShotType: row.recovery_shot_type || "",
-    };
-  });
-  return holes;
-}
-
-function formatOption(option: string) {
-  if (option === "na") return "N/A";
-  return option.replaceAll("_", " ");
-}
-
 
 function timeAgoLabel(date: Date) {
   const diffMs = Date.now() - date.getTime();

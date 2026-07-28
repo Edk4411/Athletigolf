@@ -15,6 +15,8 @@ export type GameFormat =
   | "four_ball_match"
   | "foursomes";
 
+export const DEFAULT_ALLOWANCE = 95;
+
 export const DEFAULT_ALLOWANCES: Record<GameFormat, number> = {
   stroke_play: 95,
   medal: 95,
@@ -28,7 +30,7 @@ export const DEFAULT_ALLOWANCES: Record<GameFormat, number> = {
 
 export function getDefaultAllowancePercent(formats: GameFormat[]): number {
   const primary = formats[0] ?? "stroke_play";
-  return DEFAULT_ALLOWANCES[primary] ?? 95;
+  return DEFAULT_ALLOWANCES[primary] ?? DEFAULT_ALLOWANCE;
 }
 
 export function computeCourseHandicap(
@@ -58,22 +60,23 @@ export function getStrokesReceived(
 
   const si = holeStrokeIndex || 18;
   const base = Math.floor(playingHandicap / 18);
-  const remainder = Math.floor(playingHandicap % 18);
+  const remainder = playingHandicap % 18;
 
-  const adj = holesPlayed === 9 ? 0.5 : 1;
+  const halfAdjustment = holesPlayed === 9 ? Math.floor(base / 2) : base;
 
-  return Math.floor(base * adj) + (si <= remainder ? 1 : 0);
+  return halfAdjustment + (si <= remainder ? 1 : 0);
 }
 
 export function strokesOnHole(
   playingHandicap: number,
   strokeIndex: number | null | undefined
 ): number {
-  if (!strokeIndex || strokeIndex < 1) return 0;
-  if (playingHandicap <= 0) return 0;
+  if (!strokeIndex || strokeIndex < 1 || playingHandicap <= 0) {
+    return 0;
+  }
 
   const base = Math.floor(playingHandicap / 18);
-  const remainder = playingHandicap - base * 18;
+  const remainder = playingHandicap % 18;
 
   return base + (strokeIndex <= remainder ? 1 : 0);
 }
@@ -83,13 +86,14 @@ export function stablefordPoints(
   par: number,
   strokesReceived: number
 ): number {
-  const toPar = score - strokesReceived - par;
+  const netScore = score - strokesReceived;
+  const difference = netScore - par;
 
-  if (toPar <= -3) return 5;
-  if (toPar === -2) return 4;
-  if (toPar === -1) return 3;
-  if (toPar === 0) return 2;
-  if (toPar === 1) return 1;
+  if (difference <= -3) return 5;
+  if (difference === -2) return 4;
+  if (difference === -1) return 3;
+  if (difference === 0) return 2;
+  if (difference === 1) return 1;
 
   return 0;
 }
@@ -109,8 +113,12 @@ export function matchHoleResult(
 export function matchStatusLabel(
   results: Array<-1 | 0 | 1>,
   holesRemaining: number
-): { lead: number; label: string; closeout: boolean } {
-  const lead = results.reduce((sum, r) => sum + r, 0);
+): {
+  lead: number;
+  label: string;
+  closeout: boolean;
+} {
+  const lead = results.reduce((sum, result) => sum + result, 0);
   const abs = Math.abs(lead);
 
   if (abs > holesRemaining) {
@@ -137,6 +145,15 @@ export function matchStatusLabel(
 }
 
 export function parseHandicapIndex(value: string): number {
-  const n = Number(value);
-  return Number.isFinite(n) ? Math.max(0, n) : 0;
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed)
+    ? Math.max(0, parsed)
+    : 0;
+}
+
+export function suggestedAllowance(
+  gameFormat: GameFormat
+): number {
+  return DEFAULT_ALLOWANCES[gameFormat] ?? DEFAULT_ALLOWANCE;
 }

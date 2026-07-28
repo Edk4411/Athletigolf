@@ -154,3 +154,12 @@ export function hasActiveDraft(userId: string): boolean {
   const scored = draft.holes.some((h) => h.score !== "");
   return draft.step === "holes" || scored;
 }
+
+export function draftAgeMinutes(snapshot: RoundDraftSnapshot | null) {
+  if (!snapshot?.updatedAt) return null;
+
+  const updated = new Date(snapshot.updatedAt).getTime();
+  const now = Date.now();
+
+  return Math.floor((now - updated) / 60000);
+}
