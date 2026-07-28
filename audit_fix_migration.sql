@@ -29,8 +29,10 @@ data.
   applied for the round.
 - primary_game_type (text, default 'stroke_play') — the main game format
   (stroke play, match play, stableford, etc.).
-- match_result (text, nullable) — result of a match-play round
-  (win, loss, draw).
+- match_result (jsonb, nullable) — JSON snapshot of a match-play round
+  result containing primary_game_type, sides array, result_label, and
+  finish_hole. Stored as jsonb to match the TypeScript MatchResultSnapshot
+  type used by PostRoundMatchAnalysis.
 - tee_name_snapshot (text, nullable) — tee name captured at round start.
 - tee_colour_snapshot (text, nullable) — tee colour captured at round start.
 - strava_external_id (text, nullable) — Strava activity ID linked to the round.
@@ -42,11 +44,14 @@ data.
 - tee_yardage (integer, nullable) — yardage from the tee box for this hole.
 - tee_meters (integer, nullable) — meter equivalent of the tee yardage.
 
-### practice_sessions (10 columns)
-- mode (text, default 'practice') — the practice mode (practice, quiz, etc.).
+### practice_sessions (13 columns)
+- mode (text, default 'practice') — the practice mode (on_course,
+  driving_range, short_game, putting, simulator).
 - source (text, default 'manual') — how the session was created
-  (manual, strava, toptracer).
+  (manual, toptracer, trackman, etc.).
 - source_mode (text, nullable) — sub-mode within the source.
+- source_session_id (text, nullable) — external session ID when imported
+  from a launch monitor or simulator integration.
 - session_date (date, default CURRENT_DATE) — date the session took place.
 - location (text, nullable) — where the session occurred.
 - course_name (text, nullable) — golf course name if applicable.
@@ -54,10 +59,14 @@ data.
 - metrics (jsonb, default '{}') — structured performance metrics.
 - club_averages (jsonb, default '{}') — average distances per club.
 - shots (jsonb, default '[]') — array of individual shot data.
+- ai_summary (text, nullable) — AI-generated summary of the session.
+- updated_at (timestamptz, default now()) — last modification timestamp.
 
 ### cardio_sessions (1 column)
-- elevation_gain_meters (integer, nullable) — elevation gain in meters;
-  used in Cardio page and Strava import.
+- elevation_gain_meters (numeric, nullable) — elevation gain in meters;
+  used in Cardio page and Strava import. Typed as numeric (not integer)
+  because the Cardio form uses parseNumber() which can return decimal
+  values, matching the existing distance_km numeric column.
 
 ### strava_activity_queue (1 column added, data migrated)
 - activity_data (jsonb, default '{}') — new column matching the name used by
@@ -116,7 +125,7 @@ ALTER TABLE rounds ADD COLUMN IF NOT EXISTS gross_score integer;
 ALTER TABLE rounds ADD COLUMN IF NOT EXISTS net_score integer;
 ALTER TABLE rounds ADD COLUMN IF NOT EXISTS handicap_allowance_percent numeric DEFAULT 100;
 ALTER TABLE rounds ADD COLUMN IF NOT EXISTS primary_game_type text DEFAULT 'stroke_play';
-ALTER TABLE rounds ADD COLUMN IF NOT EXISTS match_result text;
+ALTER TABLE rounds ADD COLUMN IF NOT EXISTS match_result jsonb;
 ALTER TABLE rounds ADD COLUMN IF NOT EXISTS tee_name_snapshot text;
 ALTER TABLE rounds ADD COLUMN IF NOT EXISTS tee_colour_snapshot text;
 ALTER TABLE rounds ADD COLUMN IF NOT EXISTS strava_external_id text;
@@ -137,6 +146,7 @@ ALTER TABLE round_holes ADD COLUMN IF NOT EXISTS tee_meters integer;
 ALTER TABLE practice_sessions ADD COLUMN IF NOT EXISTS mode text DEFAULT 'practice';
 ALTER TABLE practice_sessions ADD COLUMN IF NOT EXISTS source text DEFAULT 'manual';
 ALTER TABLE practice_sessions ADD COLUMN IF NOT EXISTS source_mode text;
+ALTER TABLE practice_sessions ADD COLUMN IF NOT EXISTS source_session_id text;
 ALTER TABLE practice_sessions ADD COLUMN IF NOT EXISTS session_date date DEFAULT CURRENT_DATE;
 ALTER TABLE practice_sessions ADD COLUMN IF NOT EXISTS location text;
 ALTER TABLE practice_sessions ADD COLUMN IF NOT EXISTS course_name text;
@@ -144,12 +154,14 @@ ALTER TABLE practice_sessions ADD COLUMN IF NOT EXISTS handicap_at_session numer
 ALTER TABLE practice_sessions ADD COLUMN IF NOT EXISTS metrics jsonb DEFAULT '{}'::jsonb;
 ALTER TABLE practice_sessions ADD COLUMN IF NOT EXISTS club_averages jsonb DEFAULT '{}'::jsonb;
 ALTER TABLE practice_sessions ADD COLUMN IF NOT EXISTS shots jsonb DEFAULT '[]'::jsonb;
+ALTER TABLE practice_sessions ADD COLUMN IF NOT EXISTS ai_summary text;
+ALTER TABLE practice_sessions ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 
 -- ============================================================
 -- SECTION 5: Add missing column to cardio_sessions
 -- ============================================================
 
-ALTER TABLE cardio_sessions ADD COLUMN IF NOT EXISTS elevation_gain_meters integer;
+ALTER TABLE cardio_sessions ADD COLUMN IF NOT EXISTS elevation_gain_meters numeric;
 
 -- ============================================================
 -- SECTION 6: Fix strava_activity_queue column name mismatch
