@@ -363,9 +363,9 @@ export default function Food() {
                     {mealTypes.map((meal) => <option key={meal.value} value={meal.value}>{meal.label}</option>)}
                   </SelectInput>
                 </div>
-                <FoodField label="Food" value={foodForm.food_name} onChange={(v) => setFoodForm((p) => ({ ...p, food_name: v }))} />
-                <FoodField label="Serving" value={foodForm.serving} onChange={updateServingLabel} />
-                <FoodField label="Calories" type="number" value={foodForm.calories} onChange={(v) => setFoodForm((p) => ({ ...p, calories: v }))} />
+                <Field label="Food" value={foodForm.food_name} onChange={(v) => setFoodForm((p) => ({ ...p, food_name: v }))} />
+                <Field label="Serving" value={foodForm.serving} onChange={updateServingLabel} />
+                <Field label="Calories" type="number" value={foodForm.calories} onChange={(v) => setFoodForm((p) => ({ ...p, calories: v }))} />
               </div>
               <Button type="submit" variant="golf" disabled={saving || !foodForm.food_name.trim()}>Add Food</Button>
             </form>
@@ -376,7 +376,7 @@ export default function Food() {
   );
 }
 
-function FoodField({ label, value, onChange, placeholder, type = "text" }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string; }) {
+function Field({ label, value, onChange, placeholder, type = "text" }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string; }) {
   return (
     <div>
       <FieldLabel>{label}</FieldLabel>

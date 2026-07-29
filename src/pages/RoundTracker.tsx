@@ -952,7 +952,7 @@ const roundPayload = {
     setLivePlayers((prev) => prev.map((p) => ({ ...p, allowancePercent: defaultAllowance })));
   }, [selectedGames.join(",")]);
 
-  // ── Hole mutations ──
+   // ── Hole mutations ──
   const updateHole = <K extends keyof Hole>(index: number, field: K, value: Hole[K]) => {
     const updatedHole = { ...holes[index], [field]: value };
     if (field === "par" && value === 3) {
@@ -966,62 +966,52 @@ const roundPayload = {
     if (needsRecoveryChoice(updatedHole)) setRecoveryPromptIndex(index);
   };
 
-  const applyTeeToHoles = (tee: GolfCourseTee | null, nextHoles = holesPlayed) => {
-    if (!tee?.holes?.length) return;
-    setHoles((prev) => {
-      const base = prev.length === nextHoles ? prev : createHoles(nextHoles);
-      return base.map((hole, idx) => {
-        const ch = tee.holes.find((item) => item.holeNumber === idx + 1);
-        if (!ch) return hole;
-        return {
-          ...hole,
-          par: ch.par || hole.par,
-          yardage: ch.yardage,
-          meters: ch.meters,
-          handicap: ch.handicap,
-          fairway: (ch.par || hole.par) === 3 ? "na" : hole.fairway,
-          teeShotLocation: (ch.par || hole.par) === 3 ? "" : hole.teeShotLocation,
-        };
-      });
-    });
+  const goToPreviousHole = () => {
+    setCurrentHoleIndex((prev) => Math.max(0, prev - 1));
+  };
+
+  const goToNextHole = () => {
+    setCurrentHoleIndex((prev) =>
+      Math.min(holesPlayed - 1, prev + 1)
+    );
   };
 
   const handleCourseSelected = (courseDetail: GolfCourseDetail, tee: GolfCourseTee | null) => {
     setSelectedCourse(courseDetail);
     setCourse(courseDetail.courseName || courseDetail.clubName);
     setSelectedTee(tee);
-    if (tee) { setTeeColour(tee.teeName); applyTeeToHoles(tee); }
+    if (tee) {
+      setTeeColour(tee.teeName);
+      applyTeeToHoles(tee);
+    }
   };
 
   const handleTeeSelected = (tee: GolfCourseTee | null) => {
     setSelectedTee(tee);
-    if (tee) { setTeeColour(tee.teeName); applyTeeToHoles(tee); }
+    if (tee) {
+      setTeeColour(tee.teeName);
+      applyTeeToHoles(tee);
+    }
   };
 
-  // ── Player management ──
-  const addLivePlayer = () => {
-    const name = newPlayerName.trim();
-    if (!name) return;
-    const defaultAllowance = getDefaultAllowancePercent(selectedGames as GameFormat[]);
-    const player: LivePlayer = {
-      id: `guest-${Date.now()}`,
-      name,
-      handicap: newPlayerHandicap.trim(),
-      allowancePercent: newPlayerAllowance ? Number(newPlayerAllowance) : defaultAllowance,
-      type: "guest",
-      team: livePlayers.length % 2 === 0 ? "B" : "A",
-      userId: null, username: null,
-    };
-    setLivePlayers((prev) => [...prev, player]);
-    setPlayerHoleScores((prev) => ({
-      ...prev,
-      [player.id]: Array.from({ length: holesPlayed }, () => ""),
-    }));
-    setPlayingPartners((prev) => {
-      const names = prev.split(",").map((s) => s.trim()).filter(Boolean);
-      return [...new Set([...names, name])].join(", ");
+  const applyTeeToHoles = (tee: GolfCourseTee | null, nextHolesPlayed = holesPlayed) => {
+    if (!tee?.holes?.length) return;
+    setHoles((prev) => {
+      const base = prev.length === nextHolesPlayed ? prev : createHoles(nextHolesPlayed);
+      return base.map((hole, index) => {
+        const courseHole = tee.holes.find((item) => item.holeNumber === index + 1);
+        if (!courseHole) return hole;
+        return {
+          ...hole,
+          par: courseHole.par || hole.par,
+          yardage: courseHole.yardage,
+          meters: courseHole.meters,
+          handicap: courseHole.handicap,
+          fairway: (courseHole.par || hole.par) === 3 ? "na" : hole.fairway,
+          teeShotLocation: (courseHole.par || hole.par) === 3 ? "" : hole.teeShotLocation,
+        };
+      });
     });
-    setNewPlayerName(""); setNewPlayerHandicap(""); setNewPlayerAllowance("");
   };
 
   const addFriendPlayer = (friend: FriendConnectionProfile) => {
@@ -1078,6 +1068,35 @@ const roundPayload = {
       const current = prev[playerId] || Array.from({ length: holesPlayed }, () => "");
       return { ...prev, [playerId]: current.map((v, i) => (i === holeIndex ? score : v)) };
     });
+  };
+
+  const addLivePlayer = () => {
+    const name = newPlayerName.trim();
+    if (!name) return;
+    const defaultAllowance = getDefaultAllowancePercent(selectedGames as GameFormat[]);
+    const player: LivePlayer = {
+      id: `guest-${Date.now()}`,
+      name,
+      handicap: newPlayerHandicap.trim(),
+      allowancePercent: Number(newPlayerAllowance || defaultAllowance),
+      type: "guest",
+      team: livePlayers.length % 2 === 0 ? "B" : "A",
+    };
+    setLivePlayers((prev) => [...prev, player]);
+    setPlayerHoleScores((prev) => ({
+      ...prev,
+      [player.id]: Array.from({ length: holesPlayed }, () => ""),
+    }));
+    setPlayingPartners((prev) => {
+      const names = prev
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      return [...new Set([...names, name])].join(", ");
+    });
+    setNewPlayerName("");
+    setNewPlayerHandicap("");
+    setNewPlayerAllowance("");
   };
 
   // ── Start round (creates draft in DB immediately) ──
@@ -2791,203 +2810,492 @@ async function saveLiveRoundData({
     if (error) return error.message;
   }
 
-  const hasTeamFormat = selectedGames.some((g) => ["four_ball_stroke", "four_ball_match", "foursomes"].includes(g));
-  const sideRows: LiveSideRow[] =
-    hasTeamFormat || selectedGames.includes("match_play")
-      ? [
-          { round_id: roundId, name: "Team A", side_type: hasTeamFormat ? "pair" : "team", side_order: 1 },
-          { round_id: roundId, name: "Team B", side_type: hasTeamFormat ? "pair" : "team", side_order: 2 },
-        ]
-      : liveParticipants.map((p, i) => ({
-          round_id: roundId, name: p.name, side_type: "individual", side_order: i + 1,
-        }));
+const hasTeamFormat = selectedGames.some((g) =>
+  ["four_ball_stroke", "four_ball_match", "foursomes"].includes(g)
+);
 
-  const { data: sides, error: sideError } = await supabase.from("round_sides").insert(sideRows).select("id,name,side_order");
-  if (sideError || !sides) return sideError?.message || "Could not save sides.";
-
-  const sideIdByParticipant = new Map<string, string>();
-  liveParticipants.forEach((p, i) => {
-    const side = hasTeamFormat || selectedGames.includes("match_play")
-      ? sides.find((s) => s.name === `Team ${p.team}`)
-      : sides[i];
-    if (side?.id) sideIdByParticipant.set(p.id, side.id);
-  });
-
-  const playerRows = liveParticipants.map((p, i) => {
-    const ph = getParticipantPlayingHandicap(p, selectedTee, holesPlayed);
-    const ch = selectedTee?.slopeRating && selectedTee.courseRating && selectedTee.parTotal
-      ? computeCourseHandicap(parseHandicapIndex(p.handicap), selectedTee.slopeRating, selectedTee.courseRating, selectedTee.parTotal)
-      : parseHandicapIndex(p.handicap);
-    return {
-      round_id: roundId,
-      side_id: sideIdByParticipant.get(p.id) || null,
-      user_id: p.type === "owner" ? userId : p.userId || null,
-      invited_by: p.type === "owner" ? null : userId,
-      player_type: p.type,
-      display_name: p.name,
-      username: p.username || null,
-      handicap: parseHandicapIndex(p.handicap) || null,
-      course_handicap: ch || null,
-      playing_handicap: ph || null,
-      handicap_allowance_percent: p.allowancePercent,
-      tee_name: teeName,
-      tee_colour: teeName,
-      player_order: i + 1,
-      is_owner: p.type === "owner",
-      can_edit_scores: p.type === "owner",
-    };
-  });
-
-  const { data: savedPlayers, error: playerError } = await supabase.from("round_players").insert(playerRows).select("id,display_name,player_order");
-  if (playerError || !savedPlayers) return playerError?.message || "Could not save players.";
-
-  const playerIdByLocalId = new Map<string, string>();
-  liveParticipants.forEach((p, i) => {
-    const saved = savedPlayers.find((r) => r.player_order === i + 1);
-    if (saved?.id) playerIdByLocalId.set(p.id, saved.id);
-  });
-
-  const playerHoleRows: LivePlayerHoleRow[] = liveParticipants.flatMap((p) =>
-    holes.map((hole, index): LivePlayerHoleRow | null => {
-      const score = getParticipantScore(p.id, index, holes, playerHoleScores);
-      const savedPlayerId = playerIdByLocalId.get(p.id);
-      if (score === null || !savedPlayerId) return null;
-      const sr = resolveStrokesReceived(p, hole.handicap, holesPlayed, selectedTee);
-      return {
-        round_id: roundId,
-        round_player_id: savedPlayerId,
-        side_id: sideIdByParticipant.get(p.id) || null,
-        hole_number: index + 1 + holeStartOffset,
-        gross_score: score,
-        net_score: score - sr,
-        stableford_points: stablefordPoints(score, hole.par, sr),
-        strokes_received: sr,
-        picked_up: false, conceded: false, notes: null,
-      };
-    }).filter((r): r is LivePlayerHoleRow => r !== null)
-  );
-
-  if (playerHoleRows.length) {
-    const { error } = await supabase.from("round_player_holes").insert(playerHoleRows);
-    if (error) return error.message;
-  }
-
-  const gameRows = selectedGames.map((game) => ({
-    round_id: roundId,
-    created_by: userId,
-    game_type: game,
-    scoring_basis: game === "stableford" ? "points" : game.includes("match") || game === "foursomes" ? "holes" : game === "skins" ? "skins" : "gross",
-    handicap_mode: liveParticipants.some((p) => p.handicap.trim()) ? "allowance" : "none",
-    name: liveGameOptions.find((o) => o.id === game)?.label || game,
-    settings: { roundIntent, teams: liveParticipants.map((p) => ({ name: p.name, team: p.team, type: p.type })), holesPlayed },
-    status: status === "completed" ? "finished" : "active",
-  }));
-
-  const { data: savedGames, error: gameError } = await supabase.from("round_games").insert(gameRows).select("id,game_type");
-  if (gameError || !savedGames) return gameError?.message || "Could not save games.";
-
-  const sideAId = sides.find((s) => s.name === "Team A")?.id || null;
-  const sideBId = sides.find((s) => s.name === "Team B")?.id || null;
-  const skinsState = calculateSkinsState(holes, liveParticipants, playerHoleScores, holesPlayed, selectedTee);
-
-  const gameHoleRows: LiveGameHoleRow[] = savedGames.flatMap((game) => {
-    if (game.game_type === "skins") {
-      return skinsState.holeResults.map<LiveGameHoleRow>((r) => ({
-        round_game_id: game.id, round_id: roundId, hole_number: r.hole + holeStartOffset,
-        winning_player_id: r.winningPlayerId ? playerIdByLocalId.get(r.winningPlayerId) || null : null,
-        winning_side_id: null, result_label: r.label, carryover_count: r.carryover,
-        points: { skinsAwarded: r.skinsAwarded }, match_state: { carryover: r.carryover },
-      }));
-    }
-    if (!["match_play", "four_ball_match", "foursomes"].includes(game.game_type)) return [];
-    return matchState.holeResults.map<LiveGameHoleRow>((r) => ({
-      round_game_id: game.id, round_id: roundId, hole_number: r.hole + holeStartOffset,
-      winning_player_id: null,
-      winning_side_id: r.leader === "A" ? sideAId : r.leader === "B" ? sideBId : null,
-      result_label: r.label, carryover_count: 0,
-      points: { teamAScore: r.teamAScore, teamBScore: r.teamBScore },
-      match_state: { label: r.matchLabel, leader: r.leader },
-    }));
-  });
-
-  if (gameHoleRows.length) {
-    const { error } = await supabase.from("round_game_holes").insert(gameHoleRows);
-    if (error) return error.message;
-  }
-
-  const resultRows: LiveGameResultRow[] = [];
-  savedGames.forEach((game) => {
-    if (["match_play", "four_ball_match", "foursomes"].includes(game.game_type)) {
-      resultRows.push(
+const sideRows: LiveSideRow[] =
+  hasTeamFormat || selectedGames.includes("match_play")
+    ? [
         {
-          round_game_id: game.id, round_id: roundId, round_player_id: null, side_id: sideAId,
-          position: matchState.teamAWins >= matchState.teamBWins ? 1 : 2,
-          total_gross: null, total_net: null, total_points: null,
-          holes_won: matchState.teamAWins, skins_won: null,
-          result_label: matchState.label,
-          result_payload: { team: "A", roundIntent, closeout: matchState.closeout },
+          round_id: roundId,
+          name: "Team A",
+          side_type: hasTeamFormat ? "pair" : "team",
+          side_order: 1,
         },
         {
-          round_game_id: game.id, round_id: roundId, round_player_id: null, side_id: sideBId,
-          position: matchState.teamBWins > matchState.teamAWins ? 1 : 2,
-          total_gross: null, total_net: null, total_points: null,
-          holes_won: matchState.teamBWins, skins_won: null,
-          result_label: matchState.label,
-          result_payload: { team: "B", roundIntent, closeout: matchState.closeout },
+          round_id: roundId,
+          name: "Team B",
+          side_type: hasTeamFormat ? "pair" : "team",
+          side_order: 2,
+        },
+      ]
+    : liveParticipants.map((p, i) => ({
+        round_id: roundId,
+        name: p.name,
+        side_type: "individual",
+        side_order: i + 1,
+      }));
+
+const { data: sides, error: sideError } = await supabase
+  .from("round_sides")
+  .insert(sideRows)
+  .select("id,name,side_order");
+
+if (sideError || !sides) {
+  return sideError?.message || "Could not save sides.";
+}
+
+
+const sideIdByParticipant = new Map<string, string>();
+
+liveParticipants.forEach((p, i) => {
+  const side =
+    hasTeamFormat || selectedGames.includes("match_play")
+      ? sides.find((s) => s.name === `Team ${p.team}`)
+      : sides[i];
+
+  if (side?.id) {
+    sideIdByParticipant.set(p.id, side.id);
+  }
+});
+
+
+const playerRows = liveParticipants.map((p, i) => {
+  const playingHandicap = getParticipantPlayingHandicap(
+    p,
+    selectedTee,
+    holesPlayed
+  );
+
+  const courseHandicap =
+    selectedTee?.slopeRating &&
+    selectedTee.courseRating &&
+    selectedTee.parTotal
+      ? computeCourseHandicap(
+          parseHandicapIndex(p.handicap),
+          selectedTee.slopeRating,
+          selectedTee.courseRating,
+          selectedTee.parTotal
+        )
+      : parseHandicapIndex(p.handicap);
+
+  return {
+    round_id: roundId,
+    side_id: sideIdByParticipant.get(p.id) || null,
+    user_id: p.type === "owner" ? userId : p.userId || null,
+    invited_by: p.type === "owner" ? null : userId,
+    player_type: p.type,
+    display_name: p.name,
+    username: p.username || null,
+    handicap: parseHandicapIndex(p.handicap) || null,
+    course_handicap: courseHandicap || null,
+    playing_handicap: playingHandicap || null,
+    handicap_allowance_percent: p.allowancePercent,
+    tee_name: teeName,
+    tee_colour: teeName,
+    player_order: i + 1,
+    is_owner: p.type === "owner",
+    can_edit_scores: p.type === "owner",
+  };
+});
+
+
+const { data: savedPlayers, error: playerError } =
+  await supabase
+    .from("round_players")
+    .insert(playerRows)
+    .select("id,display_name,player_order");
+
+
+if (playerError || !savedPlayers) {
+  return playerError?.message || "Could not save players.";
+}
+
+
+const playerIdByLocalId = new Map<string, string>();
+
+liveParticipants.forEach((p, i) => {
+  const saved = savedPlayers.find(
+    (r) => r.player_order === i + 1
+  );
+
+  if (saved?.id) {
+    playerIdByLocalId.set(p.id, saved.id);
+  }
+});
+
+
+const playerHoleRows: LivePlayerHoleRow[] =
+  liveParticipants.flatMap((p) =>
+    holes
+      .map((hole, index): LivePlayerHoleRow | null => {
+        const score = getParticipantScore(
+          p.id,
+          index,
+          holes,
+          playerHoleScores
+        );
+
+        const savedPlayerId = playerIdByLocalId.get(p.id);
+
+        if (score === null || !savedPlayerId) {
+          return null;
         }
-      );
-      return;
-    }
+
+        const strokesReceived = resolveStrokesReceived(
+          p,
+          hole.handicap,
+          holesPlayed,
+          selectedTee
+        );
+
+        return {
+          round_id: roundId,
+          round_player_id: savedPlayerId,
+          side_id: sideIdByParticipant.get(p.id) || null,
+          hole_number: index + 1 + holeStartOffset,
+          gross_score: score,
+          net_score: score - strokesReceived,
+          stableford_points: stablefordPoints(
+            score,
+            hole.par,
+            strokesReceived
+          ),
+          strokes_received: strokesReceived,
+          picked_up: false,
+          conceded: false,
+          notes: null,
+        };
+      })
+      .filter(
+        (r): r is LivePlayerHoleRow => r !== null
+      )
+  );
+
+
+if (playerHoleRows.length) {
+  const { error } = await supabase
+    .from("round_player_holes")
+    .insert(playerHoleRows);
+
+  if (error) {
+    return error.message;
+  }
+}
+
+
+const gameRows = selectedGames.map((game) => ({
+  round_id: roundId,
+  created_by: userId,
+  game_type: game,
+
+  scoring_basis:
+    game === "stableford"
+      ? "points"
+      : game.includes("match") || game === "foursomes"
+      ? "holes"
+      : game === "skins"
+      ? "skins"
+      : "gross",
+
+  handicap_mode:
+    liveParticipants.some((p) => p.handicap.trim())
+      ? "allowance"
+      : "none",
+
+  name:
+    liveGameOptions.find((o) => o.id === game)?.label ||
+    game,
+
+  settings: {
+    roundIntent,
+    teams: liveParticipants.map((p) => ({
+      name: p.name,
+      team: p.team,
+      type: p.type,
+    })),
+    holesPlayed,
+  },
+
+  status:
+    status === "completed"
+      ? "finished"
+      : "active",
+}));
+
+
+const { data: savedGames, error: gameError } =
+  await supabase
+    .from("round_games")
+    .insert(gameRows)
+    .select("id,game_type");
+
+
+if (gameError || !savedGames) {
+  return gameError?.message || "Could not save games.";
+}
+
+
+const sideAId =
+  sides.find((s) => s.name === "Team A")?.id || null;
+
+const sideBId =
+  sides.find((s) => s.name === "Team B")?.id || null;
+
+
+const skinsState = calculateSkinsState(
+  holes,
+  liveParticipants,
+  playerHoleScores,
+  holesPlayed,
+  selectedTee
+);
+
+const gameHoleRows: LiveGameHoleRow[] =
+  savedGames.flatMap((game) => {
+
+   if (game.game_type === "skins") {
+  return skinsState.holeResults.map<LiveGameHoleRow>((r) => ({
+    round_game_id: game.id,
+    round_id: roundId,
+    hole_number: r.hole + holeStartOffset,
+    winning_player_id: r.winningPlayerId
+      ? playerIdByLocalId.get(r.winningPlayerId) || null
+      : null,
+    winning_side_id: null,
+    result_label: r.label,
+    carryover_count: r.carryover,
+    points: {
+      skinsAwarded: r.skinsAwarded,
+    },
+    match_state: {
+      carryover: r.carryover,
+    },
+  }));
+}
+
+if (
+  ![
+    "match_play",
+    "four_ball_match",
+    "foursomes",
+  ].includes(game.game_type)
+) {
+  return [];
+}
+
+return matchState.holeResults.map<LiveGameHoleRow>((r) => ({
+  round_game_id: game.id,
+  round_id: roundId,
+  hole_number: r.hole + holeStartOffset,
+
+  winning_player_id: null,
+
+  winning_side_id:
+    r.leader === "A"
+      ? sideAId
+      : r.leader === "B"
+      ? sideBId
+      : null,
+
+  result_label: r.label,
+
+  carryover_count: 0,
+
+  points: {
+    teamAScore: r.teamAScore,
+    teamBScore: r.teamBScore,
+  },
+
+  match_state: {
+    label: r.matchLabel,
+    leader: r.leader,
+  },
+}));
+});
+
+if (gameHoleRows.length) {
+  const { error } = await supabase
+    .from("round_game_holes")
+    .insert(gameHoleRows);
+
+  if (error) {
+    return error.message;
+  }
+}
+
+
+
+const resultRows: LiveGameResultRow[] = [];
+
+
+savedGames.forEach((game) => {
+
+  if (
+    [
+      "match_play",
+      "four_ball_match",
+      "foursomes",
+    ].includes(game.game_type)
+  ) {
+
+    resultRows.push(
+      {
+        round_game_id: game.id,
+        round_id: roundId,
+        round_player_id: null,
+        side_id: sideAId,
+
+        position:
+          matchState.teamAWins >= matchState.teamBWins
+            ? 1
+            : 2,
+
+        total_gross: null,
+        total_net: null,
+        total_points: null,
+
+        holes_won: matchState.teamAWins,
+        skins_won: null,
+
+        result_label: matchState.label,
+
+        result_payload: {
+          team: "A",
+          roundIntent,
+          closeout: matchState.closeout,
+        },
+      },
+
+      {
+        round_game_id: game.id,
+        round_id: roundId,
+        round_player_id: null,
+        side_id: sideBId,
+
+        position:
+          matchState.teamBWins >
+          matchState.teamAWins
+            ? 1
+            : 2,
+
+        total_gross: null,
+        total_net: null,
+        total_points: null,
+
+        holes_won: matchState.teamBWins,
+        skins_won: null,
+
+        result_label: matchState.label,
+
+        result_payload: {
+          team: "B",
+          roundIntent,
+          closeout: matchState.closeout,
+        },
+      }
+    );
+
+    return;
+  }
     const totals = liveParticipants
-      .map((p) => ({ player: p, totals: getParticipantTotals(p, holes, playerHoleScores, holesPlayed, selectedTee) }))
+      .map((p) => ({
+        player: p,
+        totals: getParticipantTotals(
+          p,
+          holes,
+          playerHoleScores,
+          holesPlayed,
+          selectedTee
+        ),
+      }))
       .filter((r) => r.totals.completed > 0)
       .sort((a, b) => {
-        if (game.game_type === "stableford") return b.totals.points - a.totals.points;
-        if (game.game_type === "medal") return a.totals.net - b.totals.net;
-        if (game.game_type === "skins") return (skinsState.playerSkins.get(b.player.id) || 0) - (skinsState.playerSkins.get(a.player.id) || 0);
+        if (game.game_type === "stableford") {
+          return b.totals.points - a.totals.points;
+        }
+
+        if (game.game_type === "medal") {
+          return a.totals.net - b.totals.net;
+        }
+
+        if (game.game_type === "skins") {
+          return (
+            (skinsState.playerSkins.get(b.player.id) || 0) -
+            (skinsState.playerSkins.get(a.player.id) || 0)
+          );
+        }
+
         return a.totals.gross - b.totals.gross;
       });
 
     totals.forEach((row, i) => {
-      const skinsWon = game.game_type === "skins" ? skinsState.playerSkins.get(row.player.id) || 0 : null;
+      const skinsWon =
+        game.game_type === "skins"
+          ? skinsState.playerSkins.get(row.player.id) || 0
+          : null;
+
       resultRows.push({
-        round_game_id: game.id, round_id: roundId,
-        round_player_id: playerIdByLocalId.get(row.player.id) || null,
-        side_id: sideIdByParticipant.get(row.player.id) || null,
+        round_game_id: game.id,
+        round_id: roundId,
+        round_player_id:
+          playerIdByLocalId.get(row.player.id) || null,
+        side_id:
+          sideIdByParticipant.get(row.player.id) || null,
         position: i + 1,
+
         total_gross: row.totals.gross || null,
         total_net: row.totals.net || null,
-        total_points: game.game_type === "stableford" ? row.totals.points : null,
-        holes_won: null, skins_won: skinsWon,
-        result_label: game.game_type === "stableford" ? `${row.totals.points} pts`
-          : game.game_type === "skins" ? `${skinsWon || 0} skin${skinsWon === 1 ? "" : "s"}`
-          : game.game_type === "medal" ? `Net ${row.totals.net}`
-          : `Gross ${row.totals.gross}`,
-        result_payload: { roundIntent, playerName: row.player.name, holesCompleted: row.totals.completed },
+
+        total_points:
+          game.game_type === "stableford"
+            ? row.totals.points
+            : null,
+
+        holes_won: null,
+        skins_won: skinsWon,
+
+        result_label:
+          game.game_type === "stableford"
+            ? `${row.totals.points} pts`
+            : game.game_type === "skins"
+            ? `${skinsWon || 0} skin${skinsWon === 1 ? "" : "s"}`
+            : game.game_type === "medal"
+            ? `Net ${row.totals.net}`
+            : `Gross ${row.totals.gross}`,
+
+        result_payload: {
+          roundIntent,
+          playerName: row.player.name,
+          holesCompleted: row.totals.completed,
+        },
       });
     });
   });
 
-  const { error: resultError } = await supabase.from("round_game_results").insert(resultRows);
+  const { error: resultError } = await supabase
+    .from("round_game_results")
+    .insert(resultRows);
+
   return resultError?.message || null;
 }
 
-function timeAgoLabel(date: Date) {
-  const diffMs = Date.now() - date.getTime();
-  const sec = Math.round(diffMs / 1000);
-  if (sec < 5) return "just now";
-  if (sec < 60) return `${sec}s ago`;
-  const min = Math.round(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  return `${Math.round(min / 60)}h ago`;
-}
 
 type MatchResultSnapshot = {
   primary_game_type: string;
-  sides: Array<{ id: string; name: string; team_colour: "blue" | "red" | null; won: number; lost: number; halved: number }>;
+  sides: Array<{
+    id: string;
+    name: string;
+    team_colour: "blue" | "red" | null;
+    won: number;
+    lost: number;
+    halved: number;
+  }>;
   result_label: string;
   finish_hole: number | null;
 } | null;
+
 
 function buildMatchResultSnapshot(
   livePlayers: LivePlayer[],
@@ -2995,44 +3303,122 @@ function buildMatchResultSnapshot(
   matchState: ReturnType<typeof calculateMatchState>,
   selectedGames: LiveGame[]
 ): MatchResultSnapshot {
-  const isMatch = selectedGames.some((g) => g === "match_play" || g === "four_ball_match");
+
+  const isMatch = selectedGames.some(
+    (g) =>
+      g.game_type === "match_play" ||
+      g.game_type === "four_ball_match" ||
+      g.game_type === "foursomes"
+  );
+
   if (!isMatch) return null;
 
-  const teamA = livePlayers.filter((p) => p.team === "A");
-  const teamB = livePlayers.filter((p) => p.team === "B");
-  if (!teamA.length || !teamB.length) return null;
+  const teamA = livePlayers.filter(
+    (p) => p.team === "A"
+  );
 
-  // Count won/lost/halved by comparing best team score per hole.
-  const totalHoles = Math.max(0, ...Object.values(playerHoleScores).map((arr) => arr.length));
-  let won = 0, lost = 0, halved = 0;
+  const teamB = livePlayers.filter(
+    (p) => p.team === "B"
+  );
+
+  if (!teamA.length || !teamB.length) {
+    return null;
+  }
+
+  let won = 0;
+  let lost = 0;
+  let halved = 0;
+
+  const totalHoles = Math.max(
+    0,
+    ...Object.values(playerHoleScores).map(
+      (arr) => arr.length
+    )
+  );
+
   for (let i = 0; i < totalHoles; i++) {
-    const a = teamBestScore(teamA, playerHoleScores, i);
-    const b = teamBestScore(teamB, playerHoleScores, i);
+    const a = teamBestScore(
+      teamA,
+      playerHoleScores,
+      i
+    );
+
+    const b = teamBestScore(
+      teamB,
+      playerHoleScores,
+      i
+    );
+
     if (a == null || b == null) continue;
+
     if (a < b) won++;
     else if (a > b) lost++;
     else halved++;
   }
 
   return {
-    primary_game_type: selectedGames[0] || "match_play",
+    primary_game_type:
+      selectedGames[0]?.game_type || "match_play",
+
     sides: [
-      { id: "team-a", name: "Blue Team", team_colour: "blue", won, lost, halved },
-      { id: "team-b", name: "Red Team",  team_colour: "red",  won: lost, lost: won, halved },
+      {
+        id: "team-a",
+        name: "Blue Team",
+        team_colour: "blue",
+        won,
+        lost,
+        halved,
+      },
+      {
+        id: "team-b",
+        name: "Red Team",
+        team_colour: "red",
+        won: lost,
+        lost: won,
+        halved,
+      },
     ],
-    result_label: matchState?.status || (won === lost ? "AS" : won > lost ? `${won - lost} UP` : `${lost - won} DOWN`),
-    finish_hole: matchState?.closeout ? (matchState?.holesPlayed || null) : null,
+
+    result_label:
+      matchState.status ||
+      (
+        won === lost
+          ? "AS"
+          : won > lost
+          ? `${won - lost} UP`
+          : `${lost - won} DOWN`
+      ),
+
+    finish_hole:
+      matchState.closeout
+        ? matchState.holesPlayed || null
+        : null,
   };
 }
 
-function teamBestScore(team: LivePlayer[], scores: Record<string, string[]>, holeIndex: number): number | null {
+
+function teamBestScore(
+  team: LivePlayer[],
+  scores: Record<string, string[]>,
+  holeIndex: number
+): number | null {
+
   let best: number | null = null;
-  for (const p of team) {
-    const raw = scores[p.id]?.[holeIndex];
-    const val = raw ? Number(raw) : null;
-    if (val != null && !Number.isNaN(val)) {
-      best = best == null ? val : Math.min(best, val);
+
+  for (const player of team) {
+    const raw = scores[player.id]?.[holeIndex];
+    const value = raw ? Number(raw) : null;
+
+    if (value !== null && !Number.isNaN(value)) {
+      best =
+        best === null
+          ? value
+          : Math.min(best, value);
     }
   }
+
   return best;
 }
+
+
+ 
