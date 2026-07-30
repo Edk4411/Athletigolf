@@ -16,6 +16,8 @@ import {
 import ScoreBadge from "@/components/ScoreBadge";
 import { Button, EmptyState, SectionTitle, Surface } from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
+import { useSportMode } from "@/hooks/useSportMode";
+import { isGolfEnabledMode, isTrainingEnabledMode } from "@/lib/sportMode";
 import { supabase } from "@/lib/supabase";
 import {
   formatAverage,
@@ -35,6 +37,7 @@ import { getDisplayName } from "@/lib/nameFormatting";
 export default function Dashboard() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
+  const { sportMode, loading: sportModeLoading } = useSportMode();
   const [rounds, setRounds] = useState<Round[]>([]);
   const [roundHoles, setRoundHoles] = useState<RoundHole[]>([]);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
@@ -43,28 +46,24 @@ export default function Dashboard() {
   const [todayWellness, setTodayWellness] = useState<WellnessLog | null>(null);
   const [nutritionEntries, setNutritionEntries] = useState<NutritionEntry[]>([]);
   const [liveActivities, setLiveActivities] = useState<LiveActivity[]>([]);
-  const [sportMode, setSportMode] = useState<OnboardingData["mainSport"]>("both");
   const [wellnessTargets, setWellnessTargets] = useState<WellnessTargets>(defaultWellnessTargets);
-
-
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileData, setProfileData] = useState<any>(null);
+  const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from("profiles").select("preferred_name, full_name").maybeSingle().then(({ data }) => setProfile(data as Profile | null));
+    supabase.from("profiles").select("preferred_name, full_name, onboarding_data").maybeSingle().then(({ data }) => setProfileData(data));
   }, []);
-
-  
   
   useEffect(() => {
     const load = async () => {
       const today = getTodayIso();
-      const [{ data: r }, { data: h }, { data: w }, { data: cardio }, { data: c }, { data: wellness }, { data: nutrition }, { data: live }, { data: profile }] = await Promise.all([
+      const [{ data: r }, { data: h }, { data: w }, { data: cardio }, { data: c }, { data: wellness }, { data: nutrition }, { data: live }] = await Promise.all([
         supabase.from("rounds").select("*").order("created_at", { ascending: false }),
         supabase.from("round_holes").select("*").order("created_at", { ascending: false }),
         supabase.from("workouts").select("*").order("created_at", { ascending: false }),
         supabase.from("cardio_sessions").select("*").order("session_date", { ascending: false }).limit(30),
         supabase.from("competitions").select("*").eq("status", "upcoming").order("competition_date", { ascending: true }),
-        supabase.from("daily_wellness_logs").select("*").order("log_date", { ascending: false }).limit(7),
+        supabase.from("daily_wellness_logs").select("*").eq("log_date", today).maybeSingle(),
         supabase.from("nutrition_entries").select("*").eq("log_date", today).order("created_at", { ascending: false }),
         supabase
           .from("live_activities")
@@ -73,24 +72,24 @@ export default function Dashboard() {
           .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
           .order("started_at", { ascending: false })
           .limit(8),
-        supabase.from("profiles").select("onboarding_data").maybeSingle(),
       ]);
       setRounds((r as Round[]) || []);
       setRoundHoles((h as RoundHole[]) || []);
       setWorkouts((w as Workout[]) || []);
       setCardioSessions((cardio as CardioSession[]) || []);
       setCompetitions((c as Competition[]) || []);
-      const wellnessRows = (wellness as WellnessLog[]) || [];
-      setTodayWellness(wellnessRows.find((row) => row.log_date === today) || null);
+      setTodayWellness(wellness as WellnessLog | null);
       setNutritionEntries((nutrition as NutritionEntry[]) || []);
       setLiveActivities((live as LiveActivity[]) || []);
-      const onboarding = (profile?.onboarding_data as OnboardingData | null) || null;
-      setSportMode(onboarding?.mainSport || "both");
-      setWellnessTargets(getWellnessTargets(onboarding));
+      setWellnessTargets(getWellnessTargets(profileData?.onboarding_data || null));
+      setDataLoading(false);
     };
-    load();
-  }, []);
-  const firstName = getDisplayName(profile);
+    if (profileData) load();
+  }, [profileData]);
+
+  const loading = sportModeLoading || dataLoading;
+  const firstName = getDisplayName(profileData);
+  const trainingOnly = sportMode === "training";
 
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -100,8 +99,9 @@ export default function Dashboard() {
   const competitionToday = nextCompetition ? isToday(nextCompetition.competition_date) : false;
   const todayIso = getTodayIso();
   const hydrationProgress = todayWellness?.water_litres ? Math.min((todayWellness.water_litres / wellnessTargets.waterLitres) * 100, 100) : 0;
-  const trainingOnly = sportMode === "training";
-  const golfEnabled = !trainingOnly;
+  
+  const golfEnabled = isGolfEnabledMode(sportMode);
+  const trainingEnabled = isTrainingEnabledMode(sportMode);
   const greeting = getGreeting(now);
   const friendlyDate = now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
   const nutritionTotals = getNutritionTotals(nutritionEntries);
@@ -123,7 +123,7 @@ export default function Dashboard() {
     0
   );
   const highlight = getWeeklyHighlight(rounds, roundHoles, workouts, weekAgo);
-  const hasTrainingToday = workouts.some((workout) => isSameLocalIsoDate(workout.date || workout.created_at, todayIso));
+  const hasTrainingToday = trainingEnabled && workouts.some((workout) => isSameLocalIsoDate(workout.date || workout.created_at, todayIso));
   const hasCardioToday = personalCardioSessions.some((session) => isSameLocalIsoDate(session.session_date, todayIso));
   const hasRoundToday = golfEnabled && rounds.some((round) => isSameLocalIsoDate(round.date || round.created_at, todayIso));
   const todayActivities = [
@@ -132,43 +132,9 @@ export default function Dashboard() {
     ...(hasCardioToday ? [{ label: "Cardio done", detail: getTodayCardioDetail(personalCardioSessions, todayIso), tone: "pulse" as const }] : []),
   ];
 
-  useEffect(() => {
-    const load = async () => {
-      const today = getTodayIso();
-      const [{ data: r }, { data: h }, { data: w }, { data: cardio }, { data: c }, { data: wellness }, { data: nutrition }, { data: live }, { data: profile }] = await Promise.all([
-        supabase.from("rounds").select("*").order("created_at", { ascending: false }),
-        supabase.from("round_holes").select("*").order("created_at", { ascending: false }),
-        supabase.from("workouts").select("*").order("created_at", { ascending: false }),
-        supabase.from("cardio_sessions").select("*").order("session_date", { ascending: false }).limit(30),
-        supabase.from("competitions").select("*").eq("status", "upcoming").order("competition_date", { ascending: true }),
-        supabase.from("daily_wellness_logs").select("*").eq("log_date", today).maybeSingle(),
-        supabase.from("nutrition_entries").select("*").eq("log_date", today).order("created_at", { ascending: false }),
-        supabase
-          .from("live_activities")
-          .select("*")
-          .is("ended_at", null)
-          .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
-          .order("started_at", { ascending: false })
-          .limit(8),
-        supabase.from("profiles").select("onboarding_data, full_name, preferred_name, username").maybeSingle(),
-      ]);
-      setRounds((r as Round[]) || []);
-      setRoundHoles((h as RoundHole[]) || []);
-      setWorkouts((w as Workout[]) || []);
-      setCardioSessions((cardio as CardioSession[]) || []);
-      setCompetitions((c as Competition[]) || []);
-      setTodayWellness(wellness as WellnessLog | null);
-      setNutritionEntries((nutrition as NutritionEntry[]) || []);
-      setLiveActivities((live as LiveActivity[]) || []);
-      const onboarding = (profile?.onboarding_data as OnboardingData | null) || null;
-      setSportMode(onboarding?.mainSport || "both");
-      setWellnessTargets(getWellnessTargets(onboarding));
-      // @ts-ignore
-      setProfile(profile);
-    };
-    load();
-  }, []);
-  
+  if (loading) {
+    return <div className="flex min-h-screen items-center justify-center bg-cream text-muted">Loading Dashboard...</div>;
+  }
 
   return (
     <main className="min-h-screen bg-cream px-4 py-5 md:px-8 md:py-7">

@@ -343,7 +343,7 @@ export default function Settings() {
           <SettingsAccordionItem
             id="account"
             title="Account"
-            description="Save changes, view your signed-in email and log out."
+            description="View your signed-in email and log out."
             openSection={openSection}
             onOpen={setOpenSection}
           >
@@ -355,22 +355,12 @@ export default function Settings() {
 
               <div className="flex flex-wrap gap-3">
                 <button
-                  onClick={saveSettings}
-                  disabled={saveState === "saving"}
-                  className="rounded-2xl bg-pulse px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-pulse/90 disabled:opacity-60"
-                >
-                  {saveState === "saving" ? "Saving..." : "Save settings"}
-                </button>
-                <button
                   onClick={handleLogout}
                   className="rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-dark transition hover:bg-cream dark:bg-slate-950/35"
                 >
                   Log out
                 </button>
               </div>
-
-              {saveState === "success" && <p className="rounded-2xl border border-lab/30 bg-lab/10 px-4 py-3 text-sm font-bold text-lab">Settings saved successfully.</p>}
-              {saveState === "error" && errorMessage && <p className="rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-bold text-danger">{errorMessage}</p>}
             </div>
           </SettingsAccordionItem>
 
@@ -759,6 +749,17 @@ export default function Settings() {
               {dataRequestState === "error" && dataRequestMessage && <p className="rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-bold text-danger">{dataRequestMessage}</p>}
             </div>
           </SettingsAccordionItem>
+          <div className="pt-6">
+            <button
+              onClick={saveSettings}
+              disabled={saveState === "saving"}
+              className="w-full rounded-2xl bg-pulse px-5 py-4 text-center text-sm font-black text-white shadow-sm transition hover:bg-pulse/90 disabled:opacity-60"
+            >
+              {saveState === "saving" ? "Saving..." : "Save all settings"}
+            </button>
+            {saveState === "success" && <p className="mt-4 rounded-2xl border border-lab/30 bg-lab/10 px-4 py-3 text-center text-sm font-bold text-lab">Settings saved successfully.</p>}
+            {saveState === "error" && errorMessage && <p className="mt-4 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-center text-sm font-bold text-danger">{errorMessage}</p>}
+          </div>
         </div>
       </div>
     </div>

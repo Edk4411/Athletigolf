@@ -366,7 +366,7 @@ export default function Social() {
   const friendsOnCourse = friendActivities
     .filter((activity) => activity.activity_type === "course" || activity.activity_type === "practice")
     .slice(0, 8);
-  const fourballInvites = friendActivities.filter((activity) => activity.activity_type === "available").slice(0, 3);
+  const fourballInvites = friendActivities.filter((activity) => activity.activity_type === "course" || activity.activity_type === "practice").slice(0, 3);
   const gymInvites = friendActivities.filter((activity) => activity.activity_type === "gym").slice(0, 3);
   const feedItems = friendActivities.slice(0, 6);
 
@@ -920,11 +920,18 @@ function ConnectionSection({
                       Accept
                     </Button>
                   ) : null}
+                  {connection.status === "pending" && !isIncoming ? (
+                    <Button className="px-3 py-2 text-xs" variant="ghost" onClick={() => onRemove(connection.id)} disabled={saving}>
+                      <X className="h-4 w-4" />
+                      Cancel
+                    </Button>
+                  ) : null}
                   <Button className="px-3 py-2 text-xs" variant="ghost" onClick={() => onStartRename(connection)} disabled={saving}>
                     <Pencil className="h-4 w-4" />
                   </Button>
                   <Button className="px-3 py-2 text-xs" variant="ghost" onClick={() => onRemove(connection.id)} disabled={saving}>
                     <X className="h-4 w-4" />
+                    {connection.status === "accepted" ? "Remove" : "Decline"}
                   </Button>
                 </div>
               </div>
@@ -968,7 +975,7 @@ function getOtherUserId(connection: FriendConnectionProfile, currentUserId: stri
 
 function getConnectionLabel(connection: FriendConnectionProfile, currentUserId: string | null) {
   const ownLabel = currentUserId && connection.requester_id === currentUserId ? connection.requester_label : connection.receiver_label;
-  return ownLabel || connection.other_display_name || connection.other_username || "Friend";
+  return ownLabel || connection.other_preferred_name || connection.other_display_name || connection.other_username || "Friend";
 }
 
 function getActivityLabel(type: ActivityType) {

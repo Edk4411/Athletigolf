@@ -3,6 +3,8 @@ import { useLocation } from "wouter";
 import { Activity, BarChart3, Dumbbell, Flag, HeartPulse, Swords, Target } from "lucide-react";
 import { Button, EmptyState, SectionTitle, Surface } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
+import { useSportMode } from "@/hooks/useSportMode";
+import { isGolfEnabledMode, isTrainingEnabledMode } from "@/lib/sportMode";
 import {
   formatAverage,
   formatPercent,
@@ -46,7 +48,10 @@ type MatchplayStats = {
 
 export default function Analytics() {
   const [, navigate] = useLocation();
-  const [activeTab, setActiveTab] = useState<AnalyticsTab>("golf");
+  const { sportMode, loading: sportModeLoading } = useSportMode();
+  const isGolfEnabled = isGolfEnabledMode(sportMode);
+  const isTrainingEnabled = isTrainingEnabledMode(sportMode);
+  const [activeTab, setActiveTab] = useState<AnalyticsTab>(isGolfEnabled ? "golf" : "gym");
   const [rounds, setRounds] = useState<Round[]>([]);
   const [roundHoles, setRoundHoles] = useState<RoundHole[]>([]);
   const [roundGames, setRoundGames] = useState<RoundGame[]>([]);
@@ -56,6 +61,16 @@ export default function Analytics() {
   const [cardio, setCardio] = useState<CardioSession[]>([]);
   const [wellness, setWellness] = useState<WellnessLog[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!sportModeLoading) {
+      if (!isGolfEnabled && (activeTab === "golf" || activeTab === "matchplay")) {
+        setActiveTab("gym");
+      } else if (!isTrainingEnabled && activeTab === "gym") {
+        setActiveTab("golf");
+      }
+    }
+  }, [sportModeLoading, isGolfEnabled, isTrainingEnabled, activeTab]);
 
   useEffect(() => {
     loadData();
@@ -161,10 +176,18 @@ export default function Analytics() {
       </section>
 
       <div className="mb-5 grid grid-cols-2 gap-2 rounded-2xl border border-line bg-panel p-2 sm:grid-cols-4">
-        <TabButton active={activeTab === "golf"} icon={<Flag className="h-4 w-4" />} label="Golf" onClick={() => setActiveTab("golf")} />
-        <TabButton active={activeTab === "matchplay"} icon={<Swords className="h-4 w-4" />} label="Match" onClick={() => setActiveTab("matchplay")} />
-        <TabButton active={activeTab === "gym"} icon={<Dumbbell className="h-4 w-4" />} label="Gym" onClick={() => setActiveTab("gym")} />
-        <TabButton active={activeTab === "wellness"} icon={<HeartPulse className="h-4 w-4" />} label="Wellness" onClick={() => setActiveTab("wellness")} />
+        {isGolfEnabled && (
+          <>
+            <TabButton active={activeTab === "golf"} icon={<Flag className="h-4 w-4" />} label="Golf" onClick={() => setActiveTab("golf")} />
+            <TabButton active={activeTab === "matchplay"} icon={<Swords className="h-4 w-4" />} label="Match" onClick={() => setActiveTab("matchplay")} />
+          </>
+        )}
+        {isTrainingEnabled && (
+          <>
+            <TabButton active={activeTab === "gym"} icon={<Dumbbell className="h-4 w-4" />} label="Gym" onClick={() => setActiveTab("gym")} />
+            <TabButton active={activeTab === "wellness"} icon={<HeartPulse className="h-4 w-4" />} label="Wellness" onClick={() => setActiveTab("wellness")} />
+          </>
+        )}
       </div>
 
       {activeTab === "golf" && (

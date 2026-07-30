@@ -1884,6 +1884,24 @@ const roundPayload = {
             )}
             <Button
               variant="secondary"
+              className="px-3 py-2 text-xs text-danger"
+              onClick={async () => {
+                if (!existingRoundId || !confirm("Are you sure you want to discard this round? This cannot be undone.")) return;
+                setSaving(true);
+                const { error } = await supabase.from("rounds").delete().eq("id", existingRoundId);
+                setSaving(false);
+                if (error) { setSaveError("Could not discard round."); return; }
+                clearRoundDraft(user!.id);
+                navigate("/dashboard");
+              }}
+              disabled={autoSaving || !existingRoundId}
+              title="Discard round"
+            >
+              <AlertTriangle className="h-4 w-4" />
+              Discard
+            </Button>
+            <Button
+              variant="secondary"
               className="px-3 py-2 text-xs"
               onClick={saveNow}
               disabled={autoSaving || !existingRoundId}

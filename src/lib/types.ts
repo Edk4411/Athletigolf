@@ -537,6 +537,7 @@ export type FriendConnectionProfile = FriendConnection & {
   other_user_id: string;
   other_username: string | null;
   other_display_name: string | null;
+  other_preferred_name?: string | null;
   other_avatar_url?: string | null;
   other_golf_handicap?: number | null;
 };

@@ -52,6 +52,8 @@ import AdminFeedback from "./pages/AdminFeedback";
 import ConnectedApps from "@/pages/ConnectedApps";
 import AccountConnected from "@/pages/AccountConnected";
 import Recommendations from "@/pages/Recommendations";
+import Supplements from "@/pages/recommendations/Supplements";
+import GolfGear from "@/pages/recommendations/GolfGear";
 import Food from "@/pages/wellness/Food";
 import Water from "@/pages/wellness/Water";
 import Sleep from "@/pages/wellness/Sleep";
@@ -254,6 +256,18 @@ function AppShell() {
         <Route path="/recommendations">
           <ProtectedRoute>
             <Recommendations />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/recommendations/supplements">
+          <ProtectedRoute>
+            <Supplements />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/recommendations/golf-gear">
+          <ProtectedRoute>
+            <GolfGear />
           </ProtectedRoute>
         </Route>
 

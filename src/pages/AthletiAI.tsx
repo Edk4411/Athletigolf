@@ -13,8 +13,9 @@ import {
   type PerformanceInsight,
   type RelationshipInsight,
 } from "@/lib/insights";
-import { isTrainingOnlyMode } from "@/lib/sportMode";
+import { isGolfEnabledMode, isTrainingEnabledMode, isTrainingOnlyMode } from "@/lib/sportMode";
 import type { OnboardingData, PracticeSession, Round, RoundHole, Workout } from "@/lib/types";
+import { useSportMode } from "@/hooks/useSportMode";
 
 export default function AthletiAI() {
   const [, navigate] = useLocation();
@@ -22,29 +23,28 @@ export default function AthletiAI() {
   const [holes, setHoles] = useState<RoundHole[]>([]);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [practices, setPractices] = useState<PracticeSession[]>([]);
-  const [sportMode, setSportMode] = useState<OnboardingData["mainSport"]>("both");
-  const [loading, setLoading] = useState(true);
+  const { sportMode, loading: sportModeLoading } = useSportMode();
+  const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const [{ data: r }, { data: h }, { data: w }, { data: p }, { data: profile }] = await Promise.all([
+      const [{ data: r }, { data: h }, { data: w }, { data: p }] = await Promise.all([
         supabase.from("rounds").select("*").order("created_at", { ascending: false }),
         supabase.from("round_holes").select("*").order("created_at", { ascending: false }),
         supabase.from("workouts").select("*").order("created_at", { ascending: false }),
         supabase.from("practice_sessions").select("*").order("created_at", { ascending: false }),
-        supabase.from("profiles").select("onboarding_data").maybeSingle(),
       ]);
 
       setRounds((r as Round[]) || []);
       setHoles((h as RoundHole[]) || []);
       setWorkouts((w as Workout[]) || []);
       setPractices((p as PracticeSession[]) || []);
-      const onboarding = (profile?.onboarding_data as OnboardingData | null) || null;
-      setSportMode(onboarding?.mainSport || "both");
-      setLoading(false);
+      setDataLoading(false);
     }
     load();
   }, []);
+
+  const loading = sportModeLoading || dataLoading;
 
   const performanceInsights = useMemo(() => getPerformanceInsights(rounds, holes, workouts, practices), [rounds, holes, workouts, practices]);
   const relationshipInsights = useMemo(() => getRelationshipInsights(rounds, workouts), [rounds, workouts]);

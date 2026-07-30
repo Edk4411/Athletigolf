@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import {
   Activity,
@@ -15,8 +15,8 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
-import { isGolfEnabledMode } from "@/lib/sportMode";
+import { useSportMode } from "@/hooks/useSportMode";
+import { isGolfEnabledMode, isTrainingEnabledMode } from "@/lib/sportMode";
 import type { OnboardingData } from "@/lib/types";
 
 type DockMenu = "activity" | "create" | null;
@@ -48,26 +48,27 @@ const createItems: AppDockItem[] = [
 export default function AppDock() {
   const [location, navigate] = useLocation();
   const [menu, setMenu] = useState<DockMenu>(null);
-  const [sportMode, setSportMode] = useState<OnboardingData["mainSport"]>("both");
+  const { sportMode } = useSportMode();
   const golfEnabled = isGolfEnabledMode(sportMode);
+  const gymEnabled = isTrainingEnabledMode(sportMode);
 
-  useEffect(() => {
-    let cancelled = false;
+  const filteredActivityItems = useMemo(
+    () => activityItems.filter((item) => {
+      if ((item.label === "Golf" || item.label === "AthletiAI") && !golfEnabled) return false;
+      if (["Gym", "Wellness", "Cardio"].includes(item.label) && !gymEnabled) return false;
+      return true;
+    }),
+    [golfEnabled, gymEnabled]
+  );
 
-    supabase
-      .from("profiles")
-      .select("onboarding_data, role")
-      .maybeSingle()
-      .then(({ data }) => {
-        if (cancelled) return;
-        const onboarding = (data?.onboarding_data as OnboardingData | null) || null;
-        setSportMode(onboarding?.mainSport || "both");
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const filteredCreateItems = useMemo(
+    () => createItems.filter((item) => {
+      if (["Start Round", "Practice"].includes(item.label) && !golfEnabled) return false;
+      if (["Start Workout", "Cardio"].includes(item.label) && !gymEnabled) return false;
+      return true;
+    }),
+    [golfEnabled, gymEnabled]
+  );
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -76,16 +77,6 @@ export default function AppDock() {
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, []);
-
-  const filteredActivityItems = useMemo(
-    () => activityItems.filter((item) => item.label !== "Golf" || golfEnabled),
-    [golfEnabled]
-  );
-
-  const filteredCreateItems = useMemo(
-    () => createItems.filter((item) => golfEnabled || !["Start Round", "Practice"].includes(item.label)),
-    [golfEnabled]
-  );
 
   function closeMenu() {
     setMenu(null);
