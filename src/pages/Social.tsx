@@ -682,6 +682,10 @@ function LiveNowCard({ activity, name }: { activity: LiveActivity; name: string 
   const meta = activityMeta[activity.activity_type];
   const Icon = meta.icon;
 
+  const expires = new Date(activity.expires_at || "").getTime();
+  const now = Date.now();
+  const remainingHours = Math.max(0, Math.round((expires - now) / (1000 * 60 * 60)));
+
   return (
     <Surface className="p-4">
       <div className="flex items-start gap-3">
@@ -690,12 +694,20 @@ function LiveNowCard({ activity, name }: { activity: LiveActivity; name: string 
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate font-black text-foreground">{name}</p>
-          <p className="text-sm font-bold text-muted">{meta.label}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-bold text-muted">{meta.label}</p>
+            <span className="rounded-full bg-border px-2 py-0.5 text-[10px] font-black uppercase text-muted">
+              {activity.activity_type === "gym" ? "High Intensity" : "Golf"}
+            </span>
+          </div>
           <p className="mt-1 line-clamp-2 text-sm text-muted">{activity.detail || activity.location_name || "Shared a live status."}</p>
-          <p className="mt-3 flex items-center gap-1 text-xs font-bold text-muted">
-            <Clock className="h-3.5 w-3.5" />
-            {formatRelativeTime(activity.started_at)}
-          </p>
+          <div className="mt-3 flex items-center justify-between gap-1 text-xs font-bold text-muted">
+            <span className="flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5" />
+              {formatRelativeTime(activity.started_at)}
+            </span>
+            <span>Avail. {remainingHours}h</span>
+          </div>
         </div>
       </div>
     </Surface>

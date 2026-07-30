@@ -13,6 +13,7 @@ type SaveState = "idle" | "saving" | "success" | "error";
 type SettingsSection =
   | "account"
   | "profile"
+  | "wellnessGoals"
   | "sportMode"
   | "units"
   | "appearance"
@@ -72,6 +73,19 @@ export default function Settings() {
     show_display_name_in_search: false,
   });
 
+  const [wellnessGoals, setWellnessGoals] = useState({
+    waterTarget: "",
+    sleepTarget: "",
+    weightGoal: "",
+    heartRateGoal: "",
+    systolicGoal: "",
+    diastolicGoal: "",
+    caloriesTarget: "",
+    proteinTarget: "",
+    carbsTarget: "",
+    fatTarget: "",
+  });
+
   useEffect(() => {
     loadSettings();
   }, []);
@@ -115,6 +129,22 @@ export default function Settings() {
         show_display_name_in_search:
           data.show_display_name_in_search ?? existingOnboarding?.social?.showDisplayNameInSearch ?? false,
       });
+
+      const tg = (existingOnboarding as any)?.wellness?.targets;
+      if (tg) {
+        setWellnessGoals({
+          waterTarget: tg.waterTarget?.toString() || "",
+          sleepTarget: tg.sleepTarget?.toString() || "",
+          weightGoal: tg.weightGoal?.toString() || "",
+          heartRateGoal: tg.heartRateGoal?.toString() || "",
+          systolicGoal: tg.bloodPressure?.systolic?.toString() || "",
+          diastolicGoal: tg.bloodPressure?.diastolic?.toString() || "",
+          caloriesTarget: tg.caloriesTarget?.toString() || "",
+          proteinTarget: tg.proteinTarget?.toString() || "",
+          carbsTarget: tg.carbsTarget?.toString() || "",
+          fatTarget: tg.fatTarget?.toString() || "",
+        });
+      }
       applyTheme(theme);
     }
 
@@ -155,6 +185,20 @@ export default function Settings() {
       notifications_enabled: profile.notifications_enabled,
       onboarding_data: {
         ...(onboardingData || {}),
+        wellness: {
+          ...((onboardingData as any)?.wellness || {}),
+          targets: {
+             waterTarget: Number(wellnessGoals.waterTarget),
+             sleepTarget: Number(wellnessGoals.sleepTarget),
+             weightGoal: Number(wellnessGoals.weightGoal),
+             heartRateGoal: Number(wellnessGoals.heartRateGoal),
+             bloodPressure: { systolic: Number(wellnessGoals.systolicGoal), diastolic: Number(wellnessGoals.diastolicGoal) },
+             caloriesTarget: Number(wellnessGoals.caloriesTarget),
+             proteinTarget: Number(wellnessGoals.proteinTarget),
+             carbsTarget: Number(wellnessGoals.carbsTarget),
+             fatTarget: Number(wellnessGoals.fatTarget),
+          }
+        },
         mainSport: profile.primary_sport,
         privacy: {
           ...((onboardingData as OnboardingData | null)?.privacy || {}),
@@ -456,6 +500,57 @@ export default function Settings() {
                   })}
                 </div>
               </div>
+            </div>
+          </SettingsAccordionItem>
+
+          <SettingsAccordionItem
+            id="wellnessGoals"
+            title="Wellness Goals"
+            description="Set your daily targets for wellness tracking."
+            openSection={openSection}
+            onOpen={setOpenSection}
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm font-bold text-dark">
+                Water target (ml)
+                <input type="number" value={wellnessGoals.waterTarget} onChange={(e) => setWellnessGoals(p => ({...p, waterTarget: e.target.value}))} className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-dark outline-none focus:border-pulse dark:bg-slate-950/35" />
+              </label>
+              <label className="block text-sm font-bold text-dark">
+                Sleep target (hours)
+                <input type="number" step="0.1" value={wellnessGoals.sleepTarget} onChange={(e) => setWellnessGoals(p => ({...p, sleepTarget: e.target.value}))} className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-dark outline-none focus:border-pulse dark:bg-slate-950/35" />
+              </label>
+              <label className="block text-sm font-bold text-dark">
+                Weight goal (kg)
+                <input type="number" step="0.1" value={wellnessGoals.weightGoal} onChange={(e) => setWellnessGoals(p => ({...p, weightGoal: e.target.value}))} className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-dark outline-none focus:border-pulse dark:bg-slate-950/35" />
+              </label>
+              <label className="block text-sm font-bold text-dark">
+                Resting Heart Rate goal
+                <input type="number" value={wellnessGoals.heartRateGoal} onChange={(e) => setWellnessGoals(p => ({...p, heartRateGoal: e.target.value}))} className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-dark outline-none focus:border-pulse dark:bg-slate-950/35" />
+              </label>
+              <label className="block text-sm font-bold text-dark">
+                Systolic BP goal
+                <input type="number" value={wellnessGoals.systolicGoal} onChange={(e) => setWellnessGoals(p => ({...p, systolicGoal: e.target.value}))} className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-dark outline-none focus:border-pulse dark:bg-slate-950/35" />
+              </label>
+              <label className="block text-sm font-bold text-dark">
+                Diastolic BP goal
+                <input type="number" value={wellnessGoals.diastolicGoal} onChange={(e) => setWellnessGoals(p => ({...p, diastolicGoal: e.target.value}))} className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-dark outline-none focus:border-pulse dark:bg-slate-950/35" />
+              </label>
+              <label className="block text-sm font-bold text-dark">
+                Calories target
+                <input type="number" value={wellnessGoals.caloriesTarget} onChange={(e) => setWellnessGoals(p => ({...p, caloriesTarget: e.target.value}))} className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-dark outline-none focus:border-pulse dark:bg-slate-950/35" />
+              </label>
+              <label className="block text-sm font-bold text-dark">
+                Protein target (g)
+                <input type="number" value={wellnessGoals.proteinTarget} onChange={(e) => setWellnessGoals(p => ({...p, proteinTarget: e.target.value}))} className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-dark outline-none focus:border-pulse dark:bg-slate-950/35" />
+              </label>
+              <label className="block text-sm font-bold text-dark">
+                Carbs target (g)
+                <input type="number" value={wellnessGoals.carbsTarget} onChange={(e) => setWellnessGoals(p => ({...p, carbsTarget: e.target.value}))} className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-dark outline-none focus:border-pulse dark:bg-slate-950/35" />
+              </label>
+              <label className="block text-sm font-bold text-dark">
+                Fat target (g)
+                <input type="number" value={wellnessGoals.fatTarget} onChange={(e) => setWellnessGoals(p => ({...p, fatTarget: e.target.value}))} className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-dark outline-none focus:border-pulse dark:bg-slate-950/35" />
+              </label>
             </div>
           </SettingsAccordionItem>
 

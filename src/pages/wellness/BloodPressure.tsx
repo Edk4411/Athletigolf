@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { ChevronLeft, Gauge, Plus } from "lucide-react";
 import { Button, FieldLabel, Surface, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
-import type { WellnessLog } from "@/lib/types";
+import type { WellnessLog, OnboardingData } from "@/lib/types";
 
 const todayIso = () => new Date().toISOString().split("T")[0];
 
@@ -14,19 +14,27 @@ export default function BloodPressure() {
   const [dia, setDia] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [target, setTarget] = useState({ sys: 120, dia: 80 });
 
   useEffect(() => {
-    loadLogs();
+    loadData();
   }, []);
 
-  async function loadLogs() {
+  async function loadData() {
     setLoading(true);
-    const { data } = await supabase
-      .from("daily_wellness_logs")
-      .select("*")
-      .order("log_date", { ascending: false })
-      .limit(30);
-    setLogs((data as WellnessLog[]) || []);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLoading(false); return; }
+    
+    const [logsRes, profileRes] = await Promise.all([
+        supabase.from("daily_wellness_logs").select("*").order("log_date", { ascending: false }).limit(30),
+        supabase.from("profiles").select("onboarding_data").eq("id", user.id).maybeSingle()
+    ]);
+    
+    setLogs((logsRes.data as WellnessLog[]) || []);
+    if (profileRes.data) {
+        const tg = (profileRes.data.onboarding_data as any)?.wellness?.targets?.bloodPressure;
+        if (tg?.systolic && tg?.diastolic) setTarget({ sys: Number(tg.systolic), dia: Number(tg.diastolic) });
+    }
     setLoading(false);
   }
 
@@ -53,7 +61,7 @@ export default function BloodPressure() {
     setSys("");
     setDia("");
     setSaving(false);
-    loadLogs();
+    loadData();
   }
 
   return (
@@ -64,10 +72,11 @@ export default function BloodPressure() {
         </button>
         <h1 className="text-2xl font-black">Blood Pressure</h1>
       </div>
+      
       <Surface className="mb-5 rounded-[2rem] p-6">
         <div className="flex items-center gap-4 mb-4">
             <Gauge className="h-10 w-10 text-pulse" />
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 flex-1">
                 <div>
                     <FieldLabel>Systolic (mmHg)</FieldLabel>
                     <TextInput type="number" value={sys} onChange={(e) => setSys(e.target.value)} placeholder="e.g. 120" />
@@ -79,17 +88,25 @@ export default function BloodPressure() {
             </div>
             <Button onClick={saveBp} disabled={saving}><Plus className="mr-2 h-4 w-4" /> Save</Button>
         </div>
+        <p className="text-sm text-muted">Baseline Target: {target.sys}/{target.dia} mmHg</p>
       </Surface>
+      
       <Surface className="rounded-[2rem] p-6">
-        <h2 className="text-xl font-black mb-4">Recent History</h2>
+        <h2 className="text-xl font-black mb-4">7 Day Trend (Systolic)</h2>
         {loading ? <p>Loading...</p> : (
-            <div className="grid gap-2">
-                {logs.map(log => (
-                    <div key={log.id} className="flex justify-between p-3 border-b border-line">
-                        <span className="font-semibold">{log.log_date}</span>
-                        <span>{log.blood_pressure_systolic ? `${log.blood_pressure_systolic}/${log.blood_pressure_diastolic} mmHg` : "-"}</span>
-                    </div>
-                ))}
+            <div className="flex items-end justify-between h-40 gap-2">
+                {logs.slice(0, 7).reverse().map(log => {
+                    const val = log.blood_pressure_systolic ?? 0;
+                    const height = Math.min(100, (val / 160) * 100);
+                    return (
+                        <div key={log.id} className="flex flex-col items-center gap-2 flex-1">
+                            <div className="w-full bg-pulse/20 rounded-t-lg relative" style={{ height: '100%' }}>
+                                <div className="absolute bottom-0 w-full bg-pulse rounded-t-lg" style={{ height: `${height}%` }} />
+                            </div>
+                            <span className="text-xs font-bold">{log.log_date.split("-")[2]}</span>
+                        </div>
+                    );
+                })}
             </div>
         )}
       </Surface>
