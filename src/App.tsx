@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Switch, Route, Redirect, useLocation } from "wouter";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import MobileSidebar from "@/components/MobileSidebar";
 import AppDock from "@/components/AppDock";
 import AppHeader from "@/components/AppHeader";
@@ -76,6 +77,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AppShell() {
   const [location, navigate] = useLocation();
+  console.log("AppShell: Rendering location", location);
   const { user } = useAuth();
   const [sportMode, setSportMode] = useState<OnboardingData["mainSport"]>("both");
   const [profileReady, setProfileReady] = useState(false);
@@ -107,19 +109,25 @@ function AppShell() {
   }, [user]);
 
   useEffect(() => {
+    console.log("AppShell: Effect [location, navigate, user] triggered", { location, user: !!user });
     setProfileReady(!user);
     if (!user || location === "/auth" || location === "/" || location === "/onboarding" || location === "/privacy" || location === "/terms") return;
 
     let cancelled = false;
 
+    console.log("AppShell: Fetching profile for user", user.id);
     supabase
       .from("profiles")
       .select("*")
       .eq("id", user.id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) console.error("AppShell: Profile fetch error", error);
         if (cancelled) return;
+        
+        console.log("AppShell: Profile fetched", { data });
         if (!data || data.onboarding_completed !== true) {
+          console.log("AppShell: Onboarding not complete, navigating to /onboarding");
           navigate("/onboarding");
           setProfileReady(true);
           return;
@@ -129,6 +137,7 @@ function AppShell() {
         setSportMode(nextSportMode);
         setProfileReady(true);
         if (!isRouteAllowedForSportMode(location, nextSportMode)) {
+          console.log("AppShell: Route not allowed, navigating to fallback");
           navigate(getFallbackRouteForSportMode(nextSportMode));
         }
       });
@@ -138,33 +147,24 @@ function AppShell() {
     };
   }, [location, navigate, user]);
 
-  const guarded = (children: React.ReactNode) => (
-    <ProtectedRoute>
-      {profileReady ? children : (
-        <div className="flex min-h-screen items-center justify-center bg-cream">
-          <div className="text-lg text-muted">Loading...</div>
-        </div>
-      )}
-    </ProtectedRoute>
-  );
-
- return (
-  <div
-    className={`min-h-screen bg-cream font-sans text-ink ${nativeApp ? "native-app" : ""}`}
-    onBlurCapture={(event) => applyTextAutoFormatToField(event.target)}
-  >
-    {!hideSidebar && !nativeApp && <MobileSidebar />}
-    {showAppDock && <AppHeader />}
-    <div
-      className={
-        hideSidebar
-          ? ""
-          : nativeApp
-          ? "min-h-screen pt-[calc(5.25rem+env(safe-area-inset-top))] pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
-          : "min-h-screen pt-20 lg:pl-72"
-      }
-    >
-      <Switch>
+  return (
+    <ErrorBoundary name="AppShell">
+      <div
+        className={`min-h-screen bg-cream font-sans text-ink ${nativeApp ? "native-app" : ""}`}
+        onBlurCapture={(event) => applyTextAutoFormatToField(event.target)}
+      >
+        {!hideSidebar && !nativeApp && <ErrorBoundary name="MobileSidebar"><MobileSidebar /></ErrorBoundary>}
+        {showAppDock && <ErrorBoundary name="AppHeader"><AppHeader /></ErrorBoundary>}
+        <div
+          className={
+            hideSidebar
+              ? ""
+              : nativeApp
+              ? "min-h-screen pt-[calc(5.25rem+env(safe-area-inset-top))] pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
+              : "min-h-screen pt-20 lg:pl-72"
+          }
+        >
+          <Switch>
       <Route path="/coming-soon">
         <ComingSoon />
       </Route>
@@ -461,8 +461,9 @@ function AppShell() {
         </Route>
       </Switch>
     </div>
-    {showAppDock && <AppDock />}
+    {showAppDock && <ErrorBoundary name="AppDock"><AppDock /></ErrorBoundary>}
     </div>
+  </ErrorBoundary>
   );
 }
 

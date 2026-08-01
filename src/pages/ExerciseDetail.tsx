@@ -69,10 +69,11 @@ export default function ExerciseDetail() {
           </Surface>
 
           <div className="grid gap-5 md:grid-cols-2">
-            <GuidePanel title="Useful tips" items={tips.length ? tips : ["Use a controlled tempo.", "Brace before every rep.", "Stop if form breaks."]} />
-            <GuidePanel title="Common mistakes" items={mistakes.length ? mistakes : ["Going too heavy too soon.", "Rushing reps.", "Losing bracing at end range."]} />
-            <GuidePanel title="Equipment" items={equipmentList.length ? equipmentList : ["Check exercise setup"]} />
-            <GuidePanel title="Alternatives" items={guide.alternatives.length ? guide.alternatives : ["Same pattern with equipment you can control."]} />
+            <GuidePanel title="Technique" items={guide.technique?.length ? guide.technique : ["Maintain neutral spine", "Controlled movement"]} />
+            <GuidePanel title="Useful tips" items={tips.length ? tips : ["Use a controlled tempo.", "Brace before every rep."]} />
+            <GuidePanel title="Common mistakes" items={mistakes.length ? mistakes : ["Going too heavy too soon.", "Rushing reps."]} />
+            <GuidePanel title="Progressions" items={guide.progressions?.length ? guide.progressions : ["Increase weight", "Increase reps"]} />
+            <GuidePanel title="Regressions" items={guide.regressions?.length ? guide.regressions : ["Decrease weight", "Use machines for stability"]} />
           </div>
         </div>
 
@@ -82,7 +83,7 @@ export default function ExerciseDetail() {
           </div>
           <h2 className="mt-4 text-2xl font-semibold">Safety notes</h2>
           <p className="mt-3 text-sm leading-relaxed text-white/65">
-            {guide.safetyNotes || "Warm up properly, choose a load you can control, and stop if pain changes the movement."}
+            {guide.safetyTips || guide.safetyNotes || "Warm up properly, choose a load you can control, and stop if pain changes the movement."}
           </p>
           <a
             href={videoUrl}

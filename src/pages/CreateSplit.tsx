@@ -482,7 +482,7 @@ export default function CreateSplit() {
                         exercises={libraryExercises}
                         allowGolfSpecific={allowGolfSpecific}
                         onChange={(value) => updateExercise(index, value)}
-                        placeholder="Exercise name"
+                        placeholder="Search for exercise..."
                       />
                     </div>
                     <button
@@ -505,14 +505,16 @@ export default function CreateSplit() {
                 ))}
               </div>
 
-              <Button
-                onClick={addExercise}
-                variant="secondary"
-                className="mt-4"
-              >
-                <Plus className="h-4 w-4" />
-                Add Exercise
-              </Button>
+              {/* TODO: Implement moderation system for custom exercises */}
+              <div className="mt-4 p-4 border border-line rounded-xl bg-panel">
+                <p className="text-sm font-semibold text-dark mb-2">Can't find your exercise?</p>
+                <p className="text-xs text-muted mb-3">Add it as a custom exercise.</p>
+                {/* Custom exercise fields here (Exercise name, primary muscle, secondary muscle, equipment, notes) */}
+                <Button variant="secondary" onClick={addExercise} className="w-full">
+                  <Plus className="h-4 w-4" />
+                  Add Custom Exercise
+                </Button>
+              </div>
             </div>
 
             <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

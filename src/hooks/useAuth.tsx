@@ -20,13 +20,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log("AuthProvider: Initializing session check");
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("AuthProvider: Session check complete", { session });
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("AuthProvider: Auth state changed", { event, session });
       setSession(session);
       setUser(session?.user ?? null);
     });
@@ -35,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, username: string) => {
+    console.log("AuthProvider: signUp called");
     const cleanUsername = normalizeUsername(username);
     const { error } = await supabase.auth.signUp({
       email,
@@ -44,17 +48,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         emailRedirectTo: `${window.location.origin}/auth`,
       },
     });
-    if (error) throw error;
+    if (error) {
+      console.error("AuthProvider: signUp error", error);
+      throw error;
+    }
   };
 
   const signIn = async (email: string, password: string) => {
+    console.log("AuthProvider: signIn called");
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    if (error) {
+      console.error("AuthProvider: signIn error", error);
+      throw error;
+    }
+    console.log("AuthProvider: signIn successful");
   };
 
   const signOut = async () => {
+    console.log("AuthProvider: signOut called");
     const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    if (error) {
+      console.error("AuthProvider: signOut error", error);
+      throw error;
+    }
   };
 
   return (
