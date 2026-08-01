@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Switch, Route, Redirect, useLocation } from "wouter";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { WellnessProvider } from "@/hooks/wellness/WellnessContext";
 import { supabase } from "@/lib/supabase";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import MobileSidebar from "@/components/MobileSidebar";
@@ -470,7 +471,9 @@ function AppShell() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppShell />
+      <WellnessProvider>
+        <AppShell />
+      </WellnessProvider>
     </AuthProvider>
   );
 }

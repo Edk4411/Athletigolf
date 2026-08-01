@@ -1,50 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "wouter";
-import { Bed, ChevronLeft, Droplets, Gauge, HeartPulse, Scale, Utensils, type LucideIcon } from "lucide-react";
-import { supabase } from "@/lib/supabase";
-import { type WellnessLog, type WellnessTrackingPreferences } from "@/lib/types";
-import { defaultWellnessTracking, getWellnessTracking } from "@/lib/wellnessTargets";
+import { Bed, ChevronLeft, Droplets, Gauge, HeartPulse, Scale, Utensils } from "lucide-react";
+import { useWellness } from "@/hooks/wellness/WellnessContext";
+import type { WellnessLog } from "@/lib/types";
 
 const todayIso = () => new Date().toISOString().split("T")[0];
 
-const formatNumber = (value: number | null | undefined) => value?.toString() ?? "-";
 const formatLitres = (value: number | null | undefined) => (value ? `${value.toFixed(1)} L` : "-");
 const formatHours = (value: number | null | undefined) => (value ? `${value} h` : "-");
 
 export default function Wellness() {
-  const [todayLog, setTodayLog] = useState<WellnessLog | null>(null);
-  const [tracking, setTracking] = useState<WellnessTrackingPreferences>(defaultWellnessTracking);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function loadData() {
-    setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    const [
-      { data: profile },
-      { data: log }
-    ] = await Promise.all([
-      supabase.from("profiles").select("onboarding_data").eq("id", user.id).maybeSingle(),
-      supabase
-        .from("daily_wellness_logs")
-        .select("*")
-        .eq("log_date", todayIso())
-        .maybeSingle(),
-    ]);
-
-    const onboarding = profile?.onboarding_data as any;
-    setTracking(getWellnessTracking(onboarding));
-    setTodayLog(log);
-    setLoading(false);
-  }
+  const { logs, tracking, loading } = useWellness();
+  const todayLog = useMemo(() => logs.find((log: WellnessLog) => log.log_date === todayIso()), [logs]);
 
   const cards = useMemo(
     () =>

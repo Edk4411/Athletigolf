@@ -1,42 +1,30 @@
-import { useEffect, useState } from "react";
+import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { ChevronLeft, Gauge, Plus } from "lucide-react";
 import { Button, FieldLabel, Surface, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
-import type { WellnessLog, OnboardingData } from "@/lib/types";
+import { useWellness } from "@/hooks/wellness/WellnessContext";
+import type { WellnessLog } from "@/lib/types";
 
 const todayIso = () => new Date().toISOString().split("T")[0];
 
 export default function BloodPressure() {
   const [, navigate] = useLocation();
-  const [logs, setLogs] = useState<WellnessLog[]>([]);
+  const { logs, targets, refresh, loading } = useWellness();
   const [sys, setSys] = useState("");
   const [dia, setDia] = useState("");
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [target, setTarget] = useState({ sys: 120, dia: 80 });
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function loadData() {
-    setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
+  const filteredLogs = useMemo(() => {
+    const today = new Date();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(today.getDate() - 7);
     
-    const [logsRes, profileRes] = await Promise.all([
-        supabase.from("daily_wellness_logs").select("*").order("log_date", { ascending: false }).limit(30),
-        supabase.from("profiles").select("onboarding_data").eq("id", user.id).maybeSingle()
-    ]);
-    
-    setLogs((logsRes.data as WellnessLog[]) || []);
-    if (profileRes.data) {
-        const tg = (profileRes.data.onboarding_data as any)?.wellness?.targets?.bloodPressure;
-        if (tg?.systolic && tg?.diastolic) setTarget({ sys: Number(tg.systolic), dia: Number(tg.diastolic) });
-    }
-    setLoading(false);
-  }
+    return logs.filter((log: WellnessLog) => {
+        const logDate = new Date(log.log_date);
+        return logDate >= sevenDaysAgo && logDate <= today;
+    }).sort((a: WellnessLog, b: WellnessLog) => a.log_date.localeCompare(b.log_date));
+  }, [logs]);
 
   async function saveBp() {
     const sysVal = parseInt(sys);
@@ -61,7 +49,7 @@ export default function BloodPressure() {
     setSys("");
     setDia("");
     setSaving(false);
-    loadData();
+    refresh();
   }
 
   return (
@@ -88,16 +76,16 @@ export default function BloodPressure() {
             </div>
             <Button onClick={saveBp} disabled={saving}><Plus className="mr-2 h-4 w-4" /> Save</Button>
         </div>
-        <p className="text-sm text-muted">Baseline Target: {target.sys}/{target.dia} mmHg</p>
+        <p className="text-sm text-muted">Baseline Target: {targets.bpSystolicGoal}/{targets.bpDiastolicGoal} mmHg</p>
       </Surface>
       
       <Surface className="rounded-[2rem] p-6">
         <h2 className="text-xl font-black mb-4">7 Day Trend (Systolic)</h2>
         {loading ? <p>Loading...</p> : (
             <div className="flex items-end justify-between h-40 gap-2">
-                {logs.slice(0, 7).reverse().map(log => {
+                {filteredLogs.map((log: WellnessLog) => {
                     const val = log.blood_pressure_systolic ?? 0;
-                    const height = Math.min(100, (val / 160) * 100);
+                    const height = Math.min(100, (val / (targets.bpSystolicGoal * 1.5)) * 100);
                     return (
                         <div key={log.id} className="flex flex-col items-center gap-2 flex-1">
                             <div className="w-full bg-pulse/20 rounded-t-lg relative" style={{ height: '100%' }}>
@@ -113,3 +101,4 @@ export default function BloodPressure() {
     </main>
   );
 }
+

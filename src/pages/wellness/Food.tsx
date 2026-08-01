@@ -4,7 +4,7 @@ import { ChevronLeft, Flame, Plus, Trash2 } from "lucide-react";
 import { Button, FieldLabel, SelectInput, Surface, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { FoodSearchResult, NutritionEntry, SavedFood, OnboardingData } from "@/lib/types";
-import { getWellnessTargets } from "@/lib/wellnessTargets";
+import { useWellness } from "@/hooks/wellness/WellnessContext";
 
 const todayIso = () => new Date().toISOString().split("T")[0];
 
@@ -26,9 +26,9 @@ function getNutritionTotals(entries: NutritionEntry[]) {
 
 export default function Food() {
   const [, navigate] = useLocation();
+  const { targets } = useWellness();
   const [nutritionEntries, setNutritionEntries] = useState<NutritionEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [target, setTarget] = useState({ calories: 2400, protein: 140, carbs: 300, fat: 70 });
 
   useEffect(() => {
     loadFoodData();
@@ -39,21 +39,9 @@ export default function Food() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
-    const [entriesRes, profileRes] = await Promise.all([
-        supabase.from("nutrition_entries").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(120),
-        supabase.from("profiles").select("onboarding_data").eq("id", user.id).maybeSingle()
-    ]);
+    const { data } = await supabase.from("nutrition_entries").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(120);
 
-    setNutritionEntries((entriesRes.data as NutritionEntry[]) || []);
-    if (profileRes.data) {
-        const targets = getWellnessTargets(profileRes.data.onboarding_data as OnboardingData);
-        setTarget({
-            calories: targets.calories,
-            protein: targets.proteinGrams,
-            carbs: (profileRes.data.onboarding_data as any)?.wellness?.targets?.carbsTarget || 300,
-            fat: (profileRes.data.onboarding_data as any)?.wellness?.targets?.fatTarget || 70,
-        });
-    }
+    setNutritionEntries((data as NutritionEntry[]) || []);
     setLoading(false);
   }
 
@@ -78,10 +66,10 @@ export default function Food() {
                 <div className="flex-1">
                     <h2 className="text-lg font-black">Daily Goals vs Intake</h2>
                     <div className="grid grid-cols-4 gap-2 text-center text-sm font-bold text-muted mt-2">
-                        <div>{totals.calories}/{target.calories}<br/>Cal</div>
-                        <div>{totals.protein}/{target.protein}<br/>Pro</div>
-                        <div>{totals.carbs}/{target.carbs}<br/>Carbs</div>
-                        <div>{totals.fats}/{target.fat}<br/>Fat</div>
+                        <div>{totals.calories}/{Math.round(targets.calories)}<br/>Cal</div>
+                        <div>{totals.protein}/{Math.round(targets.proteinGrams)}<br/>Pro</div>
+                        <div>{totals.carbs}/{Math.round(targets.carbsGrams || 300)}<br/>Carbs</div>
+                        <div>{totals.fats}/{Math.round(targets.fatsGrams || 70)}<br/>Fat</div>
                     </div>
                 </div>
             </div>
@@ -92,11 +80,11 @@ export default function Food() {
             <div className="grid grid-cols-2 gap-4">
                 <div className="bg-panel p-4 rounded-xl">
                     <p className="text-sm text-muted">Avg Cal/Day (7d)</p>
-                    <p className="text-xl font-black">{Math.round(nutritionEntries.slice(0, 7).reduce((a, b) => a + (b.calories || 0), 0) / 7)}</p>
+                    <p className="text-xl font-black">{nutritionEntries.length > 0 ? Math.round(nutritionEntries.slice(0, 7).reduce((a, b) => a + (b.calories || 0), 0) / 7) : '-'}</p>
                 </div>
                 <div className="bg-panel p-4 rounded-xl">
                     <p className="text-sm text-muted">Avg Protein/Day (7d)</p>
-                    <p className="text-xl font-black">{Math.round(nutritionEntries.slice(0, 7).reduce((a, b) => a + (b.protein_grams || 0), 0) / 7)}g</p>
+                    <p className="text-xl font-black">{nutritionEntries.length > 0 ? Math.round(nutritionEntries.slice(0, 7).reduce((a, b) => a + (b.protein_grams || 0), 0) / 7) : '-'}g</p>
                 </div>
             </div>
         </Surface>

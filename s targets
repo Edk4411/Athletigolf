@@ -1,0 +1,56 @@
+[1mdiff --git a/src/lib/wellnessTargets.ts b/src/lib/wellnessTargets.ts[m
+[1mindex 4396250..5acd847 100644[m
+[1m--- a/src/lib/wellnessTargets.ts[m
+[1m+++ b/src/lib/wellnessTargets.ts[m
+[36m@@ -5,6 +5,12 @@[m [mexport type WellnessTargets = {[m
+   proteinGrams: number;[m
+   waterLitres: number;[m
+   sleepHours: number;[m
+[32m+[m[32m  carbsGrams: number;[m
+[32m+[m[32m  fatsGrams: number;[m
+[32m+[m[32m  weightGoal: number;[m
+[32m+[m[32m  heartRateGoal: number;[m
+[32m+[m[32m  bpSystolicGoal: number;[m
+[32m+[m[32m  bpDiastolicGoal: number;[m
+ };[m
+ [m
+ export const defaultWellnessTargets: WellnessTargets = {[m
+[36m@@ -12,6 +18,12 @@[m [mexport const defaultWellnessTargets: WellnessTargets = {[m
+   proteinGrams: 140,[m
+   waterLitres: 2.5,[m
+   sleepHours: 8,[m
+[32m+[m[32m  carbsGrams: 300,[m
+[32m+[m[32m  fatsGrams: 70,[m
+[32m+[m[32m  weightGoal: 75,[m
+[32m+[m[32m  heartRateGoal: 60,[m
+[32m+[m[32m  bpSystolicGoal: 120,[m
+[32m+[m[32m  bpDiastolicGoal: 80,[m
+ };[m
+ [m
+ export const defaultWellnessTracking: WellnessTrackingPreferences = {[m
+[36m@@ -76,13 +88,24 @@[m [mexport function calculateWellnessTargets([m
+       wellness?.goal === "Performance / recovery"[m
+         ? 8.5[m
+         : 8,[m
+[32m+[m[32m    carbsGrams: 300,[m
+[32m+[m[32m    fatsGrams: 70,[m
+[32m+[m[32m    weightGoal: Number(wellness?.targetBodyweight) || 75,[m
+[32m+[m[32m    heartRateGoal: 60,[m
+[32m+[m[32m    bpSystolicGoal: 120,[m
+[32m+[m[32m    bpDiastolicGoal: 80,[m
+   };[m
+ }[m
+ [m
+ export function getWellnessTargets([m
+   onboardingData?: OnboardingData | null[m
+ ): WellnessTargets {[m
+[31m-  return onboardingData?.wellness?.targets || calculateWellnessTargets(onboardingData?.wellness);[m
+[32m+[m[32m  const storedTargets = onboardingData?.wellness?.targets;[m
+[32m+[m[32m  const calculatedTargets = calculateWellnessTargets(onboardingData?.wellness);[m
+[32m+[m[41m  [m
+[32m+[m[32m  if (!storedTargets) return calculatedTargets;[m
+[32m+[m
+[32m+[m[32m  return { ...calculatedTargets, ...storedTargets };[m
+ }[m
+ [m
+ export function getWellnessTracking([m

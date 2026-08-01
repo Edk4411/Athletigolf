@@ -5,6 +5,12 @@ export type WellnessTargets = {
   proteinGrams: number;
   waterLitres: number;
   sleepHours: number;
+  carbsGrams: number;
+  fatsGrams: number;
+  weightGoal: number;
+  heartRateGoal: number;
+  bpSystolicGoal: number;
+  bpDiastolicGoal: number;
 };
 
 export const defaultWellnessTargets: WellnessTargets = {
@@ -12,6 +18,12 @@ export const defaultWellnessTargets: WellnessTargets = {
   proteinGrams: 140,
   waterLitres: 2.5,
   sleepHours: 8,
+  carbsGrams: 300,
+  fatsGrams: 70,
+  weightGoal: 75,
+  heartRateGoal: 60,
+  bpSystolicGoal: 120,
+  bpDiastolicGoal: 80,
 };
 
 export const defaultWellnessTracking: WellnessTrackingPreferences = {
@@ -76,13 +88,24 @@ export function calculateWellnessTargets(
       wellness?.goal === "Performance / recovery"
         ? 8.5
         : 8,
+    carbsGrams: 300,
+    fatsGrams: 70,
+    weightGoal: Number(wellness?.targetBodyweight) || 75,
+    heartRateGoal: 60,
+    bpSystolicGoal: 120,
+    bpDiastolicGoal: 80,
   };
 }
 
 export function getWellnessTargets(
   onboardingData?: OnboardingData | null
 ): WellnessTargets {
-  return onboardingData?.wellness?.targets || calculateWellnessTargets(onboardingData?.wellness);
+  const storedTargets = onboardingData?.wellness?.targets;
+  const calculatedTargets = calculateWellnessTargets(onboardingData?.wellness);
+  
+  if (!storedTargets) return calculatedTargets;
+
+  return { ...calculatedTargets, ...storedTargets };
 }
 
 export function getWellnessTracking(
