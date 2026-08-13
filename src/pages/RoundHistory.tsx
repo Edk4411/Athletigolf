@@ -260,7 +260,7 @@ export default function RoundHistory() {
           actions={<Button variant="golf" onClick={() => navigate("/golf/submit")}><Flag className="h-4 w-4" />Start Round</Button>}
         />
 
-        <section className="mb-5 grid gap-4 md:grid-cols-4">
+        <section className="mb-5 grid gap-4 grid-cols-2 md:grid-cols-4">
           <StatCard label="Completed Rounds" value={completedRounds.length} sub={unfinishedRounds.length ? `${unfinishedRounds.length} unfinished` : "all scoring rounds"} />
           <StatCard label="Average Score" value={formatAverage(golfStats.avgScore)} sub="18-hole equivalent" />
           <StatCard label="Best Round" value={golfStats.bestScore === null ? "-" : golfStats.bestScore} sub="9s doubled, partials ignored" />
