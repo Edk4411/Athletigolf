@@ -70,6 +70,13 @@ Deno.serve(async (request) => {
       return json({ results: [], warning: "Type at least 2 characters to search courses." });
     }
 
+    // Try local database search first
+    const localResults = await searchLocalCourses(query);
+    if (localResults.length > 0) {
+      return json({ results: localResults.slice(0, 12) });
+    }
+
+    // Fallback to external API
     const results = await searchCourses(query, apiKey);
     return json({ results: results.slice(0, 12) });
   } catch (error) {
@@ -79,6 +86,39 @@ Deno.serve(async (request) => {
     );
   }
 });
+
+async function searchLocalCourses(query: string): Promise<SearchCourse[]> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRoleKey) return [];
+
+  // Use the GIN index for full-text search.
+  // Note: This assumes 'query' is sanitized or safe for the query string.
+  // We'll use a simple websearch_to_tsquery approach.
+  const path = `golf_courses?select=id,club_name,course_name,city,state,country,address&q=fts(english).${encodeURIComponent(query)}`;
+
+  try {
+    const response = await supabaseFetch(supabaseUrl, serviceRoleKey, path, {
+      method: "GET",
+    });
+    
+    if (!response.ok) return [];
+    const data = await response.json();
+    if (!Array.isArray(data)) return [];
+
+    return data.map((item: any) => ({
+      id: item.id,
+      clubName: item.club_name,
+      courseName: item.course_name,
+      location: item.address,
+      city: item.city,
+      state: item.state,
+      country: item.country,
+    }));
+  } catch (e) {
+    return [];
+  }
+}
 
 async function searchCourses(query: string, apiKey: string): Promise<SearchCourse[]> {
   const url = new URL(`${apiBase}/search`);
