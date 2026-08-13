@@ -328,6 +328,7 @@ export default function RoundHistory() {
                       <Button variant="golf" onClick={() => navigate(`/golf/submit?resume=${round.id}`)}><Play className="h-4 w-4" />Resume</Button>
                     )}
                     <Button variant="ghost" onClick={() => openEdit(round)} aria-label="Edit round"><Edit3 className="h-4 w-4" /></Button>
+                    <Button variant="ghost" onClick={() => setPendingDeleteRound(round)} aria-label="Delete round" className="text-danger"><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </div>
               </article>
