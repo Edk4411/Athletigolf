@@ -45,6 +45,13 @@ export default function Water() {
     const { error } = await supabase.from("water_logs").delete().eq("id", id);
     if (!error) await Promise.all([loadWaterLogs(), refresh()]);
   }
+  async function clearDay() {
+    if (!waterEntries.length || !confirm("Delete all water entries for this day?")) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from("water_logs").delete().eq("user_id", user.id).eq("log_date", selectedDate);
+    if (!error) await Promise.all([loadWaterLogs(), refresh()]);
+  }
 
   const totalLitres = waterEntries.reduce((sum, entry) => sum + entry.amount_ml, 0) / 1000;
   const formatTime = (timestamp: string) => new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -72,7 +79,7 @@ export default function Water() {
       </Surface>
 
       <Surface className="rounded-[2rem] p-6">
-        <h2 className="text-xl font-black mb-4">Entries</h2>
+        <div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-xl font-black">Entries</h2>{waterEntries.length > 0 && <Button variant="ghost" onClick={clearDay}><Trash2 className="h-4 w-4" />Delete day</Button>}</div>
         <div className="grid gap-2">
             {waterEntries.length === 0 && <p className="text-sm text-muted">No water logged for this date.</p>}
             {waterEntries.map(entry => (

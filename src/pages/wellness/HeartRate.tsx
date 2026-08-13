@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
-import { ChevronLeft, HeartPulse, Plus } from "lucide-react";
+import { ChevronLeft, HeartPulse, Plus, Trash2 } from "lucide-react";
 import { Button, FieldLabel, Surface, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { useWellness } from "@/hooks/wellness/WellnessContext";
@@ -14,6 +14,7 @@ export default function HeartRate() {
   const [time, setTime] = useState(new Date().toTimeString().slice(0, 5));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const existing = useMemo(() => logs.find((log: WellnessLog) => log.log_date === selectedDate), [logs, selectedDate]);
 
   const filteredLogs = useMemo(() => {
     return sevenDayWindow(selectedDate).map(date => logs.find((log: WellnessLog) => log.log_date === date) || ({ id: date, log_date: date } as WellnessLog));
@@ -41,6 +42,11 @@ export default function HeartRate() {
     setSaveError(""); setHr("");
     await refresh();
   }
+  async function clearHr() {
+    if (!existing?.resting_heart_rate || !confirm("Delete this day’s heart-rate reading?")) return;
+    const { error } = await supabase.from("daily_wellness_logs").update({ resting_heart_rate: null, heart_rate_logged_at: null }).eq("id", existing.id);
+    if (!error) { setHr(""); await refresh(); }
+  }
 
   return (
     <main className="min-h-screen bg-[#f2f5f7] px-4 py-5 text-[#101d2b]">
@@ -65,6 +71,7 @@ export default function HeartRate() {
                 <TextInput type="time" value={time} onChange={e => setTime(e.target.value)} />
             </div>
             <Button onClick={saveHr} disabled={saving}><Plus className="mr-2 h-4 w-4" /> Save</Button>
+            {existing?.resting_heart_rate !== null && existing?.resting_heart_rate !== undefined && <Button variant="ghost" onClick={clearHr}><Trash2 className="mr-2 h-4 w-4" /> Delete reading</Button>}
         </div>
         <p className="text-sm text-muted">Baseline Target: {targets.heartRateGoal} bpm</p>
         {saveError && <p className="mt-2 text-sm text-danger">{saveError}</p>}

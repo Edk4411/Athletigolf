@@ -154,6 +154,13 @@ export default function Food() {
     const { error } = await supabase.from("nutrition_entries").delete().eq("id", id);
     if (!error) await Promise.all([loadFoodData(), refresh()]);
   }
+  async function clearDay() {
+    if (!nutritionEntries.length || !confirm("Delete all food entries for this day?")) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from("nutrition_entries").delete().eq("user_id", user.id).eq("log_date", selectedDate);
+    if (!error) await Promise.all([loadFoodData(), refresh()]);
+  }
 
   const totals = useMemo(() => getNutritionTotals(nutritionEntries), [nutritionEntries]);
   const sevenDayFoodTotals = useMemo(() => logs.reduce((sum: number, log: { calories?: number | null }) => sum + (log.calories || 0), 0), [logs]);
@@ -212,7 +219,7 @@ export default function Food() {
 
       <Surface className="mb-5 rounded-[2rem] border-0 bg-white p-6 shadow-sm"><div className="flex items-center gap-3"><Flame className="h-6 w-6 text-pulse" /><div><h2 className="text-xl font-black">7-day fuel</h2><p className="text-sm text-muted">{Math.round(sevenDayFoodTotals)} kcal logged across the selected week</p></div></div></Surface>
 
-      <Surface className="rounded-[2rem] border-0 bg-white p-6 shadow-sm"><h2 className="mb-4 text-xl font-black">Entries</h2>{loading ? <p>Loading...</p> : <div className="grid gap-2">{nutritionEntries.length === 0 && <p className="text-sm text-muted">No meals logged for this date.</p>}{nutritionEntries.map((entry) => <div key={entry.id} className="flex items-center justify-between gap-3 border-b border-line p-3"><div><p className="font-semibold">{entry.food_name}</p><p className="text-xs text-muted">{entry.meal_type} · {formatTime(entry.created_at)} · {entry.protein_grams || 0}g protein</p></div><div className="flex items-center gap-3"><span>{entry.calories || 0} kcal</span><button type="button" onClick={() => deleteMeal(entry.id)} className="text-pulse" aria-label={`Delete ${entry.food_name}`}><Trash2 className="h-4 w-4" /></button></div></div>)}</div>}</Surface>
+      <Surface className="rounded-[2rem] border-0 bg-white p-6 shadow-sm"><div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-xl font-black">Entries</h2>{nutritionEntries.length > 0 && <Button variant="ghost" onClick={clearDay}><Trash2 className="h-4 w-4" />Delete day</Button>}</div>{loading ? <p>Loading...</p> : <div className="grid gap-2">{nutritionEntries.length === 0 && <p className="text-sm text-muted">No meals logged for this date.</p>}{nutritionEntries.map((entry) => <div key={entry.id} className="flex items-center justify-between gap-3 border-b border-line p-3"><div><p className="font-semibold">{entry.food_name}</p><p className="text-xs text-muted">{entry.meal_type} · {formatTime(entry.created_at)} · {entry.protein_grams || 0}g protein</p></div><div className="flex items-center gap-3"><span>{entry.calories || 0} kcal</span><button type="button" onClick={() => deleteMeal(entry.id)} className="text-pulse" aria-label={`Delete ${entry.food_name}`}><Trash2 className="h-4 w-4" /></button></div></div>)}</div>}</Surface>
     </main>
   );
 }

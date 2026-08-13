@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
-import { ChevronLeft, Gauge, Plus } from "lucide-react";
+import { ChevronLeft, Gauge, Plus, Trash2 } from "lucide-react";
 import { Button, FieldLabel, Surface, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { useWellness } from "@/hooks/wellness/WellnessContext";
@@ -15,6 +15,7 @@ export default function BloodPressure() {
   const [time, setTime] = useState(new Date().toTimeString().slice(0, 5));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const existing = useMemo(() => logs.find((log: WellnessLog) => log.log_date === selectedDate), [logs, selectedDate]);
 
   const filteredLogs = useMemo(() => {
     return sevenDayWindow(selectedDate).map(date => logs.find((log: WellnessLog) => log.log_date === date) || ({ id: date, log_date: date } as WellnessLog));
@@ -43,6 +44,11 @@ export default function BloodPressure() {
     if (error) { setSaveError(error.message); return; }
     setSaveError(""); setSys(""); setDia("");
     await refresh();
+  }
+  async function clearBp() {
+    if (!existing?.blood_pressure_systolic || !confirm("Delete this day’s blood-pressure reading?")) return;
+    const { error } = await supabase.from("daily_wellness_logs").update({ blood_pressure_systolic: null, blood_pressure_diastolic: null, blood_pressure_logged_at: null }).eq("id", existing.id);
+    if (!error) { setSys(""); setDia(""); await refresh(); }
   }
 
   return (
@@ -74,6 +80,7 @@ export default function BloodPressure() {
                 <TextInput type="time" value={time} onChange={e => setTime(e.target.value)} />
             </div>
             <Button onClick={saveBp} disabled={saving}><Plus className="mr-2 h-4 w-4" /> Save</Button>
+            {existing?.blood_pressure_systolic !== null && existing?.blood_pressure_systolic !== undefined && <Button variant="ghost" onClick={clearBp}><Trash2 className="mr-2 h-4 w-4" /> Delete reading</Button>}
         </div>
         <p className="text-sm text-muted">Baseline Target: {targets.bpSystolicGoal}/{targets.bpDiastolicGoal} mmHg</p>
         {saveError && <p className="mt-2 text-sm text-danger">{saveError}</p>}
