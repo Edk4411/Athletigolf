@@ -26,27 +26,28 @@ export function WellnessProvider({ children }: { children: ReactNode }) {
     ]);
 
     const byDate = new Map<string, WellnessLog>();
-    ((logsRes.data as WellnessLog[]) || []).forEach(log => byDate.set(log.log_date, log));
-    const foodDates = new Set<string>();
+    ((logsRes.data as WellnessLog[]) || []).forEach(log => {
+      // Nutrition and water are entry-based. Do not surface obsolete cumulative
+      // values from daily_wellness_logs alongside the live entry tables.
+      byDate.set(log.log_date, {
+        ...log,
+        calories: 0,
+        protein_grams: 0,
+        carbs_grams: 0,
+        fats_grams: 0,
+        water_litres: 0,
+      });
+    });
     (foodRes.data || []).forEach((entry: any) => {
       const existing = byDate.get(entry.log_date) || ({ log_date: entry.log_date } as WellnessLog);
-      if (!foodDates.has(entry.log_date)) {
-        existing.calories = 0; existing.protein_grams = 0; existing.carbs_grams = 0; existing.fats_grams = 0;
-        foodDates.add(entry.log_date);
-      }
       existing.calories = (existing.calories || 0) + (entry.calories || 0);
       existing.protein_grams = (existing.protein_grams || 0) + (entry.protein_grams || 0);
       existing.carbs_grams = (existing.carbs_grams || 0) + (entry.carbs_grams || 0);
       existing.fats_grams = (existing.fats_grams || 0) + (entry.fats_grams || 0);
       byDate.set(entry.log_date, existing);
     });
-    const waterDates = new Set<string>();
     (waterRes.data || []).forEach((entry: any) => {
       const existing = byDate.get(entry.log_date) || ({ log_date: entry.log_date } as WellnessLog);
-      if (!waterDates.has(entry.log_date)) {
-        existing.water_litres = 0;
-        waterDates.add(entry.log_date);
-      }
       existing.water_litres = (existing.water_litres || 0) + entry.amount_ml / 1000;
       byDate.set(entry.log_date, existing);
     });

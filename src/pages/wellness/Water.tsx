@@ -32,23 +32,22 @@ export default function Water() {
     
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { setSaving(false); return; }
 
-    await supabase.from("water_logs").insert({ user_id: user.id, log_date: selectedDate, amount_ml: amountMl, created_at: new Date(`${selectedDate}T${time}:00`).toISOString() });
+    const { error } = await supabase.from("water_logs").insert({ user_id: user.id, log_date: selectedDate, amount_ml: amountMl, created_at: new Date(`${selectedDate}T${time}:00`).toISOString() });
     setWaterMl("");
     setSaving(false);
-    loadWaterLogs();
-    refresh();
+    if (!error) await Promise.all([loadWaterLogs(), refresh()]);
   }
 
   async function deleteWater(id: string) {
     if (!confirm("Delete this entry?")) return;
-    await supabase.from("water_logs").delete().eq("id", id);
-    loadWaterLogs();
-    refresh();
+    const { error } = await supabase.from("water_logs").delete().eq("id", id);
+    if (!error) await Promise.all([loadWaterLogs(), refresh()]);
   }
 
   const totalLitres = waterEntries.reduce((sum, entry) => sum + entry.amount_ml, 0) / 1000;
+  const formatTime = (timestamp: string) => new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   return (
     <main className="min-h-screen bg-[#f2f5f7] px-4 py-5 text-[#101d2b]">
@@ -75,9 +74,10 @@ export default function Water() {
       <Surface className="rounded-[2rem] p-6">
         <h2 className="text-xl font-black mb-4">Entries</h2>
         <div className="grid gap-2">
+            {waterEntries.length === 0 && <p className="text-sm text-muted">No water logged for this date.</p>}
             {waterEntries.map(entry => (
                 <div key={entry.id} className="flex justify-between items-center p-3 border-b border-line">
-                    <span>{entry.amount_ml} ml</span>
+                    <span>{entry.amount_ml} ml · {formatTime(entry.created_at)}</span>
                     <button onClick={() => deleteWater(entry.id)} className="text-pulse"><Trash2 className="h-4 w-4" /></button>
                 </div>
             ))}

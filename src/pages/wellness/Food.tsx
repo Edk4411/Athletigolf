@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { ChevronLeft, Flame, Plus } from "lucide-react";
-import { Button, Surface, TextInput, SelectInput } from "@/components/ui";
+import { ChevronLeft, Flame, Plus, Trash2 } from "lucide-react";
+import { Button, FieldLabel, Surface, TextInput, SelectInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { NutritionEntry } from "@/lib/types";
 import { useWellness } from "@/hooks/wellness/WellnessContext";
@@ -24,7 +24,7 @@ function getNutritionTotals(entries: NutritionEntry[]) {
 
 export default function Food() {
   const [, navigate] = useLocation();
-  const { targets, selectedDate, refresh } = useWellness();
+  const { logs, targets, selectedDate, refresh } = useWellness();
   const [nutritionEntries, setNutritionEntries] = useState<NutritionEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [foodName, setFoodName] = useState("");
@@ -34,6 +34,7 @@ export default function Food() {
   const [fats, setFats] = useState("");
   const [mealType, setMealType] = useState<NutritionEntry["meal_type"]>("snack");
   const [time, setTime] = useState(new Date().toTimeString().slice(0, 5));
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadFoodData();
@@ -51,13 +52,16 @@ export default function Food() {
   }
 
   async function addMeal() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !foodName) return;
+    if (!foodName.trim()) return;
 
-    await supabase.from("nutrition_entries").insert({
+    setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setSaving(false); return; }
+
+    const { error } = await supabase.from("nutrition_entries").insert({
         user_id: user.id,
         log_date: selectedDate,
-        food_name: foodName,
+        food_name: foodName.trim(),
         calories: parseInt(calories) || 0,
         protein_grams: parseInt(protein) || 0,
         carbs_grams: parseInt(carbs) || 0,
@@ -65,12 +69,27 @@ export default function Food() {
         meal_type: mealType,
         created_at: new Date(`${selectedDate}T${time}:00`).toISOString()
     });
+    setSaving(false);
+    if (error) return;
+
     setFoodName(""); setCalories(""); setProtein(""); setCarbs(""); setFats("");
-    loadFoodData();
-    refresh();
+    await Promise.all([loadFoodData(), refresh()]);
+  }
+
+  async function deleteMeal(id: string) {
+    if (!confirm("Delete this meal entry?")) return;
+
+    const { error } = await supabase.from("nutrition_entries").delete().eq("id", id);
+    if (!error) await Promise.all([loadFoodData(), refresh()]);
   }
 
   const totals = useMemo(() => getNutritionTotals(nutritionEntries), [nutritionEntries]);
+  const sevenDayFoodTotals = useMemo(
+    () => logs.reduce((acc: number, log: { calories?: number | null }) => acc + (log.calories || 0), 0),
+    [logs]
+  );
+
+  const formatTime = (timestamp: string) => new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   return (
     <main className="min-h-screen bg-[#f2f5f7] px-4 py-5 text-[#101d2b] md:px-8 md:py-7">
@@ -86,20 +105,25 @@ export default function Food() {
 
         <Surface className="mb-5 rounded-[2rem] border-0 bg-white shadow-sm p-6">
             <div className="flex flex-col gap-4 mb-4">
-                <TextInput value={foodName} onChange={e => setFoodName(e.target.value)} placeholder="Food name" />
+                <div>
+                    <FieldLabel>Meal / food name</FieldLabel>
+                    <TextInput value={foodName} onChange={e => setFoodName(e.target.value)} placeholder="Food name" />
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                     <TextInput type="number" value={calories} onChange={e => setCalories(e.target.value)} placeholder="Calories" />
                     <TextInput type="number" value={protein} onChange={e => setProtein(e.target.value)} placeholder="Protein (g)" />
                     <TextInput type="number" value={carbs} onChange={e => setCarbs(e.target.value)} placeholder="Carbs (g)" />
                     <TextInput type="number" value={fats} onChange={e => setFats(e.target.value)} placeholder="Fats (g)" />
                 </div>
-                <SelectInput value={mealType} onChange={e => setMealType(e.target.value as any)}>
-                    {mealTypes.map(type => (
-                        <option key={type.value} value={type.value}>{type.label}</option>
-                    ))}
-                </SelectInput>
-                <TextInput type="time" value={time} onChange={e => setTime(e.target.value)} />
-                <Button onClick={addMeal}><Plus className="mr-2 h-4 w-4" /> Add Meal</Button>
+                <div className="grid grid-cols-2 gap-2">
+                    <SelectInput value={mealType} onChange={e => setMealType(e.target.value as NutritionEntry["meal_type"])}>
+                        {mealTypes.map(type => (
+                            <option key={type.value} value={type.value}>{type.label}</option>
+                        ))}
+                    </SelectInput>
+                    <TextInput type="time" value={time} onChange={e => setTime(e.target.value)} aria-label="Meal time" />
+                </div>
+                <Button onClick={addMeal} disabled={saving}><Plus className="mr-2 h-4 w-4" /> Add Meal</Button>
             </div>
             
             <div className="grid grid-cols-4 gap-2 text-center text-sm font-bold text-muted mt-4 pt-4 border-t border-line">
@@ -110,17 +134,33 @@ export default function Food() {
             </div>
         </Surface>
 
+        <Surface className="mb-5 rounded-[2rem] border-0 bg-white shadow-sm p-6">
+            <div className="flex items-center gap-3">
+                <Flame className="h-6 w-6 text-pulse" />
+                <div>
+                    <h2 className="text-xl font-black">7 Day Statistics</h2>
+                    <p className="text-sm text-muted">{sevenDayFoodTotals} kcal logged in the selected seven-day period</p>
+                </div>
+            </div>
+        </Surface>
+
         <Surface className="rounded-[2rem] border-0 bg-white shadow-sm p-6">
             <h2 className="text-xl font-black mb-4">Entries</h2>
             {loading ? <p>Loading...</p> : (
                 <div className="grid gap-2">
+                    {nutritionEntries.length === 0 && <p className="text-sm text-muted">No meals logged for this date.</p>}
                     {nutritionEntries.map(log => (
-                        <div key={log.id} className="flex justify-between p-3 border-b border-line">
+                        <div key={log.id} className="flex items-center justify-between gap-3 p-3 border-b border-line">
                             <div>
                                 <p className="font-semibold">{log.food_name}</p>
-                                <p className="text-xs text-muted">{log.meal_type}</p>
+                                <p className="text-xs text-muted">{log.meal_type} · {formatTime(log.created_at)} · {log.protein_grams || 0}g protein</p>
                             </div>
-                            <span>{log.calories || 0} kcal</span>
+                            <div className="flex items-center gap-3">
+                                <span>{log.calories || 0} kcal</span>
+                                <button type="button" onClick={() => deleteMeal(log.id)} className="text-pulse" aria-label={`Delete ${log.food_name}`}>
+                                    <Trash2 className="h-4 w-4" />
+                                </button>
+                            </div>
                         </div>
                     ))}
                 </div>
