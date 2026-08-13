@@ -5,7 +5,6 @@ import { Button, FieldLabel, Surface, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { useWellness } from "@/hooks/wellness/WellnessContext";
 import type { WellnessLog } from "@/lib/types";
-import { sevenDayWindow } from "@/lib/wellnessDates";
 
 export default function BloodPressure() {
   const [, navigate] = useLocation();
@@ -16,10 +15,6 @@ export default function BloodPressure() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const existing = useMemo(() => logs.find((log: WellnessLog) => log.log_date === selectedDate), [logs, selectedDate]);
-
-  const filteredLogs = useMemo(() => {
-    return sevenDayWindow(selectedDate).map(date => logs.find((log: WellnessLog) => log.log_date === date) || ({ id: date, log_date: date } as WellnessLog));
-  }, [logs, selectedDate]);
 
   async function saveBp() {
     const sysVal = parseInt(sys);
@@ -84,26 +79,6 @@ export default function BloodPressure() {
         </div>
         <p className="text-sm text-muted">Baseline Target: {targets.bpSystolicGoal}/{targets.bpDiastolicGoal} mmHg</p>
         {saveError && <p className="mt-2 text-sm text-danger">{saveError}</p>}
-      </Surface>
-      
-      <Surface className="rounded-[2rem] p-6">
-        <h2 className="text-xl font-black mb-4">7 Day Trend (Systolic)</h2>
-        {loading ? <p>Loading...</p> : (
-            <div className="flex items-end justify-between h-40 gap-2">
-                {filteredLogs.map((log: WellnessLog) => {
-                    const val = log.blood_pressure_systolic ?? 0;
-                    const height = Math.min(100, (val / (targets.bpSystolicGoal * 1.5)) * 100);
-                    return (
-                        <div key={log.id} className="flex flex-col items-center gap-2 flex-1">
-                            <div className="w-full bg-pulse/20 rounded-t-lg relative" style={{ height: '100%' }}>
-                                <div className="absolute bottom-0 w-full bg-pulse rounded-t-lg" style={{ height: `${height}%` }} />
-                            </div>
-                            <span className="text-xs font-bold">{log.log_date.split("-")[2]}</span>
-                        </div>
-                    );
-                })}
-            </div>
-        )}
       </Surface>
     </main>
   );
