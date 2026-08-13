@@ -12,16 +12,16 @@ export function WellnessProvider({ children }: { children: ReactNode }) {
   const [tracking, setTracking] = useState<WellnessTrackingPreferences>({ food: true, water: true, sleep: true, body: true, heartRate: false, bloodPressure: false });
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string>(todayIso);
+  const shiftSelectedWeek = (weeks: number) => setSelectedDate((date) => addDays(date, weeks * 7));
 
   async function refresh() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
-    const startDate = addDays(selectedDate, -6);
     const [logsRes, foodRes, waterRes, profileRes] = await Promise.all([
-        supabase.from("daily_wellness_logs").select("*").gte("log_date", startDate).lte("log_date", selectedDate).order("log_date", { ascending: true }),
-        supabase.from("nutrition_entries").select("log_date, calories, protein_grams, carbs_grams, fats_grams").gte("log_date", startDate).lte("log_date", selectedDate),
-        supabase.from("water_logs").select("log_date, amount_ml").gte("log_date", startDate).lte("log_date", selectedDate),
+        supabase.from("daily_wellness_logs").select("*").order("log_date", { ascending: true }),
+        supabase.from("nutrition_entries").select("log_date, calories, protein_grams, carbs_grams, fats_grams"),
+        supabase.from("water_logs").select("log_date, amount_ml"),
         supabase.from("profiles").select("onboarding_data").eq("id", user.id).maybeSingle()
     ]);
 
@@ -62,7 +62,7 @@ export function WellnessProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { refresh(); }, [selectedDate]);
 
-  return <WellnessContext.Provider value={{ logs, targets, tracking, loading, selectedDate, setSelectedDate, refresh }}>{children}</WellnessContext.Provider>;
+  return <WellnessContext.Provider value={{ logs, targets, tracking, loading, selectedDate, setSelectedDate, shiftSelectedWeek, refresh }}>{children}</WellnessContext.Provider>;
 }
 
 export const useWellness = () => useContext(WellnessContext);

@@ -5,7 +5,6 @@ import { Button, FieldLabel, Surface, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { useWellness } from "@/hooks/wellness/WellnessContext";
 import type { WellnessLog } from "@/lib/types";
-import { sevenDayWindow } from "@/lib/wellnessDates";
 
 export default function Body() {
   const [, navigate] = useLocation();
@@ -13,10 +12,12 @@ export default function Body() {
   const [weight, setWeight] = useState("");
   const [time, setTime] = useState(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
-  const filteredLogs = useMemo(() => {
-    return sevenDayWindow(selectedDate).map(date => logs.find((log: WellnessLog) => log.log_date === date) || ({ id: date, log_date: date } as WellnessLog));
-  }, [logs, selectedDate]);
+  const filteredLogs = useMemo(
+    () => logs.filter((log: WellnessLog) => log.bodyweight !== null && log.bodyweight !== undefined).sort((a, b) => a.log_date.localeCompare(b.log_date)),
+    [logs]
+  );
 
   async function saveWeight() {
     const weightVal = parseFloat(weight);
@@ -24,9 +25,9 @@ export default function Body() {
 
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { setSaving(false); setSaveError("You need to be signed in to save bodyweight."); return; }
 
-    await supabase
+    const { error } = await supabase
       .from("daily_wellness_logs")
       .upsert({ 
           user_id: user.id, 
@@ -35,9 +36,10 @@ export default function Body() {
           bodyweight_logged_at: new Date(`${selectedDate}T${time}:00`).toISOString()
       }, { onConflict: "user_id,log_date" });
 
-    setWeight("");
     setSaving(false);
-    refresh();
+    if (error) { setSaveError(error.message); return; }
+    setSaveError(""); setWeight("");
+    await refresh();
   }
 
   return (
@@ -59,13 +61,15 @@ export default function Body() {
             <Button onClick={saveWeight} disabled={saving}><Plus className="mr-2 h-4 w-4" /> Save</Button>
         </div>
         <p className="text-sm text-muted">Goal: {targets.weightGoal} kg</p>
+        {saveError && <p className="mt-2 text-sm text-danger">{saveError}</p>}
       </Surface>
 
       {/* ... (rest of the file - graph) */}
       <Surface className="rounded-[2rem] p-6">
-        <h2 className="text-xl font-black mb-4">7 Day Trend</h2>
+        <h2 className="text-xl font-black mb-4">Weight Trend</h2>
         {loading ? <p>Loading...</p> : (
             <div className="flex items-end justify-between h-40 gap-2">
+                {filteredLogs.length === 0 && <p className="text-sm text-muted">No bodyweight measurements yet.</p>}
                 {filteredLogs.map((log: WellnessLog) => {
                     const kg = log.bodyweight ?? 0;
                     const height = Math.min(100, (kg / (targets.weightGoal * 1.2)) * 100);

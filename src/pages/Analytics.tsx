@@ -4,6 +4,7 @@ import { Activity, BarChart3, Dumbbell, Flag, HeartPulse, Swords, Target } from 
 import { Button, EmptyState, SectionTitle, Surface } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { useSportMode } from "@/hooks/useSportMode";
+import { useWellness } from "@/hooks/wellness/WellnessContext";
 import { isGolfEnabledMode, isTrainingEnabledMode } from "@/lib/sportMode";
 import {
   formatAverage,
@@ -15,6 +16,7 @@ import {
 import type { CardioSession, Round, RoundGame, RoundGameHole, RoundGameResult, RoundHole, WellnessLog, Workout } from "@/lib/types";
 
 type AnalyticsTab = "golf" | "matchplay" | "gym" | "wellness";
+type WellnessRange = 7 | 30 | 90 | 365;
 
 type MatchplayRecentResult = {
   id: string;
@@ -49,6 +51,8 @@ type MatchplayStats = {
 export default function Analytics() {
   const [, navigate] = useLocation();
   const { sportMode, loading: sportModeLoading } = useSportMode();
+  const { logs: wellnessLogs, targets: wellnessTargets } = useWellness();
+  const wellness = wellnessLogs as WellnessLog[];
   const isGolfEnabled = isGolfEnabledMode(sportMode);
   const isTrainingEnabled = isTrainingEnabledMode(sportMode);
   const [activeTab, setActiveTab] = useState<AnalyticsTab>(isGolfEnabled ? "golf" : "gym");
@@ -59,7 +63,7 @@ export default function Analytics() {
   const [roundGameResults, setRoundGameResults] = useState<RoundGameResult[]>([]);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [cardio, setCardio] = useState<CardioSession[]>([]);
-  const [wellness, setWellness] = useState<WellnessLog[]>([]);
+  const [wellnessRange, setWellnessRange] = useState<WellnessRange>(30);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -78,7 +82,7 @@ export default function Analytics() {
 
   const loadData = async () => {
     setLoading(true);
-    const [roundsResult, holesResult, gamesResult, gameHolesResult, gameResultsResult, workoutsResult, cardioResult, wellnessResult] = await Promise.all([
+    const [roundsResult, holesResult, gamesResult, gameHolesResult, gameResultsResult, workoutsResult, cardioResult] = await Promise.all([
       supabase.from("rounds").select("*").order("created_at", { ascending: false }),
       supabase.from("round_holes").select("*").order("created_at", { ascending: false }),
       supabase.from("round_games").select("*").order("created_at", { ascending: false }),
@@ -86,7 +90,6 @@ export default function Analytics() {
       supabase.from("round_game_results").select("*").order("created_at", { ascending: false }),
       supabase.from("workouts").select("*").order("created_at", { ascending: false }),
       supabase.from("cardio_sessions").select("*").order("session_date", { ascending: false }),
-      supabase.from("daily_wellness_logs").select("*").order("log_date", { ascending: false }),
     ]);
 
     setRounds((roundsResult.data as Round[]) || []);
@@ -96,7 +99,6 @@ export default function Analytics() {
     setRoundGameResults((gameResultsResult.data as RoundGameResult[]) || []);
     setWorkouts((workoutsResult.data as Workout[]) || []);
     setCardio((cardioResult.data as CardioSession[]) || []);
-    setWellness((wellnessResult.data as WellnessLog[]) || []);
     setLoading(false);
   };
 
@@ -135,17 +137,36 @@ export default function Analytics() {
   }, [workouts]);
 
   const wellnessStats = useMemo(() => {
-    const recentWellness = wellness.slice(0, 7);
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - wellnessRange + 1);
+    const rangedWellness = wellness.filter((log) => new Date(`${log.log_date}T12:00:00`) >= cutoff);
+    const recentWellness = rangedWellness.slice(-7);
     const recentCardio = cardio.slice(0, 7);
     return {
-      wellnessDays: wellness.length,
+      wellnessDays: rangedWellness.length,
       cardioSessions: cardio.length,
       avgSleep: average(recentWellness.map((log) => log.sleep_hours).filter(isNumber)),
       avgWater: average(recentWellness.map((log) => log.water_litres).filter(isNumber)),
       cardioDistance: recentCardio.reduce((sum, session) => sum + (session.distance_km ?? 0), 0),
       cardioMinutes: recentCardio.reduce((sum, session) => sum + (session.duration_minutes ?? 0), 0),
     };
-  }, [cardio, wellness]);
+  }, [cardio, wellness, wellnessRange]);
+
+  const wellnessMetrics = useMemo(() => {
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - wellnessRange + 1);
+    const withinRange = wellness.filter((log) => new Date(`${log.log_date}T12:00:00`) >= cutoff);
+    return [
+      metricSummary("Calories", withinRange, (log) => log.calories, "kcal", wellnessTargets.calories),
+      metricSummary("Protein", withinRange, (log) => log.protein_grams, "g", wellnessTargets.proteinGrams),
+      metricSummary("Carbohydrates", withinRange, (log) => log.carbs_grams, "g", wellnessTargets.carbsGrams),
+      metricSummary("Fat", withinRange, (log) => log.fats_grams, "g", wellnessTargets.fatsGrams),
+      metricSummary("Water", withinRange, (log) => log.water_litres, "L", wellnessTargets.waterLitres),
+      metricSummary("Sleep", withinRange, (log) => log.sleep_hours, "h", wellnessTargets.sleepHours),
+      metricSummary("Sleep score", withinRange, (log) => log.sleep_score, "/10", 10),
+      metricSummary("Bodyweight", withinRange.filter((log) => log.bodyweight !== null), (log) => log.bodyweight, "kg", wellnessTargets.weightGoal),
+      metricSummary("Resting HR", withinRange, (log) => log.resting_heart_rate, "bpm", wellnessTargets.heartRateGoal),
+      metricSummary("Blood pressure", withinRange, (log) => log.blood_pressure_systolic, "mmHg", wellnessTargets.bpSystolicGoal),
+    ];
+  }, [wellness, wellnessRange, wellnessTargets]);
 
   if (loading) {
     return (
@@ -333,11 +354,22 @@ export default function Analytics() {
 
       {activeTab === "wellness" && (
         <div className="space-y-5">
+          <Surface>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <SectionTitle eyebrow="Wellness" title="Long-term health data" />
+              <div className="flex gap-2">
+                {([7, 30, 90, 365] as WellnessRange[]).map((range) => <button key={range} type="button" onClick={() => setWellnessRange(range)} className={`rounded-full px-3 py-2 text-xs font-bold ${wellnessRange === range ? "bg-dark text-white" : "bg-steel/10 text-muted"}`}>{range === 90 ? "3 months" : range === 365 ? "1 year" : `${range} days`}</button>)}
+              </div>
+            </div>
+          </Surface>
           <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <ReportKpi label="Wellness Logs" value={wellnessStats.wellnessDays} sub="days saved" tone="golf" />
             <ReportKpi label="Avg Sleep" value={formatAverage(wellnessStats.avgSleep)} sub="last 7 logs" tone="pulse" />
             <ReportKpi label="Avg Water" value={formatAverage(wellnessStats.avgWater)} sub="ml / day" tone="pulse" />
             <ReportKpi label="Cardio" value={wellnessStats.cardioSessions} sub="sessions saved" tone="gold" />
+          </section>
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {wellnessMetrics.map((metric) => <WellnessMetricCard key={metric.label} metric={metric} />)}
           </section>
           <Surface>
             <SectionTitle eyebrow="Cardio" title="Recent movement" action={<Activity className="h-5 w-5 text-muted" />} />
@@ -519,6 +551,57 @@ function CompactStat({ label, value }: { label: string; value: string }) {
       <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">{label}</p>
       <p className="mt-1 text-lg font-semibold text-dark">{value}</p>
     </div>
+  );
+}
+
+type WellnessMetric = {
+  label: string;
+  latest: number | null;
+  average: number | null;
+  low: number | null;
+  high: number | null;
+  change: number | null;
+  unit: string;
+  target?: number;
+  count: number;
+};
+
+function metricSummary(
+  label: string,
+  logs: Array<{ log_date: string }>,
+  getValue: (log: any) => number | null | undefined,
+  unit: string,
+  target?: number
+): WellnessMetric {
+  const readings = logs
+    .map((log) => ({ date: log.log_date, value: getValue(log) }))
+    .filter((reading): reading is { date: string; value: number } => isNumber(reading.value))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const values = readings.map((reading) => reading.value);
+  return {
+    label, unit, target, count: values.length,
+    latest: values.at(-1) ?? null,
+    average: average(values),
+    low: values.length ? Math.min(...values) : null,
+    high: values.length ? Math.max(...values) : null,
+    change: values.length > 1 ? values.at(-1)! - values[0] : null,
+  };
+}
+
+function WellnessMetricCard({ metric }: { metric: WellnessMetric }) {
+  const value = (number: number | null) => number === null ? "-" : `${Number(number.toFixed(1))} ${metric.unit}`;
+  return (
+    <Surface>
+      <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted">{metric.label}</p>
+      <p className="mt-2 text-2xl font-semibold text-dark">{value(metric.latest)}</p>
+      <p className="text-xs text-muted">latest · {metric.count} reading{metric.count === 1 ? "" : "s"}</p>
+      <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+        <CompactStat label="Average" value={value(metric.average)} />
+        <CompactStat label="Range" value={metric.low === null ? "-" : `${Number(metric.low.toFixed(1))}–${Number(metric.high!.toFixed(1))}`} />
+        <CompactStat label="Change" value={metric.change === null ? "-" : `${metric.change > 0 ? "+" : ""}${Number(metric.change.toFixed(1))} ${metric.unit}`} />
+        <CompactStat label="Target" value={metric.target === undefined ? "-" : `${metric.target} ${metric.unit}`} />
+      </div>
+    </Surface>
   );
 }
 

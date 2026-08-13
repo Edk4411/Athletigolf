@@ -14,3 +14,18 @@ export function addDays(date: string, days: number) {
 export function sevenDayWindow(endDate: string) {
   return Array.from({ length: 7 }, (_, index) => addDays(endDate, index - 6));
 }
+
+/** Monday through Sunday for the week containing the supplied local date. */
+export function weekWindow(date: string) {
+  const value = new Date(`${date}T12:00:00`);
+  const mondayOffset = (value.getDay() + 6) % 7;
+  const start = addDays(date, -mondayOffset);
+  return Array.from({ length: 7 }, (_, index) => addDays(start, index));
+}
+
+export function formatWeekRange(date: string) {
+  const [start, end] = [weekWindow(date)[0], weekWindow(date)[6]];
+  const startDate = new Date(`${start}T12:00:00`);
+  const endDate = new Date(`${end}T12:00:00`);
+  return `${startDate.getDate()}–${endDate.getDate()}/${String(endDate.getMonth() + 1).padStart(2, "0")}`;
+}

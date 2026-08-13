@@ -1,46 +1,60 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { ChevronLeft, Bed, Plus } from "lucide-react";
 import { Button, FieldLabel, Surface, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { useWellness } from "@/hooks/wellness/WellnessContext";
 import type { WellnessLog } from "@/lib/types";
-import { sevenDayWindow } from "@/lib/wellnessDates";
+import { weekWindow } from "@/lib/wellnessDates";
 
 export default function Sleep() {
   const [, navigate] = useLocation();
   const { logs, targets, refresh, loading, selectedDate } = useWellness();
   const [sleepHours, setSleepHours] = useState("");
+  const [sleepScore, setSleepScore] = useState("");
   const [bedtime, setBedtime] = useState("");
   const [wakeTime, setWakeTime] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const filteredLogs = useMemo(() => {
-    return sevenDayWindow(selectedDate).map(date => logs.find((log: WellnessLog) => log.log_date === date) || ({ id: date, log_date: date } as WellnessLog));
+    return weekWindow(selectedDate).map(date => logs.find((log: WellnessLog) => log.log_date === date) || ({ id: date, log_date: date } as WellnessLog));
+  }, [logs, selectedDate]);
+
+  useEffect(() => {
+    const existing = logs.find((log: WellnessLog) => log.log_date === selectedDate);
+    setSleepHours(existing?.sleep_hours?.toString() || "");
+    setSleepScore(existing?.sleep_score?.toString() || "");
   }, [logs, selectedDate]);
 
   async function saveSleep() {
     const hours = parseFloat(sleepHours);
-    if (isNaN(hours) || hours < 0) return;
+    const score = parseFloat(sleepScore);
+    if (isNaN(hours) || hours < 0 || isNaN(score) || score < 0 || score > 10) {
+      setSaveError("Enter hours slept and a sleep score from 0 to 10.");
+      return;
+    }
 
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { setSaving(false); setSaveError("You need to be signed in to save sleep."); return; }
 
-    await supabase
+    const { error } = await supabase
       .from("daily_wellness_logs")
       .upsert({ 
           user_id: user.id, 
           log_date: selectedDate,
           sleep_hours: hours,
+          sleep_score: score,
           sleep_started_at: bedtime ? new Date(`${selectedDate}T${bedtime}:00`).toISOString() : null,
           sleep_ended_at: wakeTime ? new Date(`${selectedDate}T${wakeTime}:00`).toISOString() : null,
           updated_at: new Date().toISOString()
       }, { onConflict: "user_id,log_date" });
 
-    setSleepHours("");
     setSaving(false);
-    refresh();
+    if (error) { setSaveError(error.message); return; }
+    setSaveError("");
+    await refresh();
   }
 
   return (
@@ -59,15 +73,20 @@ export default function Sleep() {
                 <FieldLabel>Log Sleep (hours)</FieldLabel>
                 <TextInput type="number" step="0.1" value={sleepHours} onChange={(e) => setSleepHours(e.target.value)} placeholder="e.g. 7.5" />
             </div>
+            <div className="flex-1">
+                <FieldLabel>Sleep score / 10</FieldLabel>
+                <TextInput type="number" min="0" max="10" step="0.1" value={sleepScore} onChange={(e) => setSleepScore(e.target.value)} placeholder="e.g. 8" />
+            </div>
             <TextInput type="time" value={bedtime} onChange={(e) => setBedtime(e.target.value)} aria-label="Bedtime" />
             <TextInput type="time" value={wakeTime} onChange={(e) => setWakeTime(e.target.value)} aria-label="Wake time" />
             <Button onClick={saveSleep} disabled={saving}><Plus className="mr-2 h-4 w-4" /> Save</Button>
         </div>
         <p className="text-sm text-muted">Daily Target: {targets.sleepHours} hours</p>
+        {saveError && <p className="mt-2 text-sm text-danger">{saveError}</p>}
       </Surface>
 
       <Surface className="rounded-[2rem] p-6">
-        <h2 className="text-xl font-black mb-4">7 Day Trend</h2>
+        <h2 className="text-xl font-black mb-4">Weekly Sleep Pattern</h2>
         {loading ? <p>Loading...</p> : (
             <div className="flex items-end justify-between h-40 gap-2">
                 {filteredLogs.map((log: WellnessLog) => {
@@ -79,6 +98,7 @@ export default function Sleep() {
                                 <div className="absolute bottom-0 w-full bg-pulse rounded-t-lg" style={{ height: `${height}%` }} />
                             </div>
                             <span className="text-xs font-bold">{log.log_date.split("-")[2]}</span>
+                            <span className="text-[10px] text-muted">{log.sleep_score ?? "-"}/10</span>
                         </div>
                     );
                 })}

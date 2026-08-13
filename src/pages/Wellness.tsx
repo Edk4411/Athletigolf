@@ -1,14 +1,15 @@
 import { useMemo } from "react";
 import { Link } from "wouter";
-import { Bed, ChevronLeft, Droplets, Gauge, HeartPulse, Scale, Utensils } from "lucide-react";
+import { Bed, ChevronLeft, ChevronRight, Droplets, Gauge, HeartPulse, Scale, Utensils } from "lucide-react";
 import { useWellness } from "@/hooks/wellness/WellnessContext";
 import type { WellnessLog } from "@/lib/types";
+import { formatWeekRange } from "@/lib/wellnessDates";
 
 const formatLitres = (value: number | null | undefined) => (value ? `${value.toFixed(1)} L` : "-");
 const formatHours = (value: number | null | undefined) => (value ? `${value} h` : "-");
 
 export default function Wellness() {
-  const { logs, tracking, loading, selectedDate, setSelectedDate } = useWellness();
+  const { logs, tracking, loading, selectedDate, setSelectedDate, shiftSelectedWeek } = useWellness();
   const todayLog = useMemo(() => logs.find((log: WellnessLog) => log.log_date === selectedDate), [logs, selectedDate]);
 
   const cards = useMemo(
@@ -53,6 +54,11 @@ export default function Wellness() {
             onChange={(e) => setSelectedDate(e.target.value)}
             className="h-12 rounded-full border-0 bg-white px-4 text-[#101d2b] shadow-sm focus:ring-2 focus:ring-pulse"
           />
+        </div>
+        <div className="flex items-center justify-center gap-3 text-sm font-bold text-muted">
+          <button type="button" onClick={() => shiftSelectedWeek(-1)} className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm" aria-label="Previous week"><ChevronLeft className="h-4 w-4" /></button>
+          <span>Week {formatWeekRange(selectedDate)}</span>
+          <button type="button" onClick={() => shiftSelectedWeek(1)} className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm" aria-label="Next week"><ChevronRight className="h-4 w-4" /></button>
         </div>
       </section>
 

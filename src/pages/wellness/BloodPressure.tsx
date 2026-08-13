@@ -14,6 +14,7 @@ export default function BloodPressure() {
   const [dia, setDia] = useState("");
   const [time, setTime] = useState(new Date().toTimeString().slice(0, 5));
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const filteredLogs = useMemo(() => {
     return sevenDayWindow(selectedDate).map(date => logs.find((log: WellnessLog) => log.log_date === date) || ({ id: date, log_date: date } as WellnessLog));
@@ -26,9 +27,9 @@ export default function BloodPressure() {
     
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { setSaving(false); setSaveError("You need to be signed in to save blood pressure."); return; }
 
-    await supabase
+    const { error } = await supabase
       .from("daily_wellness_logs")
       .upsert({ 
           user_id: user.id, 
@@ -38,10 +39,10 @@ export default function BloodPressure() {
           blood_pressure_logged_at: new Date(`${selectedDate}T${time}:00`).toISOString()
       }, { onConflict: "user_id,log_date" });
 
-    setSys("");
-    setDia("");
     setSaving(false);
-    refresh();
+    if (error) { setSaveError(error.message); return; }
+    setSaveError(""); setSys(""); setDia("");
+    await refresh();
   }
 
   return (
@@ -75,6 +76,7 @@ export default function BloodPressure() {
             <Button onClick={saveBp} disabled={saving}><Plus className="mr-2 h-4 w-4" /> Save</Button>
         </div>
         <p className="text-sm text-muted">Baseline Target: {targets.bpSystolicGoal}/{targets.bpDiastolicGoal} mmHg</p>
+        {saveError && <p className="mt-2 text-sm text-danger">{saveError}</p>}
       </Surface>
       
       <Surface className="rounded-[2rem] p-6">
