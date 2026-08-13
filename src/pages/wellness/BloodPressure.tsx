@@ -5,26 +5,19 @@ import { Button, FieldLabel, Surface, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { useWellness } from "@/hooks/wellness/WellnessContext";
 import type { WellnessLog } from "@/lib/types";
-
-const todayIso = () => new Date().toISOString().split("T")[0];
+import { sevenDayWindow } from "@/lib/wellnessDates";
 
 export default function BloodPressure() {
   const [, navigate] = useLocation();
-  const { logs, targets, refresh, loading } = useWellness();
+  const { logs, targets, refresh, loading, selectedDate } = useWellness();
   const [sys, setSys] = useState("");
   const [dia, setDia] = useState("");
+  const [time, setTime] = useState(new Date().toTimeString().slice(0, 5));
   const [saving, setSaving] = useState(false);
 
   const filteredLogs = useMemo(() => {
-    const today = new Date();
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(today.getDate() - 7);
-    
-    return logs.filter((log: WellnessLog) => {
-        const logDate = new Date(log.log_date);
-        return logDate >= sevenDaysAgo && logDate <= today;
-    }).sort((a: WellnessLog, b: WellnessLog) => a.log_date.localeCompare(b.log_date));
-  }, [logs]);
+    return sevenDayWindow(selectedDate).map(date => logs.find((log: WellnessLog) => log.log_date === date) || ({ id: date, log_date: date } as WellnessLog));
+  }, [logs, selectedDate]);
 
   async function saveBp() {
     const sysVal = parseInt(sys);
@@ -32,7 +25,6 @@ export default function BloodPressure() {
     if (isNaN(sysVal) || isNaN(diaVal) || sysVal <= 0 || diaVal <= 0) return;
     
     setSaving(true);
-    const date = todayIso();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -40,10 +32,10 @@ export default function BloodPressure() {
       .from("daily_wellness_logs")
       .upsert({ 
           user_id: user.id, 
-          log_date: date, 
+          log_date: selectedDate,
           blood_pressure_systolic: sysVal,
           blood_pressure_diastolic: diaVal,
-          updated_at: new Date().toISOString()
+          blood_pressure_logged_at: new Date(`${selectedDate}T${time}:00`).toISOString()
       }, { onConflict: "user_id,log_date" });
 
     setSys("");
@@ -58,21 +50,27 @@ export default function BloodPressure() {
         <button type="button" onClick={() => navigate("/wellness")} className="rounded-full bg-white p-3 shadow-sm">
           <ChevronLeft className="h-6 w-6" />
         </button>
-        <h1 className="text-2xl font-black">Blood Pressure</h1>
+        <h1 className="text-2xl font-black">Blood Pressure for {selectedDate}</h1>
       </div>
       
       <Surface className="mb-5 rounded-[2rem] p-6">
-        <div className="flex items-center gap-4 mb-4">
-            <Gauge className="h-10 w-10 text-pulse" />
-            <div className="grid grid-cols-2 gap-4 flex-1">
-                <div>
-                    <FieldLabel>Systolic (mmHg)</FieldLabel>
-                    <TextInput type="number" value={sys} onChange={(e) => setSys(e.target.value)} placeholder="e.g. 120" />
+        <div className="flex flex-col gap-4 mb-4">
+            <div className="flex items-center gap-4">
+                <Gauge className="h-10 w-10 text-pulse" />
+                <div className="grid grid-cols-2 gap-4 flex-1">
+                    <div>
+                        <FieldLabel>Systolic (mmHg)</FieldLabel>
+                        <TextInput type="number" value={sys} onChange={(e) => setSys(e.target.value)} placeholder="e.g. 120" />
+                    </div>
+                    <div>
+                        <FieldLabel>Diastolic (mmHg)</FieldLabel>
+                        <TextInput type="number" value={dia} onChange={(e) => setDia(e.target.value)} placeholder="e.g. 80" />
+                    </div>
                 </div>
-                <div>
-                    <FieldLabel>Diastolic (mmHg)</FieldLabel>
-                    <TextInput type="number" value={dia} onChange={(e) => setDia(e.target.value)} placeholder="e.g. 80" />
-                </div>
+            </div>
+            <div>
+                <FieldLabel>Time</FieldLabel>
+                <TextInput type="time" value={time} onChange={e => setTime(e.target.value)} />
             </div>
             <Button onClick={saveBp} disabled={saving}><Plus className="mr-2 h-4 w-4" /> Save</Button>
         </div>

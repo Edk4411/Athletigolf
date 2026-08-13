@@ -5,32 +5,24 @@ import { Button, FieldLabel, Surface, TextInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { useWellness } from "@/hooks/wellness/WellnessContext";
 import type { WellnessLog } from "@/lib/types";
-
-const todayIso = () => new Date().toISOString().split("T")[0];
+import { sevenDayWindow } from "@/lib/wellnessDates";
 
 export default function Body() {
   const [, navigate] = useLocation();
-  const { logs, targets, refresh, loading } = useWellness();
+  const { logs, targets, refresh, loading, selectedDate } = useWellness();
   const [weight, setWeight] = useState("");
+  const [time, setTime] = useState(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
   const [saving, setSaving] = useState(false);
 
   const filteredLogs = useMemo(() => {
-    const today = new Date();
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(today.getDate() - 7);
-
-    return logs.filter((log: WellnessLog) => {
-        const logDate = new Date(log.log_date);
-        return logDate >= sevenDaysAgo && logDate <= today;
-    }).sort((a: WellnessLog, b: WellnessLog) => a.log_date.localeCompare(b.log_date));
-  }, [logs]);
+    return sevenDayWindow(selectedDate).map(date => logs.find((log: WellnessLog) => log.log_date === date) || ({ id: date, log_date: date } as WellnessLog));
+  }, [logs, selectedDate]);
 
   async function saveWeight() {
     const weightVal = parseFloat(weight);
     if (isNaN(weightVal) || weightVal <= 0) return;
 
     setSaving(true);
-    const date = todayIso();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -38,9 +30,9 @@ export default function Body() {
       .from("daily_wellness_logs")
       .upsert({ 
           user_id: user.id, 
-          log_date: date, 
+          log_date: selectedDate,
           bodyweight: weightVal,
-          updated_at: new Date().toISOString()
+          bodyweight_logged_at: new Date(`${selectedDate}T${time}:00`).toISOString()
       }, { onConflict: "user_id,log_date" });
 
     setWeight("");
@@ -54,21 +46,22 @@ export default function Body() {
         <button type="button" onClick={() => navigate("/wellness")} className="rounded-full bg-white p-3 shadow-sm">
           <ChevronLeft className="h-6 w-6" />
         </button>
-        <h1 className="text-2xl font-black">Body Composition</h1>
+        <h1 className="text-2xl font-black">Body Composition ({selectedDate})</h1>
       </div>
 
       <Surface className="mb-5 rounded-[2rem] p-6">
         <div className="flex items-center gap-4 mb-4">
             <Scale className="h-10 w-10 text-pulse" />
-            <div className="flex-1">
-                <FieldLabel>Log Weight (kg)</FieldLabel>
+            <div className="flex-1 grid grid-cols-2 gap-4">
                 <TextInput type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="e.g. 75.0" />
+                <TextInput type="time" value={time} onChange={(e) => setTime(e.target.value)} />
             </div>
             <Button onClick={saveWeight} disabled={saving}><Plus className="mr-2 h-4 w-4" /> Save</Button>
         </div>
         <p className="text-sm text-muted">Goal: {targets.weightGoal} kg</p>
       </Surface>
 
+      {/* ... (rest of the file - graph) */}
       <Surface className="rounded-[2rem] p-6">
         <h2 className="text-xl font-black mb-4">7 Day Trend</h2>
         {loading ? <p>Loading...</p> : (

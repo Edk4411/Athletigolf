@@ -4,14 +4,12 @@ import { Bed, ChevronLeft, Droplets, Gauge, HeartPulse, Scale, Utensils } from "
 import { useWellness } from "@/hooks/wellness/WellnessContext";
 import type { WellnessLog } from "@/lib/types";
 
-const todayIso = () => new Date().toISOString().split("T")[0];
-
 const formatLitres = (value: number | null | undefined) => (value ? `${value.toFixed(1)} L` : "-");
 const formatHours = (value: number | null | undefined) => (value ? `${value} h` : "-");
 
 export default function Wellness() {
-  const { logs, tracking, loading } = useWellness();
-  const todayLog = useMemo(() => logs.find((log: WellnessLog) => log.log_date === todayIso()), [logs]);
+  const { logs, tracking, loading, selectedDate, setSelectedDate } = useWellness();
+  const todayLog = useMemo(() => logs.find((log: WellnessLog) => log.log_date === selectedDate), [logs, selectedDate]);
 
   const cards = useMemo(
     () =>
@@ -49,7 +47,12 @@ export default function Wellness() {
             <p className="text-xs font-black uppercase tracking-[0.18em] text-pulse">Wellness</p>
             <h1 className="text-3xl font-black tracking-tight text-[#101d2b]">Overview</h1>
           </div>
-          <span className="h-12 w-12" aria-hidden="true" />
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="h-12 rounded-full border-0 bg-white px-4 text-[#101d2b] shadow-sm focus:ring-2 focus:ring-pulse"
+          />
         </div>
       </section>
 

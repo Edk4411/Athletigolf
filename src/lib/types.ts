@@ -32,12 +32,7 @@ export type OnboardingData = {
     activityLevel: string;
     targetBodyweight: string;
     tracking?: WellnessTrackingPreferences;
-    targets?: {
-      calories: number;
-      proteinGrams: number;
-      waterLitres: number;
-      sleepHours: number;
-    };
+    targets?: import("./wellnessTargets").WellnessTargets;
   };
   privacy?: {
     defaultLiveVisibility: "friends" | "private";
@@ -438,6 +433,11 @@ export type WellnessLog = {
   notes: string | null;
   created_at: string;
   updated_at?: string | null;
+  sleep_started_at?: string | null;
+  sleep_ended_at?: string | null;
+  bodyweight_logged_at?: string | null;
+  heart_rate_logged_at?: string | null;
+  blood_pressure_logged_at?: string | null;
 };
 
 export type NutritionEntry = {
