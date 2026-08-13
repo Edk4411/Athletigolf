@@ -1,80 +1,35 @@
 import { useMemo } from "react";
 import { Link } from "wouter";
-import { Bed, ChevronLeft, ChevronRight, Droplets, Gauge, HeartPulse, Scale, Utensils } from "lucide-react";
+import { Bed, ChevronLeft, ChevronRight, Droplets, Gauge, HeartPulse, Scale, Utensils, ArrowUpRight, Check } from "lucide-react";
 import { useWellness } from "@/hooks/wellness/WellnessContext";
 import type { WellnessLog } from "@/lib/types";
-import { formatWeekRange } from "@/lib/wellnessDates";
+import { formatWeekRange, sevenDayWindow } from "@/lib/wellnessDates";
+import { MetricTrend } from "@/components/wellness/MetricTrend";
 
-const formatLitres = (value: number | null | undefined) => (value ? `${value.toFixed(1)} L` : "-");
-const formatHours = (value: number | null | undefined) => (value ? `${value} h` : "-");
+const metricColor: Record<string, string> = { food: "#1e9c70", water: "#3182ce", sleep: "#7161d8", body: "#d7a94b", bloodPressure: "#d24a42", heartRate: "#e75b65" };
 
 export default function Wellness() {
-  const { logs, tracking, loading, selectedDate, setSelectedDate, shiftSelectedWeek } = useWellness();
-  const todayLog = useMemo(() => logs.find((log: WellnessLog) => log.log_date === selectedDate), [logs, selectedDate]);
+  const { logs, targets, tracking, loading, selectedDate, setSelectedDate, shiftSelectedWeek } = useWellness();
+  const today = useMemo(() => logs.find((log: WellnessLog) => log.log_date === selectedDate), [logs, selectedDate]);
+  const week = useMemo(() => sevenDayWindow(selectedDate).map(date => logs.find((log: WellnessLog) => log.log_date === date) || ({ log_date: date } as WellnessLog)), [logs, selectedDate]);
+  const cards = useMemo(() => [
+    { key: "food", icon: Utensils, title: "Food", path: "/wellness/food", enabled: tracking.food, value: today?.calories ? `${Math.round(today.calories)} kcal` : "Not logged", target: `${Math.round(targets.calories)} kcal target`, progress: today?.calories ? Math.min((today.calories / targets.calories) * 100, 100) : 0, trend: week.map(log => ({ date: log.log_date, value: log.calories })), targetValue: targets.calories },
+    { key: "water", icon: Droplets, title: "Water", path: "/wellness/water", enabled: tracking.water, value: today?.water_litres ? `${today.water_litres.toFixed(1)} L` : "Not logged", target: `${targets.waterLitres} L target`, progress: today?.water_litres ? Math.min((today.water_litres / targets.waterLitres) * 100, 100) : 0, trend: week.map(log => ({ date: log.log_date, value: log.water_litres })), targetValue: targets.waterLitres },
+    { key: "sleep", icon: Bed, title: "Sleep", path: "/wellness/sleep", enabled: tracking.sleep, value: today?.sleep_hours ? `${today.sleep_hours} h` : "Not logged", target: `${targets.sleepHours} h target`, progress: today?.sleep_hours ? Math.min((today.sleep_hours / targets.sleepHours) * 100, 100) : 0, trend: week.map(log => ({ date: log.log_date, value: log.sleep_hours })), targetValue: targets.sleepHours },
+    { key: "body", icon: Scale, title: "Body composition", path: "/wellness/body", enabled: tracking.body, value: today?.bodyweight ? `${today.bodyweight} kg` : "Not logged", target: `Goal ${targets.weightGoal} kg`, progress: today?.bodyweight ? 100 : 0, trend: week.map(log => ({ date: log.log_date, value: log.bodyweight })), targetValue: targets.weightGoal },
+    { key: "bloodPressure", icon: Gauge, title: "Blood pressure", path: "/wellness/bloodpressure", enabled: tracking.bloodPressure, value: today?.blood_pressure_systolic && today?.blood_pressure_diastolic ? `${today.blood_pressure_systolic} / ${today.blood_pressure_diastolic}` : "Not logged", target: `${targets.bpSystolicGoal} / ${targets.bpDiastolicGoal} target`, progress: today?.blood_pressure_systolic ? 100 : 0, trend: week.map(log => ({ date: log.log_date, value: log.blood_pressure_systolic })), targetValue: targets.bpSystolicGoal },
+    { key: "heartRate", icon: HeartPulse, title: "Resting heart rate", path: "/wellness/heartrate", enabled: tracking.heartRate, value: today?.resting_heart_rate ? `${today.resting_heart_rate} bpm` : "Not logged", target: `${targets.heartRateGoal} bpm baseline`, progress: today?.resting_heart_rate ? 100 : 0, trend: week.map(log => ({ date: log.log_date, value: log.resting_heart_rate })), targetValue: targets.heartRateGoal },
+  ].filter(card => card.enabled), [today, targets, tracking, week]);
+  const complete = cards.filter(card => card.value !== "Not logged").length;
 
-  const cards = useMemo(
-    () =>
-      [
-        { key: "food", icon: Utensils, title: "Food", path: "/wellness/food", enabled: tracking.food, value: todayLog?.calories ? `${todayLog.calories} kcal` : "-" },
-        { key: "water", icon: Droplets, title: "Water", path: "/wellness/water", enabled: tracking.water, value: todayLog?.water_litres ? formatLitres(todayLog.water_litres) : "-" },
-        { key: "sleep", icon: Bed, title: "Sleep", path: "/wellness/sleep", enabled: tracking.sleep, value: todayLog?.sleep_hours ? formatHours(todayLog.sleep_hours) : "-" },
-        { key: "body", icon: Scale, title: "Body composition", path: "/wellness/body", enabled: tracking.body, value: todayLog?.bodyweight ? `${todayLog.bodyweight} kg` : "-" },
-        { key: "bloodPressure", icon: Gauge, title: "Blood pressure", path: "/wellness/bloodpressure", enabled: tracking.bloodPressure, value: todayLog?.blood_pressure_systolic && todayLog?.blood_pressure_diastolic ? `${todayLog.blood_pressure_systolic}/${todayLog.blood_pressure_diastolic}` : "-" },
-        { key: "heartRate", icon: HeartPulse, title: "Heart rate", path: "/wellness/heartrate", enabled: tracking.heartRate, value: todayLog?.resting_heart_rate ? `${todayLog.resting_heart_rate} bpm` : "-" },
-      ].filter((card) => card.enabled),
-    [todayLog, tracking]
-  );
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-cream text-muted">
-        Loading wellness dashboard...
-      </div>
-    );
-  }
-
-  return (
-    <main className="min-h-screen bg-[#f2f5f7] px-4 py-5 text-[#101d2b] md:px-8 md:py-7">
-      <section className="mb-5">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <Link
-            href="/dashboard"
-            className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#101d2b] shadow-sm"
-            aria-label="Back to dashboard"
-          >
-            <ChevronLeft className="h-6 w-6" />
-          </Link>
-          <div className="text-center">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-pulse">Wellness</p>
-            <h1 className="text-3xl font-black tracking-tight text-[#101d2b]">Overview</h1>
-          </div>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="h-12 rounded-full border-0 bg-white px-4 text-[#101d2b] shadow-sm focus:ring-2 focus:ring-pulse"
-          />
-        </div>
-        <div className="flex items-center justify-center gap-3 text-sm font-bold text-muted">
-          <button type="button" onClick={() => shiftSelectedWeek(-1)} className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm" aria-label="Previous week"><ChevronLeft className="h-4 w-4" /></button>
-          <span>Week {formatWeekRange(selectedDate)}</span>
-          <button type="button" onClick={() => shiftSelectedWeek(1)} className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm" aria-label="Next week"><ChevronRight className="h-4 w-4" /></button>
-        </div>
-      </section>
-
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {cards.map((card) => (
-          <Link key={card.key} href={card.path} className="rounded-[2rem] bg-white p-6 shadow-sm transition hover:shadow-md">
-            <div className="mb-4 flex items-center gap-4">
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-pulse/10 text-pulse">
-                <card.icon className="h-6 w-6" />
-              </span>
-              <h2 className="text-xl font-black text-[#101d2b]">{card.title}</h2>
-            </div>
-            <p className="text-4xl font-black text-[#101d2b]">{card.value}</p>
-          </Link>
-        ))}
-      </section>
-    </main>
-  );
+  if (loading) return <div className="flex min-h-screen items-center justify-center bg-cream text-muted">Loading your wellness data…</div>;
+  return <main className="min-h-screen bg-cream px-4 py-5 text-dark md:px-8 md:py-7">
+    <section className="overflow-hidden rounded-[2rem] bg-dark p-5 text-white shadow-[0_24px_60px_rgba(7,10,15,.2)] md:p-7">
+      <div className="flex items-start justify-between gap-3"><Link href="/dashboard" className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/10 hover:bg-white/20" aria-label="Back to dashboard"><ChevronLeft className="h-5 w-5" /></Link><input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="rounded-full border-0 bg-white/10 px-3 py-2 text-sm text-white [color-scheme:dark]" /></div>
+      <div className="mt-8 grid gap-6 md:grid-cols-[1fr_auto] md:items-end"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-pulse">Daily wellbeing</p><h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-5xl">Your health, in one place.</h1><p className="mt-3 max-w-xl text-sm leading-relaxed text-white/65">Small, consistent readings make the useful trends. Log what matters to you—nothing here is a medical assessment.</p></div><div className="rounded-2xl bg-white/10 px-5 py-4"><p className="text-3xl font-semibold">{complete}<span className="text-white/45">/{cards.length}</span></p><p className="text-xs font-bold uppercase tracking-[.15em] text-white/60">tracked today</p></div></div>
+    </section>
+    <section className="my-5 flex items-center justify-between gap-3 rounded-2xl border border-line bg-panel p-3"><button type="button" onClick={() => shiftSelectedWeek(-1)} className="grid h-10 w-10 place-items-center rounded-xl hover:bg-steel/5"><ChevronLeft className="h-5 w-5" /></button><p className="text-center text-sm font-semibold text-dark">Week of {formatWeekRange(selectedDate)}</p><button type="button" onClick={() => shiftSelectedWeek(1)} className="grid h-10 w-10 place-items-center rounded-xl hover:bg-steel/5"><ChevronRight className="h-5 w-5" /></button></section>
+    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{cards.map(card => <Link key={card.key} href={card.path} className="group overflow-hidden rounded-[1.7rem] border border-line bg-panel p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"><div className="flex items-start justify-between"><span className="grid h-11 w-11 place-items-center rounded-2xl" style={{ color: metricColor[card.key], backgroundColor: `${metricColor[card.key]}18` }}><card.icon className="h-5 w-5" /></span><ArrowUpRight className="h-5 w-5 text-muted transition group-hover:text-dark" /></div><div className="mt-5 flex items-end justify-between gap-3"><div><p className="text-sm font-semibold text-muted">{card.title}</p><p className="mt-1 text-2xl font-semibold tracking-tight text-dark">{card.value}</p><p className="mt-1 text-xs text-muted">{card.target}</p></div><div className="w-24"><MetricTrend compact points={card.trend} color={metricColor[card.key]} target={card.targetValue} /></div></div><div className="mt-4 h-1.5 overflow-hidden rounded-full bg-steel/10"><div className="h-full rounded-full" style={{ width: `${card.progress}%`, backgroundColor: metricColor[card.key] }} /></div></Link>)}</section>
+    <p className="mt-5 flex items-center gap-2 text-xs leading-relaxed text-muted"><Check className="h-4 w-4 text-golf" />Your data stays private to your account and is used only to show your own records and trends.</p>
+  </main>;
 }

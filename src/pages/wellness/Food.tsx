@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { ChevronLeft, Flame, Plus, Search, Trash2 } from "lucide-react";
+import { ChevronLeft, Flame, Plus, Search, Trash2, Database, PencilLine } from "lucide-react";
 import { Button, FieldLabel, Surface, TextInput, SelectInput } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { FoodSearchResult, NutritionEntry } from "@/lib/types";
@@ -163,23 +163,24 @@ export default function Food() {
     <main className="min-h-screen bg-[#f2f5f7] px-4 py-5 text-[#101d2b] md:px-8 md:py-7">
       <section className="mb-5 flex items-center justify-between gap-3">
         <button type="button" onClick={() => navigate("/wellness")} className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#101d2b] shadow-sm" aria-label="Back to wellness"><ChevronLeft className="h-6 w-6" /></button>
-        <div className="text-center"><h1 className="text-3xl font-black tracking-tight text-[#101d2b]">Nutrition ({selectedDate})</h1></div>
+        <div className="text-center"><p className="text-xs font-bold uppercase tracking-[.16em] text-golf">Food & fuel</p><h1 className="text-3xl font-black tracking-tight text-[#101d2b]">Nutrition</h1></div>
         <span className="h-12 w-12" aria-hidden="true" />
       </section>
 
+      <Surface className="mb-5 overflow-hidden rounded-[2rem] border-0 bg-dark p-5 text-white shadow-sm"><div className="grid grid-cols-2 gap-3 sm:grid-cols-4"><FoodMetric value={Math.round(totals.calories).toString()} label={`of ${Math.round(targets.calories)} kcal`} /><FoodMetric value={`${Math.round(totals.protein)}g`} label={`protein / ${Math.round(targets.proteinGrams)}g`} /><FoodMetric value={`${Math.round(totals.carbs)}g`} label="carbohydrates" /><FoodMetric value={`${Math.round(totals.fats)}g`} label="fat" /></div></Surface>
       <Surface className="mb-5 rounded-[2rem] border-0 bg-white p-6 shadow-sm">
         <div className="mb-4 grid grid-cols-2 gap-2">
-          <Button type="button" onClick={() => switchMode("search")} className={mode === "search" ? "" : "opacity-60"}><Search className="mr-2 h-4 w-4" /> Search Food</Button>
-          <Button type="button" onClick={() => switchMode("manual")} className={mode === "manual" ? "" : "opacity-60"}><Plus className="mr-2 h-4 w-4" /> Enter Manually</Button>
+          <Button type="button" onClick={() => switchMode("search")} className={mode === "search" ? "" : "opacity-60"}><Database className="mr-2 h-4 w-4" /> Find food</Button>
+          <Button type="button" onClick={() => switchMode("manual")} className={mode === "manual" ? "" : "opacity-60"}><PencilLine className="mr-2 h-4 w-4" /> Add manually</Button>
         </div>
 
         {mode === "search" && (
           <div className="mb-4 grid gap-2 border-b border-line pb-4">
-            <div className="flex gap-2"><TextInput value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} onKeyDown={(event) => event.key === "Enter" && searchFood()} placeholder="Search USDA and Open Food Facts" /><Button type="button" onClick={searchFood} disabled={searching}>{searching ? "Searching..." : "Search"}</Button></div>
+            <p className="text-xs leading-relaxed text-muted">Searches USDA FoodData Central and Open Food Facts. Manual entry is always available.</p><div className="flex gap-2"><TextInput value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} onKeyDown={(event) => event.key === "Enter" && searchFood()} placeholder="Try banana, Greek yogurt, or a branded product" /><Button type="button" onClick={searchFood} disabled={searching}>{searching ? "Searching..." : "Search"}</Button></div>
             {searchMessage && <p className="text-sm text-muted">{searchMessage}</p>}
             {searchResults.map((food) => (
-              <button key={`${food.source}-${food.id}`} type="button" onClick={() => selectFood(food)} className="rounded-xl border border-line p-3 text-left transition hover:bg-pulse/5">
-                <p className="font-semibold">{food.name}</p>
+              <button key={`${food.source}-${food.id}`} type="button" onClick={() => selectFood(food)} className="rounded-2xl border border-line p-3 text-left transition hover:bg-pulse/5">
+                <div className="flex items-start justify-between gap-2"><p className="font-semibold">{food.name}</p><span className="shrink-0 rounded-full bg-steel/10 px-2 py-1 text-[10px] font-bold uppercase text-muted">{food.source === "usda" ? "USDA" : "Open Food Facts"}</span></div>
                 <p className="text-xs text-muted">{food.brand ? `${food.brand} · ` : ""}{food.source === "usda" ? "USDA" : "Open Food Facts"} · {food.caloriesPer100g ?? "—"} kcal / 100g</p>
               </button>
             ))}
@@ -209,9 +210,13 @@ export default function Food() {
         </div>
       </Surface>
 
-      <Surface className="mb-5 rounded-[2rem] border-0 bg-white p-6 shadow-sm"><div className="flex items-center gap-3"><Flame className="h-6 w-6 text-pulse" /><div><h2 className="text-xl font-black">7 Day Statistics</h2><p className="text-sm text-muted">{sevenDayFoodTotals} kcal logged in the selected seven-day period</p></div></div></Surface>
+      <Surface className="mb-5 rounded-[2rem] border-0 bg-white p-6 shadow-sm"><div className="flex items-center gap-3"><Flame className="h-6 w-6 text-pulse" /><div><h2 className="text-xl font-black">7-day fuel</h2><p className="text-sm text-muted">{Math.round(sevenDayFoodTotals)} kcal logged across the selected week</p></div></div></Surface>
 
       <Surface className="rounded-[2rem] border-0 bg-white p-6 shadow-sm"><h2 className="mb-4 text-xl font-black">Entries</h2>{loading ? <p>Loading...</p> : <div className="grid gap-2">{nutritionEntries.length === 0 && <p className="text-sm text-muted">No meals logged for this date.</p>}{nutritionEntries.map((entry) => <div key={entry.id} className="flex items-center justify-between gap-3 border-b border-line p-3"><div><p className="font-semibold">{entry.food_name}</p><p className="text-xs text-muted">{entry.meal_type} · {formatTime(entry.created_at)} · {entry.protein_grams || 0}g protein</p></div><div className="flex items-center gap-3"><span>{entry.calories || 0} kcal</span><button type="button" onClick={() => deleteMeal(entry.id)} className="text-pulse" aria-label={`Delete ${entry.food_name}`}><Trash2 className="h-4 w-4" /></button></div></div>)}</div>}</Surface>
     </main>
   );
+}
+
+function FoodMetric({ value, label }: { value: string; label: string }) {
+  return <div className="rounded-2xl bg-white/10 p-3"><p className="text-xl font-semibold">{value}</p><p className="mt-1 text-[11px] leading-tight text-white/60">{label}</p></div>;
 }

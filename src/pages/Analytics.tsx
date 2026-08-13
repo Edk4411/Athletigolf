@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
-import { Activity, BarChart3, Dumbbell, Flag, HeartPulse, Swords, Target } from "lucide-react";
+import { Activity, BarChart3, Bed, Dumbbell, Droplets, Flag, Gauge, HeartPulse, Scale, Swords, Target, Utensils } from "lucide-react";
 import { Button, EmptyState, SectionTitle, Surface } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { useSportMode } from "@/hooks/useSportMode";
@@ -14,6 +14,7 @@ import {
   getShortGameStats,
 } from "@/lib/golfStats";
 import type { CardioSession, Round, RoundGame, RoundGameHole, RoundGameResult, RoundHole, WellnessLog, Workout } from "@/lib/types";
+import { MetricTrend } from "@/components/wellness/MetricTrend";
 
 type AnalyticsTab = "golf" | "matchplay" | "gym" | "wellness";
 type WellnessRange = 7 | 30 | 90 | 365;
@@ -164,7 +165,8 @@ export default function Analytics() {
       metricSummary("Sleep score", withinRange, (log) => log.sleep_score, "/10", 10),
       metricSummary("Bodyweight", withinRange.filter((log) => log.bodyweight !== null), (log) => log.bodyweight, "kg", wellnessTargets.weightGoal),
       metricSummary("Resting HR", withinRange, (log) => log.resting_heart_rate, "bpm", wellnessTargets.heartRateGoal),
-      metricSummary("Blood pressure", withinRange, (log) => log.blood_pressure_systolic, "mmHg", wellnessTargets.bpSystolicGoal),
+      metricSummary("Body fat", withinRange, (log) => log.body_fat_percentage, "%"),
+      metricSummary("Muscle mass", withinRange, (log) => log.muscle_mass_kg, "kg"),
     ];
   }, [wellness, wellnessRange, wellnessTargets]);
 
@@ -354,30 +356,13 @@ export default function Analytics() {
 
       {activeTab === "wellness" && (
         <div className="space-y-5">
-          <Surface>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <SectionTitle eyebrow="Wellness" title="Long-term health data" />
-              <div className="flex gap-2">
-                {([7, 30, 90, 365] as WellnessRange[]).map((range) => <button key={range} type="button" onClick={() => setWellnessRange(range)} className={`rounded-full px-3 py-2 text-xs font-bold ${wellnessRange === range ? "bg-dark text-white" : "bg-steel/10 text-muted"}`}>{range === 90 ? "3 months" : range === 365 ? "1 year" : `${range} days`}</button>)}
-              </div>
-            </div>
+          <Surface className="overflow-hidden border-0 bg-dark text-white">
+            <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.18em] text-pulse">Wellness trends</p><h2 className="mt-2 text-2xl font-semibold">Patterns, not pressure.</h2><p className="mt-2 max-w-xl text-sm text-white/60">Your records are shown against your personal targets. They are not medical guidance or a diagnosis.</p></div><div className="flex rounded-2xl bg-white/10 p-1">{([7, 30, 90, 365] as WellnessRange[]).map(range => <button key={range} type="button" onClick={() => setWellnessRange(range)} className={`rounded-xl px-3 py-2 text-xs font-bold ${wellnessRange === range ? "bg-white text-dark" : "text-white/65"}`}>{range === 90 ? "3m" : range === 365 ? "1y" : `${range}d`}</button>)}</div></div>
+            <div className="mt-6 grid gap-3 sm:grid-cols-4"><InsightKpi icon={<Activity />} label="Days logged" value={wellnessStats.wellnessDays.toString()} sub={`in ${wellnessRange} days`} /><InsightKpi icon={<Bed />} label="Sleep average" value={formatAverage(wellnessStats.avgSleep)} sub="hours / day" /><InsightKpi icon={<Droplets />} label="Water average" value={formatAverage(wellnessStats.avgWater)} sub="litres / day" /><InsightKpi icon={<HeartPulse />} label="Cardio sessions" value={wellnessStats.cardioSessions.toString()} sub="all saved" /></div>
           </Surface>
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <ReportKpi label="Wellness Logs" value={wellnessStats.wellnessDays} sub="days saved" tone="golf" />
-            <ReportKpi label="Avg Sleep" value={formatAverage(wellnessStats.avgSleep)} sub="last 7 logs" tone="pulse" />
-            <ReportKpi label="Avg Water" value={formatAverage(wellnessStats.avgWater)} sub="ml / day" tone="pulse" />
-            <ReportKpi label="Cardio" value={wellnessStats.cardioSessions} sub="sessions saved" tone="gold" />
-          </section>
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {wellnessMetrics.map((metric) => <WellnessMetricCard key={metric.label} metric={metric} />)}
-          </section>
-          <Surface>
-            <SectionTitle eyebrow="Cardio" title="Recent movement" action={<Activity className="h-5 w-5 text-muted" />} />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <CompactStat label="Distance, last 7 sessions" value={`${wellnessStats.cardioDistance.toFixed(1)} km`} />
-              <CompactStat label="Time, last 7 sessions" value={`${Math.round(wellnessStats.cardioMinutes)} min`} />
-            </div>
-          </Surface>
+          <section className="grid gap-5 xl:grid-cols-2"><WellnessTrendPanel title="Recovery" icon={<Bed className="h-5 w-5" />} color="#7161d8" metrics={wellnessMetrics.filter(metric => ["Sleep", "Sleep score", "Resting HR"].includes(metric.label))} logs={wellness} range={wellnessRange} targets={wellnessTargets} /><WellnessTrendPanel title="Nutrition & hydration" icon={<Utensils className="h-5 w-5" />} color="#1e9c70" metrics={wellnessMetrics.filter(metric => ["Calories", "Protein", "Carbohydrates", "Fat", "Water"].includes(metric.label))} logs={wellness} range={wellnessRange} targets={wellnessTargets} /></section>
+          <section className="grid gap-5 xl:grid-cols-2"><WellnessTrendPanel title="Body composition" icon={<Scale className="h-5 w-5" />} color="#d7a94b" metrics={wellnessMetrics.filter(metric => ["Bodyweight", "Body fat", "Muscle mass"].includes(metric.label))} logs={wellness} range={wellnessRange} targets={wellnessTargets} /><BloodPressurePanel logs={wellness} range={wellnessRange} systolicTarget={wellnessTargets.bpSystolicGoal} diastolicTarget={wellnessTargets.bpDiastolicGoal} /></section>
+          <Surface><SectionTitle eyebrow="Movement" title="Recent cardio" action={<Activity className="h-5 w-5 text-muted" />} /><div className="grid gap-3 sm:grid-cols-2"><CompactStat label="Distance, last 7 sessions" value={`${wellnessStats.cardioDistance.toFixed(1)} km`} /><CompactStat label="Time, last 7 sessions" value={`${Math.round(wellnessStats.cardioMinutes)} min`} /></div></Surface>
         </div>
       )}
     </main>
@@ -603,6 +588,31 @@ function WellnessMetricCard({ metric }: { metric: WellnessMetric }) {
       </div>
     </Surface>
   );
+}
+
+function InsightKpi({ icon, label, value, sub }: { icon: ReactNode; label: string; value: string; sub: string }) {
+  return <div className="rounded-2xl bg-white/10 p-4"><div className="mb-4 text-pulse">{icon}</div><p className="text-2xl font-semibold">{value}</p><p className="mt-1 text-xs font-bold uppercase tracking-[.13em] text-white/55">{label}</p><p className="mt-1 text-xs text-white/50">{sub}</p></div>;
+}
+
+function WellnessTrendPanel({ title, icon, color, metrics, logs, range, targets }: { title: string; icon: ReactNode; color: string; metrics: WellnessMetric[]; logs: WellnessLog[]; range: WellnessRange; targets: any }) {
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - range + 1);
+  const visible = logs.filter(log => new Date(`${log.log_date}T12:00:00`) >= cutoff);
+  const primary = metrics[0];
+  const getters: Record<string, (log: WellnessLog) => number | null | undefined> = {
+    Sleep: log => log.sleep_hours, "Sleep score": log => log.sleep_score, "Resting HR": log => log.resting_heart_rate,
+    Calories: log => log.calories, Protein: log => log.protein_grams, Carbohydrates: log => log.carbs_grams, Fat: log => log.fats_grams, Water: log => log.water_litres,
+    Bodyweight: log => log.bodyweight, "Body fat": log => log.body_fat_percentage, "Muscle mass": log => log.muscle_mass_kg,
+  };
+  const target: Record<string, number | undefined> = { Sleep: targets.sleepHours, "Resting HR": targets.heartRateGoal, Calories: targets.calories, Protein: targets.proteinGrams, Carbohydrates: targets.carbsGrams, Fat: targets.fatsGrams, Water: targets.waterLitres, Bodyweight: targets.weightGoal };
+  if (!primary) return null;
+  return <Surface><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-2xl" style={{ color, backgroundColor: `${color}18` }}>{icon}</span><div><h2 className="text-lg font-semibold text-dark">{title}</h2><p className="text-sm text-muted">Latest readings and trend over your selected period</p></div></div><div className="mt-5"><p className="text-sm font-semibold text-dark">{primary.label}</p><p className="mt-1 text-3xl font-semibold text-dark">{primary.latest === null ? "—" : `${Number(primary.latest.toFixed(1))} ${primary.unit}`}</p><div className="mt-3"><MetricTrend points={visible.map(log => ({ date: log.log_date, value: getters[primary.label]?.(log) }))} target={target[primary.label]} unit={primary.unit} color={color} /></div></div><div className="mt-5 grid gap-2 sm:grid-cols-2">{metrics.map(metric => <div key={metric.label} className="rounded-2xl bg-steel/5 p-3"><p className="text-xs font-bold uppercase tracking-[.12em] text-muted">{metric.label}</p><p className="mt-1 text-lg font-semibold text-dark">{metric.latest === null ? "No readings" : `${Number(metric.latest.toFixed(1))} ${metric.unit}`}</p><p className="mt-1 text-xs text-muted">{metric.count ? `${metric.count} reading${metric.count === 1 ? "" : "s"} · avg ${metric.average === null ? "—" : Number(metric.average.toFixed(1))}` : "Start tracking to build a trend"}</p></div>)}</div></Surface>;
+}
+
+function BloodPressurePanel({ logs, range, systolicTarget, diastolicTarget }: { logs: WellnessLog[]; range: WellnessRange; systolicTarget: number; diastolicTarget: number }) {
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - range + 1);
+  const readings = logs.filter(log => new Date(`${log.log_date}T12:00:00`) >= cutoff && log.blood_pressure_systolic !== null && log.blood_pressure_systolic !== undefined);
+  const latest = readings.at(-1);
+  return <Surface><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-2xl bg-danger/10 text-danger"><Gauge className="h-5 w-5" /></span><div><h2 className="text-lg font-semibold text-dark">Blood pressure</h2><p className="text-sm text-muted">Systolic and diastolic are always shown together.</p></div></div><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-danger/5 p-4"><p className="text-xs font-bold uppercase tracking-[.12em] text-muted">Latest</p><p className="mt-1 text-2xl font-semibold text-dark">{latest ? `${latest.blood_pressure_systolic} / ${latest.blood_pressure_diastolic}` : "—"}</p><p className="mt-1 text-xs text-muted">mmHg</p></div><div className="rounded-2xl bg-steel/5 p-4"><p className="text-xs font-bold uppercase tracking-[.12em] text-muted">Personal target</p><p className="mt-1 text-2xl font-semibold text-dark">{systolicTarget} / {diastolicTarget}</p><p className="mt-1 text-xs text-muted">mmHg</p></div></div><div className="mt-5"><p className="mb-2 text-sm font-semibold text-dark">Systolic trend</p><MetricTrend points={readings.map(log => ({ date: log.log_date, value: log.blood_pressure_systolic }))} target={systolicTarget} unit="mmHg" color="#d24a42" /></div><p className="mt-4 text-xs leading-relaxed text-muted">This is a record of your measurements, not an interpretation of them. Contact a qualified health professional for any concerns.</p></Surface>;
 }
 
 function RawBar({ label, value, percent }: { label: string; value: string; percent: number }) {

@@ -425,6 +425,8 @@ export type WellnessLog = {
   carbs_grams: number | null;
   fats_grams: number | null;
   bodyweight: number | null;
+  body_fat_percentage?: number | null;
+  muscle_mass_kg?: number | null;
   sleep_hours: number | null;
   sleep_score?: number | null;
   resting_heart_rate?: number | null;
