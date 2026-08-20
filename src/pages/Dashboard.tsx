@@ -34,6 +34,7 @@ import type { Profile } from "@/lib/types";
 import { defaultWellnessTargets, getWellnessTargets, type WellnessTargets } from "@/lib/wellnessTargets";
 import { formatWater } from "@/lib/waterFormatting";
 import { getDisplayName } from "@/lib/nameFormatting";
+import UnfinishedRoundBanner from "@/components/UnfinishedRoundBanner";
 
 export default function Dashboard() {
   const [, navigate] = useLocation();
@@ -140,6 +141,7 @@ export default function Dashboard() {
   return (
     <ErrorBoundary name="DashboardContent">
       <main className="min-h-screen bg-cream px-4 py-5 md:px-8 md:py-7">
+        <UnfinishedRoundBanner resumeDestination="/activity/golf" />
         <section className="mb-5 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
           <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#102235] text-white shadow-sm">
             <div className="grid gap-6 p-5 lg:p-7">

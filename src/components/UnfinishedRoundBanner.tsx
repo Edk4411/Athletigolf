@@ -19,7 +19,7 @@ type UnfinishedRound = {
   created_at: string;
 };
 
-export default function UnfinishedRoundBanner() {
+export default function UnfinishedRoundBanner({ resumeDestination }: { resumeDestination?: string }) {
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const [remote, setRemote] = useState<UnfinishedRound | null>(null);
@@ -48,7 +48,7 @@ export default function UnfinishedRoundBanner() {
   const ageMin = draftAgeMinutes(local);
   const ageLabel = ageMin == null ? "" : ageMin < 60 ? `${ageMin}m ago` : `${Math.round(ageMin / 60)}h ago`;
 
-  const resumeHref = remote ? `/golf/live?resume=${remote.id}` : "/golf/live";
+  const resumeHref = resumeDestination || (remote ? `/golf/live?resume=${remote.id}` : "/golf/live");
 
   return (
     <div className="mb-4 flex items-center gap-3 rounded-2xl border border-amber-400/40 bg-amber-50 p-4 shadow-sm" data-testid="unfinished-round-banner">
