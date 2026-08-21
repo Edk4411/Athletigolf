@@ -33,6 +33,15 @@ import type {
   TeeShotLocation,
 } from "@/lib/types";
 import { getDisplayName } from "@/lib/nameFormatting";
+import { createHoles, parseStat, parseOptionalNumber, needsRecoveryChoice, toDraftHoles, formatOption, formatToParValue, getParticipantPlayingHandicap } from "./RoundTracker/lib/validation";
+import { calculateMatchState, calculateSkinsState, getParticipantScore } from "./RoundTracker/lib/matchEngine";
+import { CourseStep } from "./RoundTracker/components/setup/CourseStep";
+import { PlayerStep } from "./RoundTracker/components/setup/PlayerStep";
+import { GameStep } from "./RoundTracker/components/setup/GameStep";
+import { HoleInputForm } from "./RoundTracker/components/scorecard/HoleInputForm";
+import { LiveScorecard } from "./RoundTracker/components/scorecard/LiveScorecard";
+import { RoundReview } from "./RoundTracker/components/review/RoundReview";
+import { ScorecardControls } from "./RoundTracker/components/scorecard/ScorecardControls";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -149,92 +158,6 @@ const SETUP_STEPS = [
   { num: 2 as SetupSubStep, label: "Players" },
   { num: 3 as SetupSubStep, label: "Game" },
 ];
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const createHoles = (count: number): Hole[] =>
-  Array.from({ length: count }, () => ({
-    par: 4,
-    yardage: null,
-    meters: null,
-    handicap: null,
-    score: "",
-    fairway: "na",
-    teeShotLocation: "",
-    gir: false,
-    putts: "",
-    penaltyShots: "",
-    chipShots: "",
-    greensideBunkerShots: "",
-    recoveryShotType: "",
-  }));
-
-const parseStat = (value: string) => Number(value || 0);
-const parseOptionalNumber = (value: string) => {
-  const trimmed = value.trim();
-  return trimmed === "" ? null : Number(trimmed);
-};
-const needsRecoveryChoice = (hole: Hole) =>
-  parseStat(hole.chipShots) > 0 &&
-  parseStat(hole.greensideBunkerShots) > 0 &&
-  hole.putts.trim() !== "" &&
-  hole.recoveryShotType === "";
-
-function toDraftHoles(count: 9 | 18, rows: RoundHole[]): Hole[] {
-  const holes = createHoles(count);
-  rows.forEach((row) => {
-    const index = row.hole_number - 1;
-    if (index < 0 || index >= holes.length) return;
-    holes[index] = {
-      par: row.par || 4,
-      yardage: row.yardage ?? null,
-      meters: row.meters ?? null,
-      handicap: row.handicap ?? null,
-      score: row.score == null ? "" : row.score.toString(),
-      fairway: row.fairway_result || "na",
-      teeShotLocation: row.tee_shot_location || "",
-      gir: row.gir,
-      putts: row.putts == null ? "" : row.putts.toString(),
-      penaltyShots: row.penalty_shots == null ? "" : row.penalty_shots.toString(),
-      chipShots: row.chip_shots == null ? "" : row.chip_shots.toString(),
-      greensideBunkerShots:
-        row.greenside_bunker_shots == null ? "" : row.greenside_bunker_shots.toString(),
-      recoveryShotType: row.recovery_shot_type || "",
-    };
-  });
-  return holes;
-}
-
-function formatOption(option: string) {
-  if (option === "na") return "N/A";
-  return option.replaceAll("_", " ");
-}
-function formatToParValue(score: number) {
-  if (score === 0) return "E";
-  return score > 0 ? `+${score}` : `${score}`;
-}
-
-// ─── WHS per-participant ──────────────────────────────────────────────────────
-
-function getParticipantPlayingHandicap(
-  participant: LiveParticipant,
-  selectedTee: GolfCourseTee | null,
-  holesPlayed: 9 | 18
-): number {
-  const index = parseHandicapIndex(participant.handicap);
-  if (!index) return 0;
-  if (selectedTee?.slopeRating && selectedTee.courseRating && selectedTee.parTotal) {
-    const ch = computeCourseHandicap(
-      index,
-      selectedTee.slopeRating,
-      selectedTee.courseRating,
-      selectedTee.parTotal
-    );
-    return computePlayingHandicap(ch, participant.allowancePercent);
-  }
-  // Fallback: use raw index × allowance
-  return Math.round(index * (participant.allowancePercent / 100));
-}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -1480,357 +1403,82 @@ const roundPayload = {
             ))}
           </div>
 
-          {/* ── Step 1: Course ── */}
+                    {/* ── Step 1: Course ── */}
           {setupSubStep === 1 && (
-            <Card className="p-6 md:p-8">
-              <div className="mb-6 flex items-center gap-3">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-golf/10 text-golf">
-                  <Flag className="h-5 w-5" />
-                </span>
-                <h2 className="text-xl font-semibold">Course & Tees</h2>
-              </div>
-
-              <div className="mb-6 grid gap-3 sm:grid-cols-3">
-                <button
-                  onClick={() => { setHolesPlayed(9); setNineSelection("front"); }}
-                  data-testid="setup-front-nine"
-                  className={`rounded-xl border p-5 text-left transition ${
-                    holesPlayed === 9 && nineSelection === "front"
-                      ? "border-golf bg-golf text-white"
-                      : "border-line bg-steel/5 text-dark hover:border-golf/30"
-                  }`}
-                >
-                  <p className="text-sm opacity-70">Round length</p>
-                  <h2 className="mt-1 text-2xl font-semibold">Front 9</h2>
-                  <p className="mt-1 text-xs opacity-70">Holes 1–9</p>
-                </button>
-                <button
-                  onClick={() => { setHolesPlayed(9); setNineSelection("back"); }}
-                  data-testid="setup-back-nine"
-                  className={`rounded-xl border p-5 text-left transition ${
-                    holesPlayed === 9 && nineSelection === "back"
-                      ? "border-golf bg-golf text-white"
-                      : "border-line bg-steel/5 text-dark hover:border-golf/30"
-                  }`}
-                >
-                  <p className="text-sm opacity-70">Round length</p>
-                  <h2 className="mt-1 text-2xl font-semibold">Back 9</h2>
-                  <p className="mt-1 text-xs opacity-70">Holes 10–18</p>
-                </button>
-                <button
-                  onClick={() => { setHolesPlayed(18); setNineSelection("all"); }}
-                  data-testid="setup-eighteen"
-                  className={`rounded-xl border p-5 text-left transition ${
-                    holesPlayed === 18
-                      ? "border-golf bg-golf text-white"
-                      : "border-line bg-steel/5 text-dark hover:border-golf/30"
-                  }`}
-                >
-                  <p className="text-sm opacity-70">Round length</p>
-                  <h2 className="mt-1 text-2xl font-semibold">18 Holes</h2>
-                  <p className="mt-1 text-xs opacity-70">Full round</p>
-                </button>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <GolfCoursePicker
-                    selectedCourse={selectedCourse}
-                    selectedTee={selectedTee}
-                    onCourseSelected={handleCourseSelected}
-                    onTeeSelected={handleTeeSelected}
-                  />
-                  <div className="mt-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-xs text-muted">
-                      Can't find the course, or the API is down? Enter par, stroke index and yardage by hand.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setShowManualCourseModal(true)}
-                      className="rounded-full border border-golf/40 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-golf transition hover:bg-golf/5"
-                      data-testid="open-manual-course"
-                    >
-                      Enter course manually
-                    </button>
-                  </div>
-                </div>
-                <Field label="Course name" value={course} onChange={(v) => { setCourse(v); if (selectedCourse && v !== selectedCourse.courseName) { setSelectedCourse(null); setSelectedTee(null); } }} />
-                <Field label="Tees played" value={teeColour} onChange={setTeeColour} placeholder="White, Yellow, Red…" />
-                {selectedTee && (
-                  <>
-                    <Field label="Course rating" value={selectedTee.courseRating?.toString() || ""} onChange={() => {}} />
-                    <Field label="Slope rating" value={selectedTee.slopeRating?.toString() || ""} onChange={() => {}} />
-                  </>
-                )}
-                <Field label="Round name" value={roundName} onChange={setRoundName} placeholder="Saturday medal, evening 9…" />
-                <Field label="Date" value={date} onChange={setDate} type="date" />
-                <SelectField label="Visibility" value={visibility} onChange={(v) => setVisibility(v as "private" | "friends")} options={["friends", "private"]} />
-                <label className="flex items-center gap-3 rounded-lg border border-line px-5 py-4">
-                  <input type="checkbox" checked={competition} onChange={(e) => setCompetition(e.target.checked)} />
-                  <span className="font-medium">Competition round</span>
-                </label>
-              </div>
-
-              <div className="mt-4 md:col-span-2">
-                <label className="mb-2 block text-sm text-muted">Round notes</label>
-                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="w-full rounded-lg border border-line px-4 py-3 outline-none focus:border-golf" />
-              </div>
-
-              <div className="mt-8 flex justify-end">
-                <Button variant="golf" onClick={() => setSetupSubStep(2)}>
-                  Next: Players
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </Card>
+            <CourseStep
+              holesPlayed={holesPlayed}
+              nineSelection={nineSelection}
+              selectedCourse={selectedCourse}
+              selectedTee={selectedTee}
+              course={course}
+              teeColour={teeColour}
+              date={date}
+              roundName={roundName}
+              visibility={visibility}
+              competition={competition}
+              notes={notes}
+              setHolesPlayed={setHolesPlayed}
+              setNineSelection={setNineSelection}
+              setCourse={setCourse}
+              setTeeColour={setTeeColour}
+              setDate={setDate}
+              setRoundName={setRoundName}
+              setVisibility={setVisibility}
+              setCompetition={setCompetition}
+              setNotes={setNotes}
+              handleCourseSelected={handleCourseSelected}
+              handleTeeSelected={handleTeeSelected}
+              setShowManualCourseModal={setShowManualCourseModal}
+              onNext={() => setSetupSubStep(2)}
+            />
           )}
 
           {/* ── Step 2: Players ── */}
           {setupSubStep === 2 && (
-            <Card className="p-6 md:p-8">
-              <div className="mb-6 flex items-center gap-3">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-golf/10 text-golf">
-                  <Users className="h-5 w-5" />
-                </span>
-                <h2 className="text-xl font-semibold">Players</h2>
-              </div>
-
-              {/* Owner */}
-              <div className="mb-5 rounded-2xl border border-golf/20 bg-golf/5 p-4">
-                <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-golf">You</p>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <Field label="Handicap index" value={ownHandicap} onChange={setOwnHandicap} type="number" placeholder="e.g. 12.4" />
-                  <div>
-                    <label className="mb-2 block text-sm text-muted">Allowance %</label>
-                    <input
-                      type="number" min={0} max={100}
-                      value={ownAllowancePercent}
-                      onChange={(e) => setOwnAllowancePercent(Number(e.target.value))}
-                      className="w-full rounded-lg border border-line px-4 py-3 outline-none focus:border-golf"
-                    />
-                  </div>
-                  {selectedTee?.slopeRating && selectedTee.courseRating && selectedTee.parTotal && ownHandicap && (
-                    <div className="flex flex-col justify-end">
-                      <p className="text-xs text-muted">Course HCP</p>
-                      <p className="text-2xl font-semibold text-golf">
-                        {computeCourseHandicap(
-                          parseHandicapIndex(ownHandicap),
-                          selectedTee.slopeRating,
-                          selectedTee.courseRating,
-                          selectedTee.parTotal
-                        )}
-                      </p>
-                      <p className="text-xs text-muted">
-                        Playing HCP: {computePlayingHandicap(
-                          computeCourseHandicap(
-                            parseHandicapIndex(ownHandicap),
-                            selectedTee.slopeRating,
-                            selectedTee.courseRating,
-                            selectedTee.parTotal
-                          ),
-                          ownAllowancePercent
-                        )}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Friends */}
-              {friends.length > 0 && (
-                <div className="mb-5">
-                  <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-muted">Add friends</p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {friends.slice(0, 6).map((friend) => {
-                      const alreadyAdded = livePlayers.some((p) => p.userId === friend.other_user_id);
-                      const friendName = getDisplayName(friend as any) || (friend.other_username ? `@${friend.other_username}` : `Friend ${friend.other_user_id.slice(0, 8)}`);
-                      return (
-                        <button
-                          key={friend.other_user_id}
-                          type="button"
-                          disabled={alreadyAdded}
-                          onClick={() => addFriendPlayer(friend)}
-                          className="flex items-center justify-between gap-3 rounded-xl border border-line bg-white/70 p-3 text-left transition hover:border-golf/40 disabled:opacity-55"
-                        >
-                          <span className="flex min-w-0 items-center gap-3">
-                            <PlayerAvatar src={friend.other_avatar_url} name={friendName} />
-                            <span className="min-w-0">
-                              <span className="block truncate text-sm font-semibold text-dark">{friendName}</span>
-                              <span className="block text-xs text-muted">
-                                {friend.other_golf_handicap == null ? "No handicap" : `HCP ${friend.other_golf_handicap}`}
-                              </span>
-                            </span>
-                          </span>
-                          <span className="shrink-0 rounded-full bg-golf/10 px-2.5 py-1 text-xs font-bold text-golf">
-                            {alreadyAdded ? "Added" : "Add"}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Add guest */}
-              <div className="mb-4 grid gap-3 sm:grid-cols-[1fr_100px_100px_auto]">
-                <Field label="Guest name" value={newPlayerName} onChange={setNewPlayerName} placeholder="Sam, Jack…" />
-                <Field label="HCP index" value={newPlayerHandicap} onChange={setNewPlayerHandicap} type="number" placeholder="14.0" />
-                <Field label="Allowance %" value={newPlayerAllowance} onChange={setNewPlayerAllowance} type="number" placeholder={String(defaultAllowance)} />
-                <Button type="button" variant="golf" className="self-end" onClick={addLivePlayer}>
-                  <UserPlus className="h-4 w-4" />
-                  Add
-                </Button>
-              </div>
-
-              {/* Current player list */}
-              {livePlayers.length > 0 && (
-                <div className="mb-4 space-y-2">
-                  {livePlayers.map((player) => (
-                    <div key={player.id} className="flex items-center justify-between gap-3 rounded-xl border border-line bg-white/70 px-4 py-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-dark">{player.name}</p>
-                        <p className="text-xs text-muted">
-                          {player.handicap ? `HCP ${player.handicap}` : "No HCP"} · Allowance {player.allowancePercent}%
-                        </p>
-                      </div>
-                      <button type="button" onClick={() => removeLivePlayer(player.id)} className="text-xs font-semibold text-muted hover:text-danger">
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="mt-8 flex justify-between">
-                <Button variant="secondary" onClick={() => setSetupSubStep(1)}>
-                  <ArrowLeft className="h-4 w-4" />
-                  Back
-                </Button>
-                <Button variant="golf" onClick={() => setSetupSubStep(3)}>
-                  Next: Game
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </Card>
+            <PlayerStep
+              ownHandicap={ownHandicap}
+              ownAllowancePercent={ownAllowancePercent}
+              selectedTee={selectedTee}
+              livePlayers={livePlayers}
+              friends={friends}
+              newPlayerName={newPlayerName}
+              newPlayerHandicap={newPlayerHandicap}
+              newPlayerAllowance={newPlayerAllowance}
+              defaultAllowance={defaultAllowance}
+              setOwnHandicap={setOwnHandicap}
+              setOwnAllowancePercent={setOwnAllowancePercent}
+              setNewPlayerName={setNewPlayerName}
+              setNewPlayerHandicap={setNewPlayerHandicap}
+              setNewPlayerAllowance={setNewPlayerAllowance}
+              addFriendPlayer={addFriendPlayer}
+              addLivePlayer={addLivePlayer}
+              removeLivePlayer={removeLivePlayer}
+              onBack={() => setSetupSubStep(1)}
+              onNext={() => setSetupSubStep(3)}
+            />
           )}
 
           {/* ── Step 3: Game ── */}
           {setupSubStep === 3 && (
-            <Card className="p-6 md:p-8">
-              <div className="mb-6 flex items-center gap-3">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-golf/10 text-golf">
-                  <Trophy className="h-5 w-5" />
-                </span>
-                <h2 className="text-xl font-semibold">Game Format</h2>
-              </div>
-
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                {liveGameOptions.map((game) => {
-                  const active = selectedGames.includes(game.id);
-                  return (
-                    <button
-                      key={game.id}
-                      type="button"
-                      onClick={() => toggleGame(game.id)}
-                      className={`rounded-2xl border p-4 text-left transition ${
-                        active
-                          ? "border-golf bg-golf text-white"
-                          : "border-line bg-panel text-dark hover:border-golf/35"
-                      }`}
-                    >
-                      <span className="block text-sm font-semibold">{game.label}</span>
-                      <span className={`mt-1 block text-xs ${active ? "text-white/70" : "text-muted"}`}>{game.detail}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="mt-4 rounded-xl border border-golf/20 bg-golf/5 px-4 py-3 text-sm text-muted">
-                Default allowance for <strong>{liveGameOptions.find((o) => o.id === primaryGame)?.label}</strong>: <strong>{defaultAllowance}%</strong>.
-                Individual overrides set in step 2.
-              </div>
-
-              {/* Match setup */}
-              {hasMatchGame && (
-                <div className="mt-5 rounded-2xl border border-gold/25 bg-gold/10 p-4">
-                  <div className="mb-4 flex items-start gap-3">
-                    <Handshake className="mt-1 h-5 w-5 shrink-0 text-gold" />
-                    <div>
-                      <h3 className="font-semibold text-dark">Match setup</h3>
-                      <p className="mt-1 text-sm text-muted">Assign teams and choose casual or competition.</p>
-                    </div>
-                  </div>
-                  <div className="mb-4 grid gap-2 sm:grid-cols-2">
-                    {(["casual", "competition"] as const).map((intent) => (
-                      <button
-                        key={intent}
-                        type="button"
-                        onClick={() => { setRoundIntent(intent); setCompetition(intent === "competition"); }}
-                        className={`rounded-xl border px-4 py-3 text-left font-semibold capitalize transition ${
-                          roundIntent === intent
-                            ? "border-gold bg-gold text-dark"
-                            : "border-line bg-panel text-dark hover:border-gold/40"
-                        }`}
-                      >
-                        {intent} matchplay
-                      </button>
-                    ))}
-                  </div>
-                  <div className="space-y-2">
-                    {liveParticipants.map((player) => (
-                      <div key={player.id} className="grid gap-2 rounded-xl bg-panel p-3 sm:grid-cols-[1fr_auto] sm:items-center">
-                        <div>
-                          <p className="font-semibold text-dark">{player.name}</p>
-                          <p className="text-xs text-muted">
-                            {player.type === "owner" ? "You" : player.type} {player.handicap ? `· HCP ${player.handicap}` : ""}
-                          </p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          {(["A", "B"] as const).map((team) => (
-                            <button
-                              key={team}
-                              type="button"
-                              disabled={player.id === "owner" && team === "B"}
-                              onClick={() => updatePlayerTeam(player.id, team)}
-                              className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
-                                player.team === team
-                                  ? team === "A"
-                                    ? "bg-blue-500 text-white"
-                                    : "bg-red-500 text-white"
-                                  : "bg-steel/10 text-muted hover:bg-steel/15 disabled:opacity-40"
-                              }`}
-                            >
-                              {team === "A" ? "🔵 A" : "🔴 B"}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="mt-3 text-xs font-semibold text-muted">
-                    Team A: {teamCounts.A} · Team B: {teamCounts.B}
-                    {hasTeamGame ? " — 4BBB and foursomes need 2 vs 2." : ""}
-                  </p>
-                </div>
-              )}
-
-              {saveError && (
-                <div className="mt-4 rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm font-semibold text-danger">
-                  {saveError}
-                </div>
-              )}
-
-              <div className="mt-8 flex justify-between">
-                <Button variant="secondary" onClick={() => setSetupSubStep(2)}>
-                  <ArrowLeft className="h-4 w-4" />
-                  Back
-                </Button>
-                <Button variant="golf" onClick={startRound} disabled={saving}>
-                  <Flag className="h-4 w-4" />
-                  {saving ? "Creating round…" : "Start Hole Entry"}
-                </Button>
-              </div>
-            </Card>
+            <GameStep
+              selectedGames={selectedGames}
+              liveGameOptions={liveGameOptions}
+              primaryGame={primaryGame}
+              defaultAllowance={defaultAllowance}
+              hasMatchGame={hasMatchGame}
+              hasTeamGame={hasTeamGame}
+              roundIntent={roundIntent}
+              liveParticipants={liveParticipants}
+              teamCounts={teamCounts}
+              saveError={saveError}
+              saving={saving}
+              toggleGame={toggleGame}
+              setRoundIntent={setRoundIntent}
+              setCompetition={setCompetition}
+              updatePlayerTeam={updatePlayerTeam}
+              startRound={startRound}
+              onBack={() => setSetupSubStep(2)}
+            />
           )}
         </div>
         <ManualCourseModal
@@ -1951,322 +1599,29 @@ const roundPayload = {
 
         {/* ── Hole entry ── */}
         {step === "holes" && currentHole && (
-          <Card className="p-5 md:p-7">
-            <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-golf">
-                  Hole {currentHoleIndex + 1 + holeStartOffset} of {nineSelection === "back" ? "18" : holesPlayed}
-                </p>
-                <div className="mt-2 flex items-center gap-3">
-                  <ScoreBadge score={currentHole.score || null} par={currentHole.par} size="lg" />
-                  <h2 className="text-4xl font-semibold">
-                    {currentHole.score ? formatToParValue(currentHoleScore ?? 0) : "Not scored"}
-                  </h2>
-                </div>
-                <p className="mt-2 text-sm text-muted">
-                  {(currentHole.yardage || currentHole.handicap) && (
-                    <>
-                      {currentHole.yardage ? `${currentHole.yardage} yd` : ""}
-                      {currentHole.yardage && currentHole.handicap ? " / " : ""}
-                      {currentHole.handicap ? `SI ${currentHole.handicap}` : ""}
-                    </>
-                  )}
-                </p>
-              </div>
-
-             {/* Hole nav dots */}
-<div className="-mx-1 flex max-w-full gap-2 overflow-x-auto px-1 pb-1 lg:flex-wrap lg:overflow-visible">
-  {holes.map((hole, index) => (
-    <button
-      key={index}
-      onClick={() => setCurrentHoleIndex(index)}
-      className={`h-10 w-10 rounded-lg border text-sm font-semibold transition ${
-        index === currentHoleIndex
-          ? "border-golf bg-golf text-white"
-          : hole.score
-            ? "border-golf/30 bg-golf/10 text-golf"
-            : "border-line bg-white text-muted hover:border-golf/40"
-      }`}
-      aria-label={`Hole ${index + 1 + holeStartOffset}`}
-    >
-      {index + 1 + holeStartOffset}
-    </button>
-  ))}
-</div>
-
-<div className="mt-5">
-  <HandicapAllowanceSelector
-    format={(selectedGames[0] as GameFormat) || "stroke_play"}
-    value={handicapAllowancePercent}
-    onChange={setHandicapAllowancePercent}
-    numPlayersOnSide={Math.max(1, Math.round(livePlayers.length / 2))}
-  />
-</div>
-
-{currentHoleIndex === 8 && holesPlayed === 18 && (
-  <div className="mb-5 rounded-lg border border-gold/30 bg-gold/10 px-4 py-3 text-sm font-medium text-dark">
-    Turn after this hole.
-  </div>
-)}
-
-{/* Leaderboard */}
-<div className="mb-6 rounded-2xl border border-line bg-panel p-4">
-  <div className="mb-3 flex items-center gap-2">
-    <Trophy className="h-5 w-5 text-golf" />
-    <h3 className="font-semibold text-dark">
-      Live leaderboard
-    </h3>
-  </div>
-
-  <div className="space-y-2">
-    {liveLeaderboard.map((player, idx) => {
-      const teamColour =
-        hasMatchGame
-          ? player.team === "A"
-            ? "border-l-4 border-blue-500"
-            : "border-l-4 border-red-500"
-          : "";
-
-      return (
-        <div
-          key={player.id}
-          className={`flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 ${teamColour}`}
-        >
-          <div className="flex min-w-0 items-center gap-3">
-            <PlayerAvatar
-              src={player.avatarUrl}
-              name={player.name}
-            />
-
-            <div className="min-w-0">
-              <p className="truncate font-semibold text-dark">
-                {idx + 1}. {player.name}
-              </p>
-
-              <p className="text-xs text-muted">
-                {player.holes}/{holesPlayed}
-              </p>
-            </div>
-          </div>
-
-          <div className="text-right">
-            <p className="flex justify-end">
-              <ScoreBadge
-                score={player.score}
-                scoreToPar={player.toPar}
-              />
-            </p>
-
-            <p className="mt-1 flex justify-end">
-              <ScoreBadge
-                score={
-                  player.toPar === null
-                    ? null
-                    : formatToParValue(player.toPar)
-                }
-                scoreToPar={player.toPar}
-                size="sm"
-              />
-            </p>
-          </div>
-        </div>
-      );
-    })}
-  </div>
-</div>
-
-                  <div className="rounded-2xl border border-golf/20 bg-golf/5 p-4">
-                    <div className="mb-3 flex items-center gap-2">
-                      <MessageCircle className="h-5 w-5 text-golf" />
-                      <h3 className="font-semibold text-dark">Live round feed</h3>
-                    </div>
-                    <p className="text-sm leading-relaxed text-muted">
-                      V1 keeps this round friends-only and now saves the live player/game data so friends can follow the card.
-                    </p>
-                    {hasMatchGame && (
-                      <div className="mt-4 rounded-xl border border-golf/20 bg-panel p-3">
-                        <p className="text-xs font-bold uppercase tracking-[0.14em] text-golf">Match status</p>
-                        <h4 className="mt-2 text-2xl font-semibold text-dark">{matchState.label}</h4>
-                        <p className="mt-1 text-xs text-muted">
-                          {matchState.holesPlayed} holes counted / {matchState.holesRemaining} to play
-                        </p>
-                        <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-                          <span className="rounded-lg bg-golf/10 px-2 py-2 font-bold text-golf">{matchState.teamAWins} Team A</span>
-                          <span className="rounded-lg bg-steel/10 px-2 py-2 font-bold text-muted">{matchState.halved} Halved</span>
-                          <span className="rounded-lg bg-pulse/10 px-2 py-2 font-bold text-pulse">{matchState.teamBWins} Team B</span>
-                        </div>
-                      </div>
-                    )}
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {selectedGames.map((game) => (
-                        <span key={game} className="rounded-full bg-dark px-3 py-1 text-xs font-bold text-white">
-                          {liveGameOptions.find((option) => option.id === game)?.label || game}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
-                  <SelectField
-                    label="Par"
-                    value={currentHole.par.toString()}
-                    onChange={(value) => {
-                      const nextPar = Number(value);
-                      updateHole(currentHoleIndex, "par", nextPar);
-                    }}
-                    options={["3", "4", "5"]}
-                  />
-
-                  <Field
-                    label="Score"
-                    type="number"
-                    value={currentHole.score}
-                    onChange={(value) =>
-                      updateHole(currentHoleIndex, "score", value)
-                    }
-                  />
-
-                  <SelectField
-                    label="Fairway"
-                    value={currentHole.fairway}
-                    disabled={currentHole.par === 3}
-                    onChange={(value) =>
-                      updateHole(
-                        currentHoleIndex,
-                        "fairway",
-                        value as FairwayResult
-                      )
-                    }
-                    options={["na", "hit", "left", "right", "miss"]}
-                  />
-
-                  {currentHole.par !== 3 &&
-                    currentHole.fairway !== "hit" &&
-                    currentHole.fairway !== "na" && (
-                      <SelectField
-                        label="Where did it finish?"
-                        value={currentHole.teeShotLocation || ""}
-                        onChange={(value) =>
-                          updateHole(
-                            currentHoleIndex,
-                            "teeShotLocation",
-                            value as "" | TeeShotLocation
-                          )
-                        }
-                        options={[
-                          "",
-                          "rough",
-                          "fairway_bunker",
-                          "woods",
-                          "water",
-                          "out_of_bounds",
-                          "other_fairway",
-                          "other",
-                        ]}
-                      />
-                    )}
-
-                  <label className="flex items-center gap-3 rounded-lg border border-line px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={currentHole.gir}
-                      onChange={(event) =>
-                        updateHole(
-                          currentHoleIndex,
-                          "gir",
-                          event.target.checked
-                        )
-                      }
-                    />
-                    <span className="text-sm font-medium">GIR</span>
-                  </label>
-                  <Field
-                    label="Putts"
-                    type="number"
-                    value={currentHole.putts}
-                    onChange={(value) => updateHole(currentHoleIndex, "putts", value)}
-                  />
-                  {livePlayers.map((player) => (
-                    <Field
-                      key={player.id}
-                      label={`${player.name} score`}
-                      type="number"
-                      value={playerHoleScores[player.id]?.[currentHoleIndex] || ""}
-                      onChange={(value) => updatePlayerHoleScore(player.id, currentHoleIndex, value)}
-                    />
-                  ))}
-                </div>
-
-                <div className="mt-5 rounded-2xl border border-gold/25 bg-gold/10 p-4">
-                  <div className="mb-3">
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-gold">Post-round detail</p>
-                    <p className="mt-1 text-sm text-muted">
-                      Optional while you play. These are easier to tidy during review when the round is done.
-                    </p>
-                  </div>
-                  <div className="grid gap-3 md:grid-cols-3">
-                  <Field
-                    label="Penalties"
-                    type="number"
-                    value={currentHole.penaltyShots}
-                    onChange={(value) =>
-                      updateHole(currentHoleIndex, "penaltyShots", value)
-                    }
-                  />
-                  <Field
-                    label="Chips"
-                    type="number"
-                    value={currentHole.chipShots}
-                    onChange={(value) => updateHole(currentHoleIndex, "chipShots", value)}
-                  />
-                  <Field
-                    label="Bunkers"
-                    type="number"
-                    value={currentHole.greensideBunkerShots}
-                    onChange={(value) =>
-                      updateHole(currentHoleIndex, "greensideBunkerShots", value)
-                    }
-                  />
-                  </div>
-                </div>
-
-                <div className="mt-8 rounded-xl border border-line bg-panel p-3 lg:flex lg:items-center lg:justify-between">
-                  <Button
-                    variant="secondary"
-                    onClick={goToPreviousHole}
-                    disabled={currentHoleIndex === 0}
-                    className="w-full lg:w-auto"
-                  >
-                    Previous
-                  </Button>
-                  <div className="mt-3 flex flex-col gap-3 sm:grid sm:grid-cols-3 lg:mt-0 lg:flex lg:flex-row">
-                    <Button
-                      variant="secondary"
-                      onClick={goToNextHole}
-                      disabled={currentHoleIndex === holesPlayed - 1}
-                      className="w-full"
-                    >
-                      Skip Hole
-                    </Button>
-                    {currentHoleIndex < holesPlayed - 1 ? (
-                      <Button variant="golf" onClick={goToNextHole} className="w-full">
-                        Next Hole
-                      </Button>
-                    ) : (
-                      <Button variant="golf" onClick={reviewRound} className="w-full">
-                        Finish
-                      </Button>
-                    )}
-                    {currentHoleIndex < holesPlayed - 1 && (
-                      <Button variant="golf" onClick={reviewRound} className="w-full">
-                        Finish
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            )}
+          <LiveScorecard
+            holes={holes}
+            currentHole={currentHole}
+            currentHoleIndex={currentHoleIndex}
+            holesPlayed={holesPlayed}
+            nineSelection={nineSelection}
+            holeStartOffset={holeStartOffset}
+            selectedGames={selectedGames}
+            livePlayers={livePlayers}
+            playerHoleScores={playerHoleScores}
+            hasMatchGame={hasMatchGame}
+            matchState={matchState}
+            liveLeaderboard={liveLeaderboard}
+            handicapAllowancePercent={handicapAllowancePercent}
+            setHandicapAllowancePercent={setHandicapAllowancePercent}
+            setCurrentHoleIndex={setCurrentHoleIndex}
+            updateHole={updateHole}
+            updatePlayerHoleScore={updatePlayerHoleScore}
+            goToPreviousHole={goToPreviousHole}
+            goToNextHole={goToNextHole}
+            reviewRound={reviewRound}
+          />
+        )}
 
             {step === "review" && (
               <Card className="mb-6 border-golf/20 bg-golf/5">
@@ -2655,106 +2010,8 @@ function resolveStrokesReceived(
 
 // ─── Match state ──────────────────────────────────────────────────────────────
 
-function calculateMatchState(
-  holes: Hole[],
-  players: LiveParticipant[],
-  playerScores: Record<string, string[]>,
-  holesPlayed: number
-) {
-  let teamAWins = 0, teamBWins = 0, halved = 0;
-  const holeResults: Array<{
-    hole: number; label: string; leader: "A" | "B" | "AS";
-    teamAScore: number | null; teamBScore: number | null; matchLabel: string;
-  }> = [];
 
-  holes.forEach((hole, index) => {
-    const teamAScore = getTeamHoleScore("A", index, holes, players, playerScores);
-    const teamBScore = getTeamHoleScore("B", index, holes, players, playerScores);
-    if (teamAScore === null || teamBScore === null) return;
-    let leader: "A" | "B" | "AS" = "AS";
-    let label = "Halved";
-    if (teamAScore < teamBScore) { teamAWins++; leader = "A"; label = "Team A wins"; }
-    else if (teamBScore < teamAScore) { teamBWins++; leader = "B"; label = "Team B wins"; }
-    else halved++;
-    const lead = teamAWins - teamBWins;
-    holeResults.push({ hole: index + 1, label, leader, teamAScore, teamBScore, matchLabel: formatMatchLabel(lead) });
-  });
 
-  const lead = teamAWins - teamBWins;
-  const countedHoles = holeResults.length;
-  const holesRemaining = Math.max(holesPlayed - countedHoles, 0);
-  const leaderName = lead > 0 ? "Team A" : lead < 0 ? "Team B" : "";
-  const closeout = Math.abs(lead) > holesRemaining && countedHoles > 0
-    ? `${leaderName} wins ${Math.abs(lead)}&${holesRemaining}`
-    : null;
-
-  return {
-    label: closeout || formatMatchLabel(lead),
-    closeout, teamAWins, teamBWins, halved,
-    holesPlayed: countedHoles, holesRemaining, holeResults,
-  };
-}
-
-function getTeamHoleScore(
-  team: "A" | "B", holeIndex: number, holes: Hole[],
-  players: LiveParticipant[], playerScores: Record<string, string[]>
-) {
-  const scores = players
-    .filter((p) => p.team === team)
-    .map((p) => getParticipantScore(p.id, holeIndex, holes, playerScores))
-    .filter((s): s is number => s !== null);
-  return scores.length ? Math.min(...scores) : null;
-}
-
-function getParticipantScore(
-  playerId: string, holeIndex: number, holes: Hole[], playerScores: Record<string, string[]>
-) {
-  const raw = playerId === "owner" ? holes[holeIndex]?.score : playerScores[playerId]?.[holeIndex];
-  if (raw === undefined || raw === "") return null;
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : null;
-}
-
-function formatMatchLabel(lead: number) {
-  if (lead === 0) return "All square";
-  return `${lead > 0 ? "Team A" : "Team B"} ${Math.abs(lead)} Up`;
-}
-
-// ─── Skins ────────────────────────────────────────────────────────────────────
-
-function calculateSkinsState(
-  holes: Hole[], players: LiveParticipant[],
-  playerScores: Record<string, string[]>, holesPlayed: 9 | 18,
-  selectedTee: GolfCourseTee | null
-) {
-  let carryover = 0;
-  const playerSkins = new Map<string, number>();
-  const holeResults: Array<{
-    hole: number; label: string; winningPlayerId: string | null;
-    skinsAwarded: number; carryover: number;
-  }> = [];
-
-  holes.slice(0, holesPlayed).forEach((hole, index) => {
-    const scoredPlayers = players
-      .map((p) => ({ player: p, score: getParticipantScore(p.id, index, holes, playerScores) }))
-      .filter((item): item is { player: LiveParticipant; score: number } => item.score !== null);
-    if (!scoredPlayers.length) return;
-    const best = Math.min(...scoredPlayers.map((i) => i.score));
-    const winners = scoredPlayers.filter((i) => i.score === best);
-    if (winners.length === 1) {
-      const skinsAwarded = carryover + 1;
-      const winner = winners[0].player;
-      playerSkins.set(winner.id, (playerSkins.get(winner.id) || 0) + skinsAwarded);
-      holeResults.push({ hole: index + 1, label: `${winner.name} wins ${skinsAwarded} skin${skinsAwarded === 1 ? "" : "s"}`, winningPlayerId: winner.id, skinsAwarded, carryover });
-      carryover = 0;
-    } else {
-      carryover++;
-      holeResults.push({ hole: index + 1, label: `Carryover (${carryover})`, winningPlayerId: null, skinsAwarded: 0, carryover });
-    }
-  });
-
-  return { playerSkins, holeResults, carryover };
-}
 
 // ─── Participant totals ───────────────────────────────────────────────────────
 

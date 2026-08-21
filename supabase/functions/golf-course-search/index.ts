@@ -41,7 +41,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const apiBase = "https://api.golfcourseapi.com/v1";
+const apiBase = "https://api.bthree.uk/golf/v1";
 
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
@@ -49,18 +49,13 @@ Deno.serve(async (request) => {
   }
 
   try {
-    const apiKey = Deno.env.get("GOLFCOURSE_API_KEY");
-    if (!apiKey) {
-      return json({ results: [], warning: "Golf course search is not configured yet." }, 200);
-    }
-
     const body = await request.json().catch(() => ({}));
     const action = String(body.action || "search");
 
     if (action === "detail") {
       const courseId = Number(body.courseId);
       if (!Number.isFinite(courseId)) return json({ error: "A valid course ID is required." }, 400);
-      const detail = await fetchCourseDetail(courseId, apiKey);
+      const detail = await fetchCourseDetail(courseId);
       const cached = await cacheCourse(detail);
       return json({ course: cached });
     }
@@ -77,7 +72,7 @@ Deno.serve(async (request) => {
     }
 
     // Fallback to external API
-    const results = await searchCourses(query, apiKey);
+    const results = await searchCourses(query);
     return json({ results: results.slice(0, 12) });
   } catch (error) {
     return json(
@@ -92,14 +87,10 @@ async function searchLocalCourses(query: string): Promise<SearchCourse[]> {
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseUrl || !serviceRoleKey) return [];
 
-  // Use the GIN index for full-text search.
-  // Note: This assumes 'query' is sanitized or safe for the query string.
-  // We'll use a simple websearch_to_tsquery approach.
-  const path = `golf_courses?select=id,club_name,course_name,city,state,country,address&q=fts(english).${encodeURIComponent(query)}`;
-
   try {
-    const response = await supabaseFetch(supabaseUrl, serviceRoleKey, path, {
-      method: "GET",
+    const response = await supabaseFetch(supabaseUrl, serviceRoleKey, "rpc/search_golf_courses", {
+      method: "POST",
+      body: JSON.stringify({ search_query: query }),
     });
     
     if (!response.ok) return [];
