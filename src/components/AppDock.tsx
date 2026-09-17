@@ -106,12 +106,12 @@ export default function AppDock() {
 
           <button type="button" aria-label="Close menu backdrop" className="absolute inset-0" onClick={closeMenu} />
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-[calc(6.2rem+env(safe-area-inset-bottom))] mx-auto flex max-w-[390px] flex-col items-center px-4">
+          <div className="pointer-events-none absolute inset-x-0 bottom-[calc(5.8rem+env(safe-area-inset-bottom))] mx-auto flex max-w-[430px] flex-col items-center px-3 sm:px-5">
             <p className="pointer-events-auto mb-4 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white/72">
               {menu === "activity" ? "Activity" : "Quick Add"}
             </p>
 
-            <div className="pointer-events-auto relative mx-auto h-[15.5rem] w-20">
+            <div className="pointer-events-auto relative mx-auto h-[min(15.5rem,44vh)] w-20">
               {(menu === "activity" ? filteredActivityItems : filteredCreateItems).map((item, index, items) => (
                 <ArcButton
                   key={item.label}
@@ -166,8 +166,8 @@ function ArcButton({
   const Icon = item.icon;
   const spread = total <= 1 ? 0 : Math.min(menu === "activity" ? 176 : 164, Math.max(108, total * 28));
   const angle = total === 1 ? 90 : 90 + spread / 2 - (index * spread) / (total - 1);
-  const radius = menu === "activity" ? 112 : 106;
-  const top = "12rem";
+  const radius = Math.min(menu === "activity" ? 112 : 106, total > 5 ? 96 : 108);
+  const top = "min(12rem, 38vh)";
   const x = Math.cos((angle * Math.PI) / 180) * radius;
   const y = -Math.sin((angle * Math.PI) / 180) * radius;
 
@@ -175,14 +175,14 @@ function ArcButton({
     <button
       type="button"
       onClick={onClick}
-      className="absolute left-1/2 flex w-[4.9rem] -translate-x-1/2 flex-col items-center gap-1.5 text-center transition active:scale-95"
+      className="absolute left-1/2 flex w-[4.6rem] -translate-x-1/2 flex-col items-center gap-1.5 text-center transition duration-200 active:scale-95"
       style={{
   left: "50%",
   top,
   transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`
 }}
     >
-      <span className={`inline-flex h-12 w-12 items-center justify-center rounded-xl border text-white shadow-xl ${toneClass(item.tone, active)}`}>
+      <span className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl border text-white shadow-xl ring-1 ring-white/10 ${toneClass(item.tone, active)}`}>
         <Icon className="h-5 w-5" />
       </span>
       <span className="text-[10px] font-bold leading-tight text-white drop-shadow">{item.label}</span>

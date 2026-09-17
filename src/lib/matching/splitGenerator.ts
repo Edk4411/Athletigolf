@@ -229,16 +229,13 @@ function fillWeek(trainingDays: GeneratedDay[]): GeneratedDay[] {
 function applyProtectedRestDays(trainingDays: GeneratedDay[], restDays: string[], preferredDays: Record<string, string> = {}): GeneratedDay[] {
   if (restDays.length === 0) return trainingDays;
   const protectedDays = new Set(restDays);
-  const preferredSet = new Set(Object.values(preferredDays).filter(Boolean));
-  const usedDays = new Set(trainingDays.map((day) => day.day));
+  const usedDays = new Set(trainingDays.filter((day) => !protectedDays.has(day.day)).map((day) => day.day));
   const availableDays = weekDays.filter((day) => !protectedDays.has(day));
 
   return trainingDays.map((trainingDay) => {
     if (!protectedDays.has(trainingDay.day)) return trainingDay;
-    if (preferredSet.has(trainingDay.day) && preferredDays[trainingDay.focus] === trainingDay.day) return trainingDay;
-
     const replacementDay = availableDays.find((day) => !usedDays.has(day));
-    if (!replacementDay) return trainingDay;
+    if (!replacementDay) return { ...trainingDay, day: "" };
 
     usedDays.delete(trainingDay.day);
     usedDays.add(replacementDay);

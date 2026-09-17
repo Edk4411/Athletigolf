@@ -24,11 +24,14 @@ import type {
   FriendConnectionProfile,
   FriendSearchResult,
   LiveActivity,
+  MatchPreferences,
+  MatchRequest,
   OnboardingData,
 } from "@/lib/types";
 import { normalizeUsername } from "@/lib/usernames";
 
 type ActivityType = LiveActivity["activity_type"];
+type PublicMatchCandidate = { user_id: string; display_name: string; gym_area: string | null; gym_name: string | null; golf_area: string | null; home_course: string | null; handicap_min: number | null; handicap_max: number | null };
 
 const activityOptions: Array<{ value: ActivityType; label: string }> = [
   { value: "available", label: "Free to play/train" },
@@ -61,6 +64,15 @@ export default function Social() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [matchPreferences, setMatchPreferences] = useState<Partial<MatchPreferences>>({ public_opt_in: false, gym_goals: [], gym_availability: [], golf_availability: [] });
+  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>([]);
+  const [matchType, setMatchType] = useState<MatchRequest["match_type"]>("gym_bro");
+  const [matchRecipient, setMatchRecipient] = useState("");
+  const [matchDate, setMatchDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [matchTime, setMatchTime] = useState("");
+  const [matchVenue, setMatchVenue] = useState("");
+  const [matchNote, setMatchNote] = useState("");
+  const [publicMatches, setPublicMatches] = useState<PublicMatchCandidate[]>([]);
 
   useEffect(() => {
     void loadSocial();
@@ -84,7 +96,7 @@ export default function Social() {
 
     setUserId(user.id);
 
-    const [activityResponse, connectionResponse, profileResponse] = await Promise.all([
+    const [activityResponse, connectionResponse, profileResponse, preferenceResponse, requestResponse, publicMatchResponse] = await Promise.all([
       supabase
         .from("live_activities")
         .select("*")
@@ -93,6 +105,9 @@ export default function Social() {
         .limit(50),
       supabase.rpc("get_friend_connections_with_profiles"),
       supabase.from("profiles").select("username, onboarding_data").eq("id", user.id).maybeSingle(),
+      supabase.from("match_preferences").select("*").eq("user_id", user.id).maybeSingle(),
+      supabase.from("match_requests").select("*").or(`requester_id.eq.${user.id},recipient_id.eq.${user.id}`).order("created_at", { ascending: false }),
+      supabase.rpc("get_public_match_candidates"),
     ]);
 
     if (activityResponse.error) {
@@ -113,8 +128,37 @@ export default function Social() {
       const onboarding = profileResponse.data?.onboarding_data as OnboardingData | null;
       setProfileUsername(profileResponse.data?.username || onboarding?.social?.username || null);
     }
+    if (preferenceResponse.data) setMatchPreferences(preferenceResponse.data as MatchPreferences);
+    if (requestResponse.error) setError(requestResponse.error.message);
+    else setMatchRequests((requestResponse.data || []) as MatchRequest[]);
+    if (!publicMatchResponse.error) setPublicMatches((publicMatchResponse.data || []) as PublicMatchCandidate[]);
 
     setLoading(false);
+  }
+
+  async function saveMatchPreferences() {
+    if (!userId) return;
+    setSaving(true); setError(null);
+    const { error: preferenceError } = await supabase.from("match_preferences").upsert({ user_id: userId, ...matchPreferences });
+    if (preferenceError) setError(preferenceError.message);
+    setSaving(false);
+  }
+
+  async function sendMatchRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!userId || !matchRecipient || !matchDate) return;
+    setSaving(true); setError(null);
+    const { error: requestError } = await supabase.from("match_requests").insert({ requester_id: userId, recipient_id: matchRecipient, match_type: matchType, requested_date: matchDate, requested_time: matchTime || null, venue: matchVenue.trim() || null, note: matchNote.trim() || null });
+    if (requestError) setError(requestError.message);
+    else { setMatchVenue(""); setMatchNote(""); setMatchTime(""); await loadSocial(); }
+    setSaving(false);
+  }
+
+  async function updateMatchRequest(id: string, status: MatchRequest["status"]) {
+    setSaving(true); setError(null);
+    const { error: requestError } = await supabase.from("match_requests").update({ status }).eq("id", id);
+    if (requestError) setError(requestError.message); else await loadSocial();
+    setSaving(false);
   }
 
   async function startActivity(event: FormEvent<HTMLFormElement>) {
@@ -360,6 +404,11 @@ export default function Social() {
   });
 
   const acceptedConnections = connections.filter((connection) => connection.status === "accepted");
+  const compatiblePublicMatches = publicMatches.filter((candidate) => {
+    const gymCompatible = !matchPreferences.gym_area || !candidate.gym_area || candidate.gym_area.toLowerCase() === matchPreferences.gym_area.toLowerCase();
+    const golfCompatible = !matchPreferences.golf_area || !candidate.golf_area || candidate.golf_area.toLowerCase() === matchPreferences.golf_area.toLowerCase();
+    return gymCompatible || golfCompatible;
+  });
   const acceptedCount = acceptedConnections.length;
   const pendingCount = incomingRequests.length + outgoingRequests.length;
   const liveNow = friendActivities.slice(0, 5);
@@ -466,6 +515,39 @@ export default function Social() {
             names={friendNameById}
           />
         </div>
+      </Section>
+
+      <Section title="Find a Gym Bro or Fourball">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Surface className="space-y-3 p-5">
+            <h3 className="text-lg font-black text-foreground">Matching preferences</h3>
+            <p className="text-sm text-muted">These details are optional. Turn on discovery only when you want compatible members to find you.</p>
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-line p-3 text-sm font-semibold text-dark">Public opt-in <input type="checkbox" checked={Boolean(matchPreferences.public_opt_in)} onChange={(event) => setMatchPreferences((current) => ({ ...current, public_opt_in: event.target.checked }))} /></label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <TextInput value={matchPreferences.gym_area || ""} onChange={(event) => setMatchPreferences((current) => ({ ...current, gym_area: event.target.value }))} placeholder="Gym area" />
+              <TextInput value={matchPreferences.gym_name || ""} onChange={(event) => setMatchPreferences((current) => ({ ...current, gym_name: event.target.value }))} placeholder="Gym" />
+              <TextInput value={matchPreferences.golf_area || ""} onChange={(event) => setMatchPreferences((current) => ({ ...current, golf_area: event.target.value }))} placeholder="Golf area" />
+              <TextInput value={matchPreferences.home_course || ""} onChange={(event) => setMatchPreferences((current) => ({ ...current, home_course: event.target.value }))} placeholder="Home course" />
+              <TextInput value={(matchPreferences.gym_goals || []).join(", ")} onChange={(event) => setMatchPreferences((current) => ({ ...current, gym_goals: event.target.value.split(",").map((item) => item.trim()).filter(Boolean) }))} placeholder="Gym goals, comma separated" />
+              <TextInput value={(matchPreferences.gym_availability || []).join(", ")} onChange={(event) => setMatchPreferences((current) => ({ ...current, gym_availability: event.target.value.split(",").map((item) => item.trim()).filter(Boolean) }))} placeholder="Gym availability, comma separated" />
+              <TextInput value={(matchPreferences.golf_availability || []).join(", ")} onChange={(event) => setMatchPreferences((current) => ({ ...current, golf_availability: event.target.value.split(",").map((item) => item.trim()).filter(Boolean) }))} placeholder="Golf availability, comma separated" />
+              <div className="grid grid-cols-2 gap-2"><TextInput type="number" value={matchPreferences.handicap_min ?? ""} onChange={(event) => setMatchPreferences((current) => ({ ...current, handicap_min: event.target.value === "" ? null : Number(event.target.value) }))} placeholder="Handicap min" /><TextInput type="number" value={matchPreferences.handicap_max ?? ""} onChange={(event) => setMatchPreferences((current) => ({ ...current, handicap_max: event.target.value === "" ? null : Number(event.target.value) }))} placeholder="Handicap max" /></div>
+            </div>
+            <Button type="button" onClick={saveMatchPreferences} disabled={saving}>Save matching preferences</Button>
+          </Surface>
+          <Surface className="space-y-3 p-5">
+            <h3 className="text-lg font-black text-foreground">Invite a friend</h3>
+            <p className="text-sm text-muted">Accepted friends appear first; send a concrete gym or golf invitation with a time and venue.</p>
+            <form className="space-y-2" onSubmit={sendMatchRequest}>
+              <SelectInput value={matchType} onChange={(event) => setMatchType(event.target.value as MatchRequest["match_type"])}><option value="gym_bro">Gym Bro</option><option value="fourball">Fourball</option></SelectInput>
+              <SelectInput value={matchRecipient} onChange={(event) => setMatchRecipient(event.target.value)}><option value="">Choose a member</option>{acceptedConnections.length > 0 && <optgroup label="Friends">{acceptedConnections.map((friend) => <option key={friend.other_user_id} value={friend.other_user_id}>{getConnectionLabel(friend, userId)}</option>)}</optgroup>}{compatiblePublicMatches.length > 0 && <optgroup label="Compatible public members">{compatiblePublicMatches.map((candidate) => <option key={candidate.user_id} value={candidate.user_id}>{candidate.display_name}{candidate.gym_area || candidate.golf_area ? ` · ${candidate.gym_area || candidate.golf_area}` : ""}</option>)}</optgroup>}</SelectInput>
+              <div className="grid grid-cols-2 gap-2"><TextInput type="date" value={matchDate} onChange={(event) => setMatchDate(event.target.value)} /><TextInput type="time" value={matchTime} onChange={(event) => setMatchTime(event.target.value)} /></div>
+              <TextInput value={matchVenue} onChange={(event) => setMatchVenue(event.target.value)} placeholder="Venue" /><TextArea value={matchNote} onChange={(event) => setMatchNote(event.target.value)} placeholder="Optional note" rows={2} />
+              <Button type="submit" disabled={saving || !matchRecipient}>Send invitation</Button>
+            </form>
+          </Surface>
+        </div>
+        {matchRequests.length > 0 && <div className="mt-4 space-y-2">{matchRequests.map((request) => <div key={request.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-panel p-3 text-sm"><span className="font-semibold text-dark">{request.match_type === "gym_bro" ? "Gym Bro" : "Fourball"} · {request.requested_date}{request.venue ? ` · ${request.venue}` : ""} · {request.status}</span>{request.recipient_id === userId && request.status === "pending" ? <span className="flex gap-2"><Button type="button" onClick={() => updateMatchRequest(request.id, "accepted")}>Accept</Button><Button type="button" variant="secondary" onClick={() => updateMatchRequest(request.id, "declined")}>Decline</Button></span> : request.requester_id === userId && request.status === "pending" ? <Button type="button" variant="secondary" onClick={() => updateMatchRequest(request.id, "cancelled")}>Cancel</Button> : null}</div>)}</div>}
       </Section>
 
       <Section title="Friends feed" action={<Link href="/round-history" className="text-sm font-bold text-cyan-600">Round history</Link>}>

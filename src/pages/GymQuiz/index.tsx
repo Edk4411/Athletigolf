@@ -213,12 +213,18 @@ export default function GymQuiz({ onComplete }: { onComplete: () => void }) {
   };
 
   const setPreferredDay = (focus: string, day: string) => {
-    setData((prev) => ({
-      ...prev,
-      preferredDays: day
-        ? { ...prev.preferredDays, [focus]: day }
-        : Object.fromEntries(Object.entries(prev.preferredDays).filter(([key]) => key !== focus)),
-    }));
+    setPrefConflict("");
+    setData((prev) => {
+      const alreadyUsedBy = Object.entries(prev.preferredDays).find(([otherFocus, otherDay]) => otherFocus !== focus && otherDay === day);
+      if (day && alreadyUsedBy) {
+        setPrefConflict(`${day} is already assigned to ${alreadyUsedBy[0]}. Choose a different day before continuing.`);
+        return prev;
+      }
+      return {
+        ...prev,
+        preferredDays: day ? { ...prev.preferredDays, [focus]: day } : Object.fromEntries(Object.entries(prev.preferredDays).filter(([key]) => key !== focus)),
+      };
+    });
   };
 
   const toggleExercisePreference = (type: "includeExercises" | "avoidExercises", value: string) => {
@@ -265,6 +271,11 @@ export default function GymQuiz({ onComplete }: { onComplete: () => void }) {
   }
 
   const saveGeneratedSplit = async () => {
+    const trainingDays = plan.days.filter((day) => day.focus !== "Rest");
+    if (new Set(trainingDays.map((day) => day.day)).size !== trainingDays.length) {
+      setSaveError("Each training session must be on a unique day. Adjust the day layout and try again.");
+      return;
+    }
     setSaving(true);
     setSaveError("");
 
@@ -304,8 +315,8 @@ export default function GymQuiz({ onComplete }: { onComplete: () => void }) {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-cream p-6 text-ink">
-      <div className="w-full max-w-5xl rounded-xl border border-line bg-panel p-6 shadow-sm md:p-8">
+    <div className="min-h-screen bg-cream px-3 py-4 text-ink sm:flex sm:items-center sm:justify-center sm:p-6">
+      <div className="mx-auto w-full max-w-5xl overflow-hidden rounded-xl border border-line bg-panel p-4 shadow-sm sm:p-6 md:p-8">
         <div className="mb-6 flex flex-col gap-4 border-b border-line pb-5 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-pulse">Performance Lab Setup</p>
@@ -333,6 +344,7 @@ export default function GymQuiz({ onComplete }: { onComplete: () => void }) {
               {current.custom === "dayPreferences" ? (
                 <>
                   <DayLayoutSelector data={data} gymOnly={gymOnly} onChange={setPreferredDay} />
+                  {prefConflict && <p className="rounded-lg border border-danger/20 bg-danger/10 p-2 text-sm font-semibold text-danger">{prefConflict}</p>}
                   <Button type="button" variant="primary" onClick={continueFromMultiStep}>Continue</Button>
                 </>
               ) : current.custom === "exercisePreferences" ? (

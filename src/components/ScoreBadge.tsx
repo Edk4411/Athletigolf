@@ -41,10 +41,10 @@ export default function ScoreBadge({ score, par, scoreToPar, size = "md", classN
 
 function getScoreTone(relativeScore: number | null) {
   if (relativeScore === null) return "rounded-full border-steel/15 bg-steel/7 text-dark";
-  if (relativeScore <= -3) return "rounded-full border-yellow-300 bg-yellow-300 text-dark";
-  if (relativeScore === -2) return "rounded-full border-green-200 bg-green-200 text-green-950";
+  if (relativeScore <= -3) return "rounded-full border-green-200 bg-green-200 text-green-950";
+  if (relativeScore === -2) return "rounded-full border-yellow-300 bg-yellow-300 text-dark";
   if (relativeScore === -1) return "rounded-full border-red-500 bg-red-500 text-white";
-  if (relativeScore === 0) return "rounded-full border-transparent bg-transparent text-dark";
+  if (relativeScore === 0) return "border-transparent bg-transparent text-dark";
   if (relativeScore === 1) return "rounded-sm border-sky-200 bg-sky-200 text-sky-950";
   if (relativeScore === 2) return "rounded-sm border-blue-700 bg-blue-700 text-white";
   return "rounded-sm border-purple-600 bg-purple-600 text-white";

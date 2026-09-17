@@ -53,7 +53,7 @@ const gymItems: GymHubItem[] = [
   {
     label: "Supplement Recommendations",
     description: "Protein powder, pre-workout and creatine picks.",
-    href: "/recommendations",
+    href: "/recommendations/supplements",
     icon: Sparkles,
     tone: "bg-orange-400/15 text-orange-100 border-orange-200/20",
   },

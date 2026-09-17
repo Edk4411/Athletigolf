@@ -24,16 +24,29 @@ const iconFor: Record<PracticeMode, typeof Flag> = {
 function parseParams() {
   if (typeof window === "undefined") return {};
   const params = new URLSearchParams(window.location.search);
+  const requestedType = params.get("type");
+  const legacyModes: Record<string, PracticeMode> = {
+    "Driving Range": "driving_range",
+    "Short Game": "short_game",
+    Putting: "putting",
+    Simulator: "simulator",
+    "On Course": "on_course",
+  };
+  const initialMode = requestedType && PRACTICE_MODES.some((mode) => mode.value === requestedType)
+    ? requestedType as PracticeMode
+    : requestedType ? legacyModes[requestedType] || null : null;
   return {
-    initialMode: params.get("type") as PracticeMode | null,
+    initialMode,
     initialSource: params.get("source") as PracticeSource | null,
     initialSourceMode: params.get("source_mode") || undefined,
+    plannedFocus: params.get("focus") || "",
+    plannedDrills: params.get("drills") || "",
   };
 }
 
 export default function LogPractice() {
   const [, navigate] = useLocation();
-  const { initialMode, initialSource, initialSourceMode } = parseParams();
+  const { initialMode, initialSource, initialSourceMode, plannedFocus, plannedDrills } = parseParams();
 
   const [step, setStep] = useState<"type" | "source" | "details">(initialMode ? "source" : "type");
   const [mode, setMode] = useState<PracticeMode | null>(initialMode || null);
@@ -45,7 +58,10 @@ export default function LogPractice() {
   const [location, setLocationText] = useState("");
   const [courseName, setCourseName] = useState("");
   const [handicap, setHandicap] = useState<string>("");
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(() => [
+    plannedFocus ? `Plan focus: ${plannedFocus}` : "",
+    plannedDrills ? `Planned drills: ${plannedDrills}` : "",
+  ].filter(Boolean).join("\n"));
   const [rating, setRating] = useState("");
 
   const [clubAverages, setClubAverages] = useState<ClubAverage[]>([]);
@@ -72,6 +88,21 @@ export default function LogPractice() {
     setSaving(true); setSaveError("");
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !mode) { setSaveError("Missing user or mode"); setSaving(false); return; }
+    const durationValue = duration ? Number(duration) : 0;
+    const ratingValue = rating ? Number(rating) : null;
+    const handicapValue = handicap ? Number(handicap) : null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(sessionDate) || Number.isNaN(Date.parse(sessionDate))) {
+      setSaveError("Enter a valid session date."); setSaving(false); return;
+    }
+    if (!Number.isInteger(durationValue) || durationValue < 0) {
+      setSaveError("Duration must be a whole number of minutes."); setSaving(false); return;
+    }
+    if (ratingValue !== null && (!Number.isInteger(ratingValue) || ratingValue < 1 || ratingValue > 10)) {
+      setSaveError("Self rating must be between 1 and 10."); setSaving(false); return;
+    }
+    if (handicapValue !== null && (!Number.isFinite(handicapValue) || handicapValue < 0)) {
+      setSaveError("Handicap must be a valid positive number."); setSaving(false); return;
+    }
 
     const payload = {
       user_id: user.id,
@@ -79,15 +110,15 @@ export default function LogPractice() {
       source,
       source_mode: sourceMode || null,
       session_date: sessionDate,
-      duration_minutes: duration ? parseInt(duration) : 0,
+      duration_minutes: durationValue,
       location: location.trim() || null,
       course_name: courseName.trim() || null,
-      handicap_at_session: handicap ? Number(handicap) : null,
-      metrics,
+      handicap_at_session: handicapValue,
+      metrics: { ...metrics, ...(plannedFocus ? { planned_focus: plannedFocus } : {}), ...(plannedDrills ? { planned_drills: plannedDrills } : {}) },
       club_averages: clubAverages.filter((c) => c.club?.trim()),
       shots: [],
       notes: notes.trim() || null,
-      rating: rating ? parseInt(rating) : null,
+      rating: ratingValue,
       // Fill legacy columns so the old PracticeHistory rendering still works.
       practice_type: PRACTICE_MODES.find((m) => m.value === mode)?.label || mode,
     };

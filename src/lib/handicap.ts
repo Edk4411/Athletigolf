@@ -54,17 +54,24 @@ export function computePlayingHandicap(
 export function getStrokesReceived(
   playingHandicap: number,
   holeStrokeIndex: number | null,
-  holesPlayed: 9 | 18
+  holesPlayed: 9 | 18,
+  strokeIndexRank?: number | null
 ): number {
   if (!playingHandicap || playingHandicap <= 0) return 0;
 
-  const si = holeStrokeIndex || 18;
-  const base = Math.floor(playingHandicap / 18);
-  const remainder = playingHandicap % 18;
+  // A nine-hole round needs a nine-hole playing handicap.  The course API
+  // supplies 18-hole tee data, so use the nearest whole half until a
+  // dedicated nine-hole rating is available.  `strokeIndexRank` lets callers
+  // rank the selected nine's SI values (important for a back-nine scorecard,
+  // whose source indices are normally 10–18).
+  const effectiveHandicap = holesPlayed === 9
+    ? Math.round(playingHandicap / 2)
+    : playingHandicap;
+  const si = strokeIndexRank ?? holeStrokeIndex ?? (holesPlayed === 9 ? 9 : 18);
+  const base = Math.floor(effectiveHandicap / holesPlayed);
+  const remainder = effectiveHandicap % holesPlayed;
 
-  const halfAdjustment = holesPlayed === 9 ? Math.floor(base / 2) : base;
-
-  return halfAdjustment + (si <= remainder ? 1 : 0);
+  return base + (si >= 1 && si <= remainder ? 1 : 0);
 }
 
 export function strokesOnHole(
@@ -118,7 +125,7 @@ export function matchStatusLabel(
   label: string;
   closeout: boolean;
 } {
-  const lead = results.reduce((sum, result) => sum + result, 0);
+  const lead = results.reduce<number>((sum, result) => sum + result, 0);
   const abs = Math.abs(lead);
 
   if (abs > holesRemaining) {

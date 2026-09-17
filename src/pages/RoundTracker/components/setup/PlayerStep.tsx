@@ -9,7 +9,7 @@ export function PlayerStep({
   ownHandicap, ownAllowancePercent, selectedTee, livePlayers, friends,
   newPlayerName, newPlayerHandicap, newPlayerAllowance, defaultAllowance,
   setOwnHandicap, setOwnAllowancePercent, setNewPlayerName, setNewPlayerHandicap,
-  setNewPlayerAllowance, addFriendPlayer, addLivePlayer, removeLivePlayer,
+  setNewPlayerAllowance, addFriendPlayer, addLivePlayer, removeLivePlayer, updatePlayerAllowance,
   onBack, onNext,
 }: any) {
   return (
@@ -112,9 +112,16 @@ export function PlayerStep({
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-dark">{player.name}</p>
                 <p className="text-xs text-muted">
-                  {player.handicap ? `HCP ${player.handicap}` : "No HCP"} · Allowance {player.allowancePercent}%
+                  {player.handicap ? `HCP ${player.handicap}` : "No HCP"}
                 </p>
               </div>
+              <label className="flex shrink-0 items-center gap-1 text-xs font-semibold text-muted">
+                Allowance
+                <input type="number" min={0} max={100} value={player.allowancePercent}
+                  onChange={(e) => updatePlayerAllowance(player.id, Number(e.target.value) || 0)}
+                  className="w-16 rounded-lg border border-line px-2 py-1.5 text-center text-dark outline-none focus:border-golf" />
+                %
+              </label>
               <button type="button" onClick={() => removeLivePlayer(player.id)} className="text-xs font-semibold text-muted hover:text-danger">
                 Remove
               </button>

@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
+    "test:golf-logic": "node --experimental-strip-types tests/golf-logic.test.ts",
+    "test:logic": "node --experimental-strip-types tests/golf-logic.test.ts && node --experimental-strip-types tests/phase-improvements.test.ts",
     "app:sync": "npm run build && npx cap sync",
     "app:android": "npm run app:sync && npx cap open android"
   },
@@ -30,6 +32,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.4",
+    "supabase": "^2.115.0",
     "tailwindcss": "^4.1.14",
     "typescript": "~5.9.2",
     "vite": "^7.3.2"

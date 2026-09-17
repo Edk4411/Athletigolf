@@ -38,7 +38,7 @@ const defaultSplit: SplitDayState[] = [
 
 export default function CreateSplit() {
   const [, navigate] = useLocation();
-  const { exercises: libraryExercises } = useExerciseLibrary();
+  const { exercises: libraryExercises, createPersonalExercise } = useExerciseLibrary();
   const [split, setSplit] = useState<SplitDayState[]>(defaultSplit);
   const [hasActiveSplit, setHasActiveSplit] = useState(false);
   const [showCreateChoice, setShowCreateChoice] = useState(false);
@@ -54,6 +54,11 @@ export default function CreateSplit() {
   const [editFocus, setEditFocus] = useState("");
   const [editExercises, setEditExercises] = useState<string[]>([]);
   const [draggedExercise, setDraggedExercise] = useState<number | null>(null);
+  const [customExerciseName, setCustomExerciseName] = useState("");
+  const [customPrimaryMuscle, setCustomPrimaryMuscle] = useState("");
+  const [customSecondaryMuscles, setCustomSecondaryMuscles] = useState("");
+  const [customEquipment, setCustomEquipment] = useState("");
+  const [customExerciseError, setCustomExerciseError] = useState("");
 
   useEffect(() => {
     loadSplit();
@@ -185,6 +190,25 @@ export default function CreateSplit() {
 
   const addExercise = () => {
     setEditExercises((prev) => [...prev, ""]);
+  };
+
+  const addPersonalExercise = async () => {
+    if (!customExerciseName.trim() || !customPrimaryMuscle.trim()) {
+      setCustomExerciseError("Enter the exercise name and primary muscle group.");
+      return;
+    }
+    try {
+      const exercise = await createPersonalExercise({
+        name: customExerciseName,
+        primaryMuscle: customPrimaryMuscle,
+        secondaryMuscles: customSecondaryMuscles.split(",").map((item) => item.trim()).filter(Boolean),
+        equipment: customEquipment,
+      });
+      setEditExercises((current) => [...current, exercise.name]);
+      setCustomExerciseName(""); setCustomPrimaryMuscle(""); setCustomSecondaryMuscles(""); setCustomEquipment(""); setCustomExerciseError("");
+    } catch (error) {
+      setCustomExerciseError(error instanceof Error ? error.message : "Could not save personal exercise.");
+    }
   };
 
   const removeExercise = (index: number) => {
@@ -505,14 +529,20 @@ export default function CreateSplit() {
                 ))}
               </div>
 
-              {/* TODO: Implement moderation system for custom exercises */}
+              {/* TODO: add a community moderation/review system for shared custom exercises. */}
               <div className="mt-4 p-4 border border-line rounded-xl bg-panel">
                 <p className="text-sm font-semibold text-dark mb-2">Can't find your exercise?</p>
-                <p className="text-xs text-muted mb-3">Add it as a custom exercise.</p>
-                {/* Custom exercise fields here (Exercise name, primary muscle, secondary muscle, equipment, notes) */}
-                <Button variant="secondary" onClick={addExercise} className="w-full">
+                <p className="text-xs text-muted mb-3">Save a private exercise that will appear in your library and future sessions.</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <TextInput value={customExerciseName} onChange={(event) => setCustomExerciseName(event.target.value)} placeholder="Exercise name" />
+                  <TextInput value={customPrimaryMuscle} onChange={(event) => setCustomPrimaryMuscle(event.target.value)} placeholder="Primary muscle group" />
+                  <TextInput value={customSecondaryMuscles} onChange={(event) => setCustomSecondaryMuscles(event.target.value)} placeholder="Secondary muscles, comma separated" />
+                  <TextInput value={customEquipment} onChange={(event) => setCustomEquipment(event.target.value)} placeholder="Equipment (optional)" />
+                </div>
+                {customExerciseError && <p className="mt-2 text-xs font-semibold text-danger">{customExerciseError}</p>}
+                <Button type="button" variant="secondary" onClick={addPersonalExercise} className="mt-3 w-full">
                   <Plus className="h-4 w-4" />
-                  Add Custom Exercise
+                  Save personal exercise
                 </Button>
               </div>
             </div>

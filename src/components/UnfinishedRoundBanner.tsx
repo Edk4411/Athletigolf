@@ -6,7 +6,7 @@ import { useLocation } from "wouter";
 import { AlertTriangle, Play, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import { clearRoundDraft, draftAgeMinutes, loadRoundDraft, type RoundDraftSnapshot } from "@/lib/roundDraft";
+import { clearRoundDraft, draftAgeMinutes, loadRoundDraft, type RoundDraftState } from "@/lib/roundDraft";
 
 type UnfinishedRound = {
   id: string;
@@ -23,7 +23,7 @@ export default function UnfinishedRoundBanner({ resumeDestination }: { resumeDes
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const [remote, setRemote] = useState<UnfinishedRound | null>(null);
-  const [local, setLocal] = useState<RoundDraftSnapshot | null>(null);
+  const [local, setLocal] = useState<RoundDraftState | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
@@ -42,9 +42,9 @@ export default function UnfinishedRoundBanner({ resumeDestination }: { resumeDes
   if (dismissed) return null;
   if (!remote && !local) return null;
 
-  const roundName = remote?.round_name || local?.round_name || "Unfinished round";
+  const roundName = remote?.round_name || local?.roundName || "Unfinished round";
   const courseName = remote?.course || local?.course || "";
-  const holesDone = local?.current_hole_index != null ? `${local.current_hole_index}/${local.holes_played}` : (remote ? `${remote.holes_played ?? 0}/${remote.target_holes ?? 18}` : "");
+  const holesDone = local ? `${local.holes.filter((hole) => hole.score !== "").length}/${local.holesPlayed}` : (remote ? `${remote.holes_played ?? 0}/${remote.target_holes ?? 18}` : "");
   const ageMin = draftAgeMinutes(local);
   const ageLabel = ageMin == null ? "" : ageMin < 60 ? `${ageMin}m ago` : `${Math.round(ageMin / 60)}h ago`;
 
@@ -71,7 +71,7 @@ export default function UnfinishedRoundBanner({ resumeDestination }: { resumeDes
       </button>
       <button
         type="button"
-        onClick={() => { clearRoundDraft(user?.id); setDismissed(true); }}
+        onClick={() => { if (user) clearRoundDraft(user.id); setDismissed(true); }}
         aria-label="Dismiss"
         className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-amber-800/80 hover:bg-amber-100"
         data-testid="dismiss-unfinished-banner"

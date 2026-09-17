@@ -660,14 +660,8 @@ function getMatchplayStats(games: RoundGame[], gameHoles: RoundGameHole[], resul
   const relevantResults = results.filter((result) => matchGameIds.has(result.round_game_id));
   const teamAResults = relevantResults.filter((result) => result.result_payload?.team === "A");
 
-  const wins = teamAResults.filter((result) => {
-    const label = `${result.result_label || ""} ${result.result_payload?.closeout || ""}`.toLowerCase();
-    return label.includes("team a wins");
-  }).length;
-  const losses = teamAResults.filter((result) => {
-    const label = `${result.result_label || ""} ${result.result_payload?.closeout || ""}`.toLowerCase();
-    return label.includes("team b wins");
-  }).length;
+  const wins = teamAResults.filter((result) => result.position === 1 && !relevantResults.some((other) => other.round_game_id === result.round_game_id && other.result_payload?.team === "B" && other.position === 1)).length;
+  const losses = teamAResults.filter((result) => result.position === 2).length;
   const halves = Math.max(0, matchGames.length - wins - losses);
 
   const holeOutcomes: MatchplayHoleOutcome[] = relevantHoles
@@ -711,9 +705,9 @@ function getMatchplayStats(games: RoundGame[], gameHoles: RoundGameHole[], resul
     wins,
     losses,
     halves,
-    holesWon: holeOutcomes.filter((hole) => hole.leader === "A").length,
-    holesLost: holeOutcomes.filter((hole) => hole.leader === "B").length,
-    holesHalved: holeOutcomes.filter((hole) => hole.leader === "AS").length,
+    holesWon: holeOutcomes.filter((hole) => hole.label === "Team A wins").length,
+    holesLost: holeOutcomes.filter((hole) => hole.label === "Team B wins").length,
+    holesHalved: holeOutcomes.filter((hole) => hole.label === "Halved").length,
     closeouts,
     recentResults,
     holeOutcomes,

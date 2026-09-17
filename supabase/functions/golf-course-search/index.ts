@@ -72,8 +72,15 @@ Deno.serve(async (request) => {
     }
 
     // Fallback to external API
-    const results = await searchCourses(query);
-    return json({ results: results.slice(0, 12) });
+    try {
+        const results = await searchCourses(query);
+        return json({ results: results.slice(0, 12) });
+    } catch (error) {
+        return json(
+            { results: [], warning: "Golf course API is currently unavailable." },
+            503
+        );
+    }
   } catch (error) {
     return json(
       { results: [], warning: error instanceof Error ? error.message : "Golf course search failed." },
@@ -111,50 +118,141 @@ async function searchLocalCourses(query: string): Promise<SearchCourse[]> {
   }
 }
 
-async function searchCourses(query: string, apiKey: string): Promise<SearchCourse[]> {
-  const url = new URL(`${apiBase}/search`);
-  url.searchParams.set("search_query", query);
+async function searchCourses(query: string): Promise<SearchCourse[]> {
+  const url = new URL(`${apiBase}/clubs`);
+  url.searchParams.set("name", query);
+  url.searchParams.set("limit", "5");
 
   const response = await fetch(url, {
     headers: {
-      Authorization: `Bearer ${apiKey}`,
       Accept: "application/json",
     },
   });
 
-  if (!response.ok) throw new Error("GolfCourseAPI search failed.");
+  if (!response.ok) throw new Error("B3 Clubs search failed.");
 
-  const data = await response.json();
-  const courses = Array.isArray(data.courses)
-    ? data.courses
-    : Array.isArray(data)
-      ? data
-      : Array.isArray(data.results)
-        ? data.results
-        : [];
+  const clubsData = await response.json();
+  const clubs = Array.isArray(clubsData.items) ? clubsData.items : [];
 
-  return courses.map(normaliseSearchCourse).filter((course): course is SearchCourse => Boolean(course));
+  const results: SearchCourse[] = [];
+
+  for (const club of clubs) {
+    try {
+      const coursesResponse = await fetch(`${apiBase}/clubs/${club.id}/courses`, {
+        headers: { Accept: "application/json" },
+      });
+      if (!coursesResponse.ok) continue;
+
+      const coursesData = await coursesResponse.json();
+      const courses = Array.isArray(coursesData.items) ? coursesData.items : [];
+
+      courses.forEach((course: any) => {
+        results.push({
+          id: course.id,
+          clubName: club.name || "Golf Club",
+          courseName: course.name || "Course",
+          location: [club.address1, club.postcode].filter(Boolean).join(", ") || null,
+          city: club.address2 || null,
+          state: club.address3 || null,
+          country: null,
+        });
+      });
+    } catch (e) {
+      // Squelch individual club fetch errors
+    }
+  }
+
+  return results;
 }
 
-async function fetchCourseDetail(courseId: number, apiKey: string): Promise<CourseDetail> {
-  const response = await fetch(`${apiBase}/courses/${courseId}`, {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      Accept: "application/json",
-    },
+async function fetchCourseDetail(courseId: number): Promise<CourseDetail> {
+  // To get the club and course name without GET /courses/{course_id},
+  // we scan the clubs to find which one owns this courseId.
+  const clubsResponse = await fetch(`${apiBase}/clubs?limit=100`, {
+    headers: { Accept: "application/json" },
   });
+  if (!clubsResponse.ok) throw new Error("B3 Clubs list failed.");
 
-  if (!response.ok) throw new Error("GolfCourseAPI course detail failed.");
+  const clubsData = await clubsResponse.json();
+  const clubs = Array.isArray(clubsData.items) ? clubsData.items : [];
 
-  const data = await response.json();
-  const courseData = data.course || data;
-  const base = normaliseSearchCourse(courseData);
-  if (!base) throw new Error("Golf course detail was missing course data.");
+  let foundClub: any = null;
+  let foundCourse: any = null;
+
+  for (const club of clubs) {
+    const coursesResponse = await fetch(`${apiBase}/clubs/${club.id}/courses`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!coursesResponse.ok) continue;
+
+    const coursesData = await coursesResponse.json();
+    const courses = Array.isArray(coursesData.items) ? coursesData.items : [];
+
+    const match = courses.find((c: any) => c.id === courseId);
+    if (match) {
+      foundClub = club;
+      foundCourse = match;
+      break; // Found, stop searching
+    }
+  }
+
+  if (!foundClub || !foundCourse) {
+    throw new Error("Course not found in B3 database.");
+  }
+
+  // Fetch markers for this course
+  const markersResponse = await fetch(`${apiBase}/courses/${courseId}/markers`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!markersResponse.ok) throw new Error("B3 Course markers failed.");
+
+  const markersData = await markersResponse.json();
+  const markers = Array.isArray(markersData.items) ? markersData.items : [];
+
+  const tees: CourseTee[] = [];
+
+  for (const marker of markers) {
+    const holesResponse = await fetch(`${apiBase}/markers/${marker.id}/holes`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!holesResponse.ok) continue;
+
+    const holesData = await holesResponse.json();
+    const holes = Array.isArray(holesData.items) ? holesData.items : [];
+
+    const mappedHoles: CourseHole[] = holes.map((h: any) => ({
+      holeNumber: Number(h.number),
+      par: h.par ? Number(h.par) : null,
+      yardage: h.distance_yards ? Number(h.distance_yards) : null,
+      meters: h.distance_meters ? Number(h.distance_meters) : null,
+      handicap: h.stroke_index ? Number(h.stroke_index) : null,
+    }));
+
+    tees.push({
+      id: `api-${marker.id}`,
+      gender: "unknown",
+      teeName: marker.marker || "Tee",
+      courseRating: marker.course_rating ? Number(marker.course_rating) : null,
+      slopeRating: marker.slope_rating ? Number(marker.slope_rating) : null,
+      bogeyRating: null,
+      totalYards: marker.yards_total ? Number(marker.yards_total) : null,
+      totalMeters: marker.meters_total ? Number(marker.meters_total) : null,
+      numberOfHoles: mappedHoles.length,
+      parTotal: marker.par_total ? Number(marker.par_total) : null,
+      holes: mappedHoles,
+    });
+  }
 
   return {
-    ...base,
+    id: courseId,
+    clubName: foundClub.name || "Golf Club",
+    courseName: foundCourse.name || "Course",
+    location: [foundClub.address1, foundClub.postcode].filter(Boolean).join(", ") || null,
+    city: foundClub.address2 || null,
+    state: foundClub.address3 || null,
+    country: null,
     cachedCourseId: null,
-    tees: normaliseTees(courseData),
+    tees,
   };
 }
 
@@ -235,89 +333,6 @@ async function cacheCourse(detail: CourseDetail): Promise<CourseDetail> {
   }
 
   return { ...detail, cachedCourseId, tees: cachedTees };
-}
-
-function normaliseSearchCourse(item: any): SearchCourse | null {
-  const id = toNumber(item.id ?? item.course_id ?? item.courseId);
-  if (!id) return null;
-
-  const clubName = clean(item.club_name ?? item.clubName ?? item.facility_name ?? item.name) || "Golf club";
-  const courseName = clean(item.course_name ?? item.courseName ?? item.name) || clubName;
-  const city = clean(item.city);
-  const state = clean(item.state ?? item.region);
-  const country = clean(item.country);
-  const location = clean(
-    item.address ??
-      item.location ??
-      [city, state, country].filter(Boolean).join(", ")
-  );
-
-  return {
-    id,
-    clubName,
-    courseName,
-    location,
-    city,
-    state,
-    country,
-  };
-}
-
-function normaliseTees(courseData: any): CourseTee[] {
-  const tees = courseData.tees || {};
-  const groups = [
-    ...normaliseTeeGroup("male", tees.male),
-    ...normaliseTeeGroup("female", tees.female),
-    ...normaliseTeeGroup("unknown", Array.isArray(tees) ? tees : courseData.tee_boxes),
-  ];
-
-  return groups.filter((tee, index, all) => {
-    const key = `${tee.gender}-${tee.teeName}-${tee.numberOfHoles}`;
-    return all.findIndex((candidate) => `${candidate.gender}-${candidate.teeName}-${candidate.numberOfHoles}` === key) === index;
-  });
-}
-
-function normaliseTeeGroup(gender: string, tees: any): CourseTee[] {
-  if (!Array.isArray(tees)) return [];
-  return tees.map((tee, index) => {
-    const holes = normaliseHoles(tee.holes);
-    const parTotal = holes.reduce((sum, hole) => sum + (hole.par || 0), 0) || toNumber(tee.par_total ?? tee.par);
-    const totalYards =
-      toNumber(tee.total_yards ?? tee.totalYards ?? tee.yards ?? tee.yardage) ||
-      holes.reduce((sum, hole) => sum + (hole.yardage || 0), 0) ||
-      null;
-    const totalMeters =
-      toNumber(tee.total_meters ?? tee.totalMeters ?? tee.meters) ||
-      holes.reduce((sum, hole) => sum + (hole.meters || 0), 0) ||
-      null;
-
-    return {
-      id: `api-${gender}-${clean(tee.tee_name ?? tee.teeName ?? tee.name) || index}`,
-      gender,
-      teeName: clean(tee.tee_name ?? tee.teeName ?? tee.name ?? tee.color) || `Tee ${index + 1}`,
-      courseRating: toNumber(tee.course_rating ?? tee.courseRating),
-      slopeRating: toNumber(tee.slope_rating ?? tee.slopeRating),
-      bogeyRating: toNumber(tee.bogey_rating ?? tee.bogeyRating),
-      totalYards,
-      totalMeters,
-      numberOfHoles: toNumber(tee.number_of_holes ?? tee.numberOfHoles) || holes.length || null,
-      parTotal,
-      holes,
-    };
-  });
-}
-
-function normaliseHoles(holes: any): CourseHole[] {
-  if (!Array.isArray(holes)) return [];
-  return holes
-    .map((hole, index) => ({
-      holeNumber: toNumber(hole.hole ?? hole.hole_number ?? hole.number) || index + 1,
-      par: toNumber(hole.par),
-      yardage: toNumber(hole.yardage ?? hole.yards),
-      meters: toNumber(hole.meters),
-      handicap: toNumber(hole.handicap ?? hole.stroke_index ?? hole.strokeIndex),
-    }))
-    .sort((a, b) => a.holeNumber - b.holeNumber);
 }
 
 async function supabaseFetch(

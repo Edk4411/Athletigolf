@@ -82,7 +82,7 @@ const golfItems: GolfHubItem[] = [
     label: "Log Practice",
     description:
       "Range, short game, putting, on-course or sim - AthletiAI picks the right stats.",
-    href: "/practice/new",
+    href: "/golf/practice",
     icon: Activity,
     tone:
       "bg-orange-400/15 text-orange-100 border-orange-200/20",
@@ -91,7 +91,7 @@ const golfItems: GolfHubItem[] = [
     label: "Gear Recommendations",
     description:
       "Balls, clubs and gear picks curated by handicap.",
-    href: "/recommendations",
+    href: "/recommendations/golf-gear",
     icon: Sparkles,
     tone:
       "bg-amber-400/15 text-amber-100 border-gold/25",
@@ -104,15 +104,6 @@ const golfItems: GolfHubItem[] = [
     icon: Trophy,
     tone:
       "bg-gold/18 text-gold border-gold/25",
-  },
-  {
-    label: "Practice",
-    description:
-      "Log sim, range, short-game and on-course practice.",
-    href: "/golf/practice",
-    icon: NotebookPen,
-    tone:
-      "bg-cyan-400/15 text-cyan-100 border-cyan-200/20",
   },
   {
     label: "Practice History",

@@ -2,12 +2,10 @@ import React from "react";
 import { Card, StatCard, Button } from "@/components/ui";
 import { Trophy, MessageCircle, AlertTriangle } from "lucide-react";
 import ScoreBadge from "@/components/ScoreBadge";
-import HandicapAllowanceSelector from "@/components/HandicapAllowanceSelector";
 import { HoleInputForm } from "./HoleInputForm";
 import { ScorecardControls } from "./ScorecardControls";
 import { PlayerAvatar } from "../setup/Shared";
 import { Hole } from "../../lib/validation";
-import { GameFormat } from "@/lib/handicap";
 
 export function LiveScorecard({
   holes,
@@ -73,15 +71,6 @@ export function LiveScorecard({
             </button>
           ))}
         </div>
-      </div>
-
-      <div className="mt-5 mb-5">
-        <HandicapAllowanceSelector
-          format={(selectedGames[0] as GameFormat) || "stroke_play"}
-          value={handicapAllowancePercent}
-          onChange={setHandicapAllowancePercent}
-          numPlayersOnSide={Math.max(1, Math.round(livePlayers.length / 2))}
-        />
       </div>
 
       <div className="mb-6 rounded-2xl border border-line bg-panel p-4">

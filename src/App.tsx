@@ -41,7 +41,6 @@ import { isNativeApp } from "@/lib/nativeApp";
 import { applyTheme, getStoredTheme } from "@/lib/theme";
 import { getFallbackRouteForSportMode, isRouteAllowedForSportMode } from "@/lib/sportMode";
 import type { OnboardingData } from "@/lib/types";
-import PracticeSession from "./pages/PracticeSession";
 import PracticePlan from "./pages/PracticePlan";
 import PracticeHistory from "./pages/PracticeHistory";
 import LogPractice from "./pages/LogPractice";
@@ -284,6 +283,12 @@ function AppShell() {
           </ProtectedRoute>
         </Route>
 
+        <Route path="/practice/log">
+          <ProtectedRoute>
+            <LogPractice />
+          </ProtectedRoute>
+        </Route>
+
         <Route path="/social">
           <ProtectedRoute>
             <Social />
@@ -382,7 +387,7 @@ function AppShell() {
 
         <Route path="/golf/practice">
           <ProtectedRoute>
-            <PracticeSession />
+            <LogPractice />
           </ProtectedRoute>
         </Route>
 

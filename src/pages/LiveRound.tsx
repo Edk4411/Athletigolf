@@ -127,7 +127,10 @@ export default function LiveRound() {
             .sort((a, b) => a.hole_number - b.hole_number);
           const scored = rows.filter((hole) => hole.gross_score !== null);
           const total = scored.reduce((sum, hole) => sum + Number(hole.gross_score || 0), 0);
-          const expectedPar = scored.length ? Math.round((roundPar / holesPlayed) * scored.length) : 0;
+          const expectedPar = scored.reduce(
+            (sum, hole) => sum + (roundHoles.find((roundHole) => roundHole.hole_number === hole.hole_number)?.par ?? 0),
+            0
+          );
 
           return {
             player,
@@ -143,7 +146,7 @@ export default function LiveRound() {
           if (b.total === null) return -1;
           return a.total - b.total;
         }),
-    [holesPlayed, playerHoles, players, roundPar]
+    [playerHoles, players, roundHoles]
   );
 
   const selectedGame = games[0] || null;
@@ -418,14 +421,15 @@ function ExpandedScorecard({
   position: number;
   total: number | null;
 }) {
-  const front = Array.from({ length: Math.min(9, holesPlayed) }, (_, index) => index + 1);
-  const back = holesPlayed > 9 ? Array.from({ length: holesPlayed - 9 }, (_, index) => index + 10) : [];
+  const holeNumbers = roundHoles.map((hole) => hole.hole_number).sort((a, b) => a - b);
+  const front = holeNumbers.filter((holeNumber) => holeNumber <= 9);
+  const back = holeNumbers.filter((holeNumber) => holeNumber >= 10);
   const totalNet = holes.reduce((sum, hole) => sum + Number(hole.net_score || 0), 0);
 
   return (
     <div className="bg-golf px-3 pb-4">
       <div className="rounded-b-[1.75rem] bg-white p-4 shadow-lg">
-        <ScorecardNine label="Out" holes={front} playerHoles={holes} roundHoles={roundHoles} />
+        {front.length > 0 && <ScorecardNine label="Out" holes={front} playerHoles={holes} roundHoles={roundHoles} />}
         {back.length > 0 && <ScorecardNine label="In" holes={back} playerHoles={holes} roundHoles={roundHoles} />}
         <div className="mt-4 grid grid-cols-3 gap-2 text-center">
           <SummaryTile label="Player" value={player.display_name} />

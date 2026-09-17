@@ -1,6 +1,5 @@
 import type { LiveParticipant, Hole } from "./validation";
 import type { GolfCourseTee } from "@/lib/types";
-import { stablefordPoints } from "@/lib/handicap";
 
 export type LivePlayer = {
   id: string;
@@ -159,7 +158,9 @@ export function calculateMatchState(
   holes: Hole[],
   players: LiveParticipant[],
   playerScores: Record<string, string[]>,
-  holesPlayed: number
+  holesPlayed: number,
+  scoreForPlayer: (player: LiveParticipant, holeIndex: number) => number | null =
+    (player, holeIndex) => getParticipantScore(player.id, holeIndex, holes, playerScores)
 ) {
   let teamAWins = 0, teamBWins = 0, halved = 0;
   const holeResults: Array<{
@@ -168,8 +169,8 @@ export function calculateMatchState(
   }> = [];
 
   holes.forEach((hole, index) => {
-    const teamAScore = getTeamHoleScore("A", index, holes, players, playerScores);
-    const teamBScore = getTeamHoleScore("B", index, holes, players, playerScores);
+    const teamAScore = getTeamHoleScore("A", index, players, scoreForPlayer);
+    const teamBScore = getTeamHoleScore("B", index, players, scoreForPlayer);
     if (teamAScore === null || teamBScore === null) return;
     let leader: "A" | "B" | "AS" = "AS";
     let label = "Halved";
@@ -196,12 +197,12 @@ export function calculateMatchState(
 }
 
 export function getTeamHoleScore(
-  team: "A" | "B", holeIndex: number, holes: Hole[],
-  players: LiveParticipant[], playerScores: Record<string, string[]>
+  team: "A" | "B", holeIndex: number, players: LiveParticipant[],
+  scoreForPlayer: (player: LiveParticipant, holeIndex: number) => number | null
 ) {
   const scores = players
     .filter((p) => p.team === team)
-    .map((p) => getParticipantScore(p.id, holeIndex, holes, playerScores))
+    .map((p) => scoreForPlayer(p, holeIndex))
     .filter((s): s is number => s !== null);
   return scores.length ? Math.min(...scores) : null;
 }

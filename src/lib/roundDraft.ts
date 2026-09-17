@@ -104,6 +104,9 @@ export type RoundDraftState = {
   savedAt: string;
 };
 
+// Backwards-compatible name used by the autosave hook.
+export type RoundDraftSnapshot = RoundDraftState;
+
 export function saveRoundDraft(
   userId: string,
   state: Omit<RoundDraftState, "savedAt">
@@ -155,10 +158,10 @@ export function hasActiveDraft(userId: string): boolean {
   return draft.step === "holes" || scored;
 }
 
-export function draftAgeMinutes(snapshot: RoundDraftSnapshot | null) {
-  if (!snapshot?.updatedAt) return null;
+export function draftAgeMinutes(snapshot: RoundDraftState | null) {
+  if (!snapshot?.savedAt) return null;
 
-  const updated = new Date(snapshot.updatedAt).getTime();
+  const updated = new Date(snapshot.savedAt).getTime();
   const now = Date.now();
 
   return Math.floor((now - updated) / 60000);

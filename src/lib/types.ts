@@ -90,6 +90,12 @@ export type Round = {
   total_yards?: number | null;
   total_meters?: number | null;
   par_total?: number | null;
+  gross_score?: number | null;
+  net_score?: number | null;
+  stableford_points?: number | null;
+  primary_game_type?: string | null;
+  handicap_allowance_percent?: number | null;
+  auto_saved_at?: string | null;
   average_driving_distance?: number | null;
   longest_drive?: number | null;
   tee_shot_quality?: string | null;
@@ -126,6 +132,7 @@ export type RoundPlayer = {
   handicap: number | null;
   course_handicap: number | null;
   playing_handicap: number | null;
+  handicap_allowance_percent?: number | null;
   tee_name: string | null;
   tee_colour: string | null;
   player_order: number;
@@ -543,6 +550,18 @@ export type FriendConnectionProfile = FriendConnection & {
   other_preferred_name?: string | null;
   other_avatar_url?: string | null;
   other_golf_handicap?: number | null;
+};
+
+export type MatchPreferences = {
+  user_id: string; public_opt_in: boolean;
+  gym_area: string | null; gym_name: string | null; gym_goals: string[]; gym_availability: string[];
+  golf_area: string | null; home_course: string | null; handicap_min: number | null; handicap_max: number | null; golf_availability: string[];
+};
+
+export type MatchRequest = {
+  id: string; requester_id: string; recipient_id: string; match_type: "gym_bro" | "fourball";
+  requested_date: string; requested_time: string | null; venue: string | null; note: string | null;
+  status: "pending" | "accepted" | "declined" | "cancelled"; created_at: string; updated_at?: string;
 };
 
 export type GolfCourseSearchResult = {

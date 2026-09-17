@@ -13,7 +13,6 @@ import { supabase } from "@/lib/supabase";
 import {
   computeCourseHandicap,
   computePlayingHandicap,
-  getDefaultAllowancePercent,
   getStrokesReceived,
   parseHandicapIndex,
   stablefordPoints,
@@ -255,6 +254,7 @@ export default function RoundTracker() {
     ownHandicap,
     ownAllowancePercent,
     selectedGames,
+    roundIntent,
     livePlayers,
     playingPartners,
     averageDrivingDistance,
@@ -283,6 +283,7 @@ export default function RoundTracker() {
       ownHandicap,
       ownAllowancePercent,
       selectedGames,
+      roundIntent,
       livePlayers,
       playingPartners,
       averageDrivingDistance,
@@ -395,11 +396,15 @@ export default function RoundTracker() {
         { data: holeRows },
         { data: playerRows },
         { data: playerHoleRows },
+        { data: gameRows },
+        { data: sideRows },
       ] = await Promise.all([
         supabase.from("rounds").select("*").eq("id", resumeId).maybeSingle(),
         supabase.from("round_holes").select("*").eq("round_id", resumeId).order("hole_number"),
         supabase.from("round_players").select("*").eq("round_id", resumeId).order("player_order"),
         supabase.from("round_player_holes").select("*").eq("round_id", resumeId),
+        supabase.from("round_games").select("game_type, settings").eq("round_id", resumeId).order("created_at"),
+        supabase.from("round_sides").select("id, name").eq("round_id", resumeId),
       ]);
 
       if (cancelled || !round) return;
@@ -461,11 +466,25 @@ export default function RoundTracker() {
       setDate(loadedRound.date || todayIso());
       setNotes(loadedRound.notes || "");
       setHoles(toDraftHoles(targetHoles, normalisedHoleRows));
-      setCurrentHoleIndex(0);
+      setCurrentHoleIndex(Math.min(targetHoles - 1, normalisedHoleRows.filter((hole) => hole.score !== null).length));
 
       // ── Restore multiplayer scores from round_player_holes ──
       const players = (playerRows as RoundPlayer[]) || [];
       const phRows = (playerHoleRows as RoundPlayerHole[]) || [];
+      const sides = (sideRows as Array<{ id: string; name: string | null }>) || [];
+      const games = (gameRows as Array<{ game_type: LiveGame; settings: Record<string, unknown> | null }>) || [];
+      if (games.length) {
+        setSelectedGames(games.map((game) => game.game_type));
+        const intent = games[0].settings?.roundIntent;
+        if (intent === "casual" || intent === "competition") setRoundIntent(intent);
+      } else if (loadedRound.primary_game_type) {
+        setSelectedGames([loadedRound.primary_game_type as LiveGame]);
+      }
+      const owner = players.find((player) => player.is_owner || player.player_type === "owner");
+      if (owner) {
+        setOwnHandicap(owner.handicap?.toString() || "");
+        setOwnAllowancePercent((owner as RoundPlayer & { handicap_allowance_percent?: number | null }).handicap_allowance_percent ?? 100);
+      }
       if (players.length > 1) {
         const guestPlayers: LivePlayer[] = players
           .filter((p) => p.player_type !== "owner")
@@ -473,9 +492,9 @@ export default function RoundTracker() {
             id: `friend-${p.id}`,
             name: p.display_name,
             handicap: p.handicap?.toString() || "",
-            allowancePercent: 95,
+            allowancePercent: (p as RoundPlayer & { handicap_allowance_percent?: number | null }).handicap_allowance_percent ?? 100,
             type: (p.player_type === "friend" ? "friend" : "guest") as "friend" | "guest",
-            team: "B",
+            team: sides.find((side) => side.id === p.side_id)?.name === "Team A" ? "A" : "B",
             userId: p.user_id || null,
             username: p.username || null,
           }));
@@ -606,7 +625,7 @@ export default function RoundTracker() {
         slope_rating: s.selectedTee?.slopeRating ?? null,
         total_yards: s.selectedTee?.totalYards ?? null,
         total_meters: s.selectedTee?.totalMeters ?? null,
-        par_total: s.selectedTee?.parTotal ?? null,
+        par_total: s.holes.reduce((sum, hole) => sum + hole.par, 0) || null,
         is_competition: s.competition,
         visibility: s.visibility,
         playing_partners:
@@ -645,6 +664,48 @@ export default function RoundTracker() {
         .from("round_holes")
         .upsert(holeRows, { onConflict: "round_id,hole_number" });
     }
+
+    // Keep the player/game scorecard in step with the owner scorecard as well.
+    // Previously these rows existed only after finalisation, which made a
+    // server-resumed multiplayer or Stableford round lose its scoring context.
+    const participants: LiveParticipant[] = [
+      {
+        id: "owner",
+        name: "You",
+        handicap: s.ownHandicap,
+        allowancePercent: s.ownAllowancePercent,
+        type: "owner",
+        team: "A",
+        userId: s.user.id,
+      },
+      ...s.livePlayers,
+    ];
+    const snapshotMatchState = calculateMatchState(
+      s.holes,
+      participants,
+      s.playerHoleScores,
+      s.holesPlayed,
+      (participant, holeIndex) => {
+        const gross = getParticipantScore(participant.id, holeIndex, s.holes, s.playerHoleScores);
+        return gross === null ? null : gross - resolveStrokesReceived(participant, s.holes, holeIndex, s.holesPlayed, s.selectedTee);
+      }
+    );
+    const liveSaveError = await saveLiveRoundData({
+      roundId: s.existingRoundId,
+      userId: s.user.id,
+      status: "unfinished",
+      holes: s.holes,
+      holesPlayed: s.holesPlayed,
+      liveParticipants: participants,
+      playerHoleScores: s.playerHoleScores,
+      selectedGames: s.selectedGames,
+      roundIntent: s.roundIntent,
+      selectedTee: s.selectedTee,
+      teeName: s.selectedTee?.teeName || s.teeColour || null,
+      matchState: snapshotMatchState,
+      holeStartOffset,
+    });
+    if (liveSaveError) throw new Error(liveSaveError);
 
     setLastSyncedAt(new Date());
   }, []);
@@ -758,59 +819,6 @@ export default function RoundTracker() {
     return score > 0 ? `+${score}` : `${score}`;
   };
 
-const roundPayload = {
-        user_id: user.id,
-        status,
-        target_holes: holesPlayed,
-        completed_at: status === "completed" ? new Date().toISOString() : null,
-        visibility,
-        live_status: status === "completed" ? "finished" : stats.holesCompleted > 0 ? "paused" : "not_started",
-        started_at: stats.holesCompleted > 0 ? new Date().toISOString() : null,
-        finished_at: status === "completed" ? new Date().toISOString() : null,
-        round_name: roundName || null,
-        golf_course_id: selectedCourse?.cachedCourseId || null,
-        golf_course_external_id: selectedCourse?.id || null,
-        golf_course_tee_id: selectedTee?.id?.startsWith("saved-") || selectedTee?.id?.startsWith("api-") ? null : selectedTee?.id || null,
-        course: course || null,
-        date: date || todayIso(),
-        score: stats.totalScore || null,
-        fairways_hit: stats.fairwaysHit,
-        fairways_possible: stats.fairwaysPossible,
-        greens_in_regulation: stats.girs,
-        putts: stats.totalPutts,
-        penalty_shots: stats.penaltyShots,
-        chip_shots: stats.chipShots,
-        greenside_bunker_shots: stats.greensideBunkerShots,
-        holes_played: stats.holesCompleted,
-        tee_colour: teeColour || null,
-        tee_name: selectedTee?.teeName || teeColour || null,
-        course_rating: selectedTee?.courseRating ?? null,
-        slope_rating: selectedTee?.slopeRating ?? null,
-        total_yards: selectedTee?.totalYards ?? null,
-        total_meters: selectedTee?.totalMeters ?? null,
-        par_total: selectedTee?.parTotal ?? stats.totalPar ?? null,
-        average_driving_distance: parseOptionalNumber(averageDrivingDistance),
-        longest_drive: parseOptionalNumber(longestDrive),
-        tee_shot_quality: teeShotQuality || null,
-        playing_partners: playingPartners || livePlayers.map((player) => player.name).join(", ") || null,
-        scramble_percentage: stats.scramblePercent,
-        is_competition: competition,
-        notes: notes || null,
-        // Reliability + calculation-integrity fields:
-        primary_game_type: selectedGames[0] || "stroke_play",
-        handicap_allowance_percent: handicapAllowancePercent,
-        gross_score: stats.totalScore || null,
-        net_score: (stats.totalScore != null && ownHandicap)
-          ? stats.totalScore - computePlayingHandicap(parseFloat(ownHandicap) || 0, handicapAllowancePercent)
-          : null,
-        auto_saved_at: new Date().toISOString(),
-        client_draft_key: user?.id ? `athletigolf:round-draft:${user.id}` : null,
-        match_result: null,
-        tee_name_snapshot: selectedTee?.teeName || teeColour || null,
-        tee_colour_snapshot: teeColour || null,
-    };
-
-
   // ── Leaderboard ──
   const liveLeaderboard = useMemo(() => {
     const ownerCompleted = holes.filter((h) => h.score !== "");
@@ -855,8 +863,18 @@ const roundPayload = {
 
   // ── Match state ──
   const matchState = useMemo(
-    () => calculateMatchState(holes, liveParticipants, playerHoleScores, holesPlayed),
-    [holes, liveParticipants, playerHoleScores, holesPlayed]
+    () => calculateMatchState(
+      holes,
+      liveParticipants,
+      playerHoleScores,
+      holesPlayed,
+      (participant, holeIndex) => {
+        const gross = getParticipantScore(participant.id, holeIndex, holes, playerHoleScores);
+        if (gross === null) return null;
+        return gross - resolveStrokesReceived(participant, holes, holeIndex, holesPlayed, selectedTee);
+      }
+    ),
+    [holes, liveParticipants, playerHoleScores, holesPlayed, selectedTee]
   );
 
   const selectedGameLabels = selectedGames
@@ -867,13 +885,6 @@ const roundPayload = {
     if (!hasMatchGame || !matchState.closeout || matchContinuedAfterCloseout || step !== "holes") return;
     setMatchDecision({ label: matchState.closeout, hole: matchState.holesPlayed });
   }, [hasMatchGame, matchContinuedAfterCloseout, matchState.closeout, matchState.holesPlayed, step]);
-
-  // ── Allowance: sync default when games change ──
-  useEffect(() => {
-    const defaultAllowance = getDefaultAllowancePercent(selectedGames as GameFormat[]);
-    setOwnAllowancePercent(defaultAllowance);
-    setLivePlayers((prev) => prev.map((p) => ({ ...p, allowancePercent: defaultAllowance })));
-  }, [selectedGames.join(",")]);
 
    // ── Hole mutations ──
   const updateHole = <K extends keyof Hole>(index: number, field: K, value: Hole[K]) => {
@@ -917,12 +928,13 @@ const roundPayload = {
     }
   };
 
-  const applyTeeToHoles = (tee: GolfCourseTee | null, nextHolesPlayed = holesPlayed) => {
+  const applyTeeToHoles = (tee: GolfCourseTee | null, nextHolesPlayed = holesPlayed, nextNineSelection = nineSelection) => {
     if (!tee?.holes?.length) return;
     setHoles((prev) => {
       const base = prev.length === nextHolesPlayed ? prev : createHoles(nextHolesPlayed);
       return base.map((hole, index) => {
-        const courseHole = tee.holes.find((item) => item.holeNumber === index + 1);
+        const sourceHoleNumber = index + 1 + (nextNineSelection === "back" ? 9 : 0);
+        const courseHole = tee.holes.find((item) => item.holeNumber === sourceHoleNumber);
         if (!courseHole) return hole;
         return {
           ...hole,
@@ -942,12 +954,11 @@ const roundPayload = {
     const name =
       getDisplayName(friend as any) ||
       (friend.other_username ? `@${friend.other_username}` : `Friend ${friend.other_user_id.slice(0, 8)}`);
-    const defaultAllowance = getDefaultAllowancePercent(selectedGames as GameFormat[]);
     const player: LivePlayer = {
       id: `friend-${friend.other_user_id}`,
       name,
       handicap: friend.other_golf_handicap == null ? "" : String(friend.other_golf_handicap),
-      allowancePercent: defaultAllowance,
+      allowancePercent: ownAllowancePercent,
       type: "friend",
       team: livePlayers.length % 2 === 0 ? "B" : "A",
       userId: friend.other_user_id,
@@ -996,12 +1007,11 @@ const roundPayload = {
   const addLivePlayer = () => {
     const name = newPlayerName.trim();
     if (!name) return;
-    const defaultAllowance = getDefaultAllowancePercent(selectedGames as GameFormat[]);
     const player: LivePlayer = {
       id: `guest-${Date.now()}`,
       name,
       handicap: newPlayerHandicap.trim(),
-      allowancePercent: Number(newPlayerAllowance || defaultAllowance),
+      allowancePercent: Number(newPlayerAllowance || ownAllowancePercent),
       type: "guest",
       team: livePlayers.length % 2 === 0 ? "B" : "A",
     };
@@ -1024,6 +1034,10 @@ const roundPayload = {
 
   // ── Start round (creates draft in DB immediately) ──
   const startRound = async () => {
+    if (selectedGames.includes("foursomes")) {
+      setSaveError("Foursomes needs one shared alternate-shot score per side. It cannot be scored safely with the current individual-score entry fields.");
+      return;
+    }
     if (hasMatchGame && liveParticipants.length < 2) {
       setSaveError("Add at least one opponent before starting match play.");
       return;
@@ -1068,9 +1082,12 @@ const roundPayload = {
         .select("id")
         .single();
 
-      if (!createError && newRound) {
-        setExistingRoundId(newRound.id);
+      if (createError || !newRound) {
+        setSaving(false);
+        setSaveError(createError?.message || "Could not create the round draft.");
+        return;
       }
+      setExistingRoundId(newRound.id);
     }
 
     setSaving(false);
@@ -1085,7 +1102,8 @@ const roundPayload = {
     );
     if (selectedTee?.holes?.length) {
       setHoles(nextHoles.map((hole, idx) => {
-        const ch = selectedTee.holes.find((item) => item.holeNumber === idx + 1);
+        const sourceHoleNumber = idx + 1 + (nineSelection === "back" ? 9 : 0);
+        const ch = selectedTee.holes.find((item) => item.holeNumber === sourceHoleNumber);
         if (!ch) return hole;
         return {
           ...hole,
@@ -1145,6 +1163,9 @@ const roundPayload = {
       visibility, ownHandicap, games: selectedGameLabels,
       players: livePlayers, playerScores: playerHoleScores, holes, matchState, roundIntent,
     });
+    const ownerTotals = getParticipantTotals(
+      liveParticipants[0], holes, playerHoleScores, holesPlayed, selectedTee
+    );
 
     const roundPayload = {
       user_id: user.id,
@@ -1160,7 +1181,9 @@ const roundPayload = {
       golf_course_id: selectedCourse?.cachedCourseId || null,
       golf_course_external_id: selectedCourse?.id || null,
       golf_course_tee_id:
-        selectedTee?.id?.startsWith("saved-") || selectedTee?.id?.startsWith("api-")
+        selectedTee?.id?.startsWith("saved-") ||
+        selectedTee?.id?.startsWith("api-") ||
+        selectedTee?.id?.startsWith("manual-")
           ? null
           : selectedTee?.id || null,
       course: course || null,
@@ -1180,7 +1203,12 @@ const roundPayload = {
       slope_rating: selectedTee?.slopeRating ?? null,
       total_yards: selectedTee?.totalYards ?? null,
       total_meters: selectedTee?.totalMeters ?? null,
-      par_total: selectedTee?.parTotal ?? stats.totalPar ?? null,
+      par_total: stats.totalPar || null,
+      primary_game_type: selectedGames[0] || "stroke_play",
+      handicap_allowance_percent: ownAllowancePercent,
+      gross_score: stats.totalScore || null,
+      net_score: ownerTotals.completed ? ownerTotals.net : null,
+      stableford_points: ownerTotals.completed ? ownerTotals.points : null,
       average_driving_distance: parseOptionalNumber(averageDrivingDistance),
       longest_drive: parseOptionalNumber(longestDrive),
       tee_shot_quality: teeShotQuality || null,
@@ -1259,30 +1287,6 @@ const roundPayload = {
     if (!stats.holesCompleted) { setSaveError("Enter at least one hole before finishing."); return; }
     setSaveError(""); setStep("review");
   };
-
-  // Local-storage autosave: fires on every state change while playing.
-  useEffect(() => {
-    if (step !== "holes" || !user) return;
-    saveRoundDraft(user.id, {
-      version: 1,
-      round_id: existingRoundId,
-      updated_at: new Date().toISOString(),
-      step,
-      holes_played: holesPlayed,
-      round_name: roundName,
-      course,
-      tee_name: selectedTee?.teeName || teeColour || "",
-      tee_colour: teeColour,
-      handicap_allowance_percent: handicapAllowancePercent,
-      primary_game_type: selectedGames[0] || "stroke_play",
-      players: livePlayers,
-      holes,
-      match_state: matchState,
-      current_hole_index: currentHoleIndex,
-      notes,
-    });
-    setAutoSavedAt(new Date());
-  }, [step, user, existingRoundId, holes, currentHoleIndex, matchState, holesPlayed, roundName, course, teeColour, selectedTee, handicapAllowancePercent, selectedGames, livePlayers, notes]);
 
   // Background / tab-hide: flush to Supabase as unfinished so a device switch still recovers the round.
   useEffect(() => {
@@ -1365,7 +1369,7 @@ const roundPayload = {
   // ─────────────────────────────────────────────────────────────────────────────
 
   const primaryGame = selectedGames[0] ?? "stroke_play";
-  const defaultAllowance = getDefaultAllowancePercent(selectedGames as GameFormat[]);
+  const defaultAllowance = ownAllowancePercent;
 
   if (step === "setup") {
     return (
@@ -1453,6 +1457,7 @@ const roundPayload = {
               addFriendPlayer={addFriendPlayer}
               addLivePlayer={addLivePlayer}
               removeLivePlayer={removeLivePlayer}
+              updatePlayerAllowance={updatePlayerAllowance}
               onBack={() => setSetupSubStep(1)}
               onNext={() => setSetupSubStep(3)}
             />
@@ -1613,7 +1618,11 @@ const roundPayload = {
             matchState={matchState}
             liveLeaderboard={liveLeaderboard}
             handicapAllowancePercent={handicapAllowancePercent}
-            setHandicapAllowancePercent={setHandicapAllowancePercent}
+            setHandicapAllowancePercent={(value: number) => {
+              setHandicapAllowancePercent(value);
+              setOwnAllowancePercent(value);
+              setLivePlayers((players) => players.map((player) => ({ ...player, allowancePercent: value })));
+            }}
             setCurrentHoleIndex={setCurrentHoleIndex}
             updateHole={updateHole}
             updatePlayerHoleScore={updatePlayerHoleScore}
@@ -1999,12 +2008,19 @@ function SelectField({
 
 function resolveStrokesReceived(
   participant: LiveParticipant,
-  holeHandicap: number | null,
+  holes: Hole[],
+  holeIndex: number,
   holesPlayed: 9 | 18,
   selectedTee: GolfCourseTee | null
 ): number {
   const ph = getParticipantPlayingHandicap(participant, selectedTee, holesPlayed);
-  return getStrokesReceived(ph, holeHandicap, holesPlayed);
+  const strokeIndexes = holes
+    .map((hole) => hole.handicap)
+    .filter((value): value is number => value !== null && value >= 1)
+    .sort((a, b) => a - b);
+  const strokeIndex = holes[holeIndex]?.handicap ?? null;
+  const rank = strokeIndex === null ? null : strokeIndexes.indexOf(strokeIndex) + 1;
+  return getStrokesReceived(ph, strokeIndex, holesPlayed, rank || null);
 }
 
 
@@ -2024,7 +2040,7 @@ function getParticipantTotals(
   holes.forEach((hole, index) => {
     const score = getParticipantScore(player.id, index, holes, playerScores);
     if (score === null) return;
-    const sr = resolveStrokesReceived(player, hole.handicap, holesPlayed, selectedTee);
+    const sr = resolveStrokesReceived(player, holes, index, holesPlayed, selectedTee);
     gross += score;
     net += score - sr;
     points += stablefordPoints(score, hole.par, sr);
@@ -2218,12 +2234,7 @@ const playerHoleRows: LivePlayerHoleRow[] =
           return null;
         }
 
-        const strokesReceived = resolveStrokesReceived(
-          p,
-          hole.handicap,
-          holesPlayed,
-          selectedTee
-        );
+        const strokesReceived = resolveStrokesReceived(p, holes, index, holesPlayed, selectedTee);
 
         return {
           round_id: roundId,
@@ -2423,9 +2434,7 @@ savedGames.forEach((game) => {
         side_id: sideAId,
 
         position:
-          matchState.teamAWins >= matchState.teamBWins
-            ? 1
-            : 2,
+          matchState.teamAWins === matchState.teamBWins ? 1 : matchState.teamAWins > matchState.teamBWins ? 1 : 2,
 
         total_gross: null,
         total_net: null,
@@ -2450,10 +2459,7 @@ savedGames.forEach((game) => {
         side_id: sideBId,
 
         position:
-          matchState.teamBWins >
-          matchState.teamAWins
-            ? 1
-            : 2,
+          matchState.teamAWins === matchState.teamBWins ? 1 : matchState.teamBWins > matchState.teamAWins ? 1 : 2,
 
         total_gross: null,
         total_net: null,
@@ -2581,9 +2587,9 @@ function buildMatchResultSnapshot(
 
   const isMatch = selectedGames.some(
     (g) =>
-      g.game_type === "match_play" ||
-      g.game_type === "four_ball_match" ||
-      g.game_type === "foursomes"
+      g === "match_play" ||
+      g === "four_ball_match" ||
+      g === "foursomes"
   );
 
   if (!isMatch) return null;
@@ -2633,7 +2639,7 @@ function buildMatchResultSnapshot(
 
   return {
     primary_game_type:
-      selectedGames[0]?.game_type || "match_play",
+      selectedGames[0] || "match_play",
 
     sides: [
       {
@@ -2655,7 +2661,7 @@ function buildMatchResultSnapshot(
     ],
 
     result_label:
-      matchState.status ||
+      matchState.label ||
       (
         won === lost
           ? "AS"
@@ -2694,6 +2700,3 @@ function teamBestScore(
 
   return best;
 }
-
-
- 

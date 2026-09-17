@@ -39,8 +39,7 @@ export function GameStep({
       </div>
 
       <div className="mt-4 rounded-xl border border-golf/20 bg-golf/5 px-4 py-3 text-sm text-muted">
-        Default allowance for <strong>{liveGameOptions.find((o: any) => o.id === primaryGame)?.label}</strong>: <strong>{defaultAllowance}%</strong>.
-        Individual overrides set in step 2.
+        Each player keeps the allowance selected in Players. Changing game format never changes it.
       </div>
 
       {hasMatchGame && (

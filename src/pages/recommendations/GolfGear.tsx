@@ -142,7 +142,7 @@ export default function GolfGear() {
         <PageHeader
           eyebrow="Recommendations"
           title="Golf Gear Picks"
-          description={loading ? "Loading personal recommendations..." : profile?.handicap !== null ? `Tour-proven gear suited to your ${profile.handicap} handicap.` : "Tour-proven gear for all levels."}
+          description={loading ? "Loading personal recommendations..." : profile?.handicap != null ? `Tour-proven gear suited to your ${profile.handicap} handicap.` : "Tour-proven gear for all levels."}
           tone="text-golf"
         />
         

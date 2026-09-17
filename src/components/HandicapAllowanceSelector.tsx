@@ -1,7 +1,6 @@
-// Handicap allowance selector - Match Play 100/95/90%, Stableford 95%, custom.
+// Per-player allowance selector. Formats must never overwrite this choice.
 import { FieldLabel } from "@/components/ui";
 import type { GameFormat } from "@/lib/handicap";
-import { DEFAULT_ALLOWANCE, suggestedAllowance } from "@/lib/handicap";
 
 type Props = {
   format: GameFormat;
@@ -13,15 +12,13 @@ type Props = {
 
 const commonOptions = [100, 95, 90, 85, 80];
 
-export default function HandicapAllowanceSelector({ format, value, onChange, numPlayersOnSide, className = "" }: Props) {
-  const suggested = suggestedAllowance(format, numPlayersOnSide);
-  const showFoursomes = format === "foursomes" || format === "greensomes";
+export default function HandicapAllowanceSelector({ format: _format, value, onChange, numPlayersOnSide: _numPlayersOnSide, className = "" }: Props) {
 
   return (
     <div className={className} data-testid="handicap-allowance-selector">
       <FieldLabel>
         Handicap allowance
-        <span className="ml-2 text-[10px] font-normal uppercase tracking-wider text-muted">Suggested: {suggested}%</span>
+        <span className="ml-2 text-[10px] font-normal uppercase tracking-wider text-muted">Set for this player</span>
       </FieldLabel>
       <div className="mt-1 flex flex-wrap gap-2">
         {commonOptions.map((pct) => (
@@ -51,14 +48,6 @@ export default function HandicapAllowanceSelector({ format, value, onChange, num
           %
         </label>
       </div>
-      {showFoursomes && (
-        <p className="mt-2 text-xs text-muted">
-          Foursomes uses 50% of combined course handicaps; Greensomes uses 60% lower + 40% higher. This % applies on top of that.
-        </p>
-      )}
-      {value !== DEFAULT_ALLOWANCE[format] && value !== suggested && (
-        <p className="mt-2 text-xs text-golf">Non-standard allowance for {format.replace(/_/g, " ")} - we&apos;ll still store your setting.</p>
-      )}
     </div>
   );
 }

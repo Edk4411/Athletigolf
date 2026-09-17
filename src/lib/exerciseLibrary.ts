@@ -20,7 +20,12 @@ export type ExerciseLibraryItem = {
   formCues?: string[];
   coachingCues?: string[];
   commonMistakes?: string[];
+  technique?: string[];
+  progressions?: string[];
+  regressions?: string[];
+  safetyTips?: string;
   alternatives: string[];
+  isPersonal?: boolean;
 };
 
 export type ExerciseLibraryRow = {

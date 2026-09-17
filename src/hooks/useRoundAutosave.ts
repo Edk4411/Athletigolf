@@ -24,7 +24,7 @@ export function useRoundAutosave({
 
   // Flush helper - persist locally + optionally to Supabase.
   const flush = async (reason: "debounced" | "background" | "manual") => {
-    if (!enabled) return;
+    if (!enabled || !userId) return;
     try {
       const snapshot = buildSnapshot();
       saveRoundDraft(userId, snapshot);
